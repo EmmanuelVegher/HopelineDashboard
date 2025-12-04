@@ -4,7 +4,6 @@
 
 import { useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -15,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { AlertTriangle, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { auth, db } from "@/lib/firebase";
@@ -22,6 +22,8 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc, serverTimestamp, collection, addDoc } from "firebase/firestore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Check, ChevronsUpDown, Search } from "lucide-react";
 import { AnonymousSosDialog } from "@/components/anonymous-sos-dialog";
 
 type UserRole = "user" | "admin" | "support agent";
@@ -34,6 +36,46 @@ const languages = [
     "Nigerian Pidgin"
 ];
 
+const nigerianStates = [
+    "Abuja (FCT)",
+    "Abia",
+    "Adamawa",
+    "Akwa Ibom",
+    "Anambra",
+    "Bauchi",
+    "Bayelsa",
+    "Benue",
+    "Borno",
+    "Cross River",
+    "Delta",
+    "Ebonyi",
+    "Edo",
+    "Ekiti",
+    "Enugu",
+    "Gombe",
+    "Imo",
+    "Jigawa",
+    "Kaduna",
+    "Kano",
+    "Katsina",
+    "Kebbi",
+    "Kogi",
+    "Kwara",
+    "Lagos",
+    "Nasarawa",
+    "Niger",
+    "Ogun",
+    "Ondo",
+    "Osun",
+    "Oyo",
+    "Plateau",
+    "Rivers",
+    "Sokoto",
+    "Taraba",
+    "Yobe",
+    "Zamfara"
+];
+
 export default function SignupPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -42,6 +84,8 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<UserRole>("user");
   const [language, setLanguage] = useState("English");
+  const [state, setState] = useState("");
+  const [stateSearch, setStateSearch] = useState("");
   const [loading, setLoading] = useState(false);
   // const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
   
@@ -57,10 +101,10 @@ export default function SignupPage() {
     //     return;
     // }
 
-    if (!email || (!isPrivilegedRole && !password) || !role) {
+    if (!email || (!isPrivilegedRole && !password) || !role || !state) {
       toast({
         title: "Missing fields",
-        description: "Please fill in all required fields.",
+        description: "Please fill in all required fields, including state.",
         variant: "destructive",
       });
       return;
@@ -93,6 +137,7 @@ export default function SignupPage() {
            mobile: 0,
            profileCompleted: 0,
            language: language,
+           state: state,
          });
 
          toast({
@@ -140,6 +185,7 @@ export default function SignupPage() {
         mobile: 0,
         profileCompleted: 0,
         language: language,
+        state: state,
       });
 
       toast({ title: "Account Created", description: "Redirecting to your dashboard..." });
@@ -290,6 +336,73 @@ export default function SignupPage() {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="state" className="text-xs sm:text-sm font-semibold text-slate-700 flex items-center gap-1">
+                <svg className="w-3 h-3 sm:w-4 sm:h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                State *
+              </Label>
+              <div className="relative group">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="h-7 sm:h-8 px-3 py-2 rounded-lg border border-slate-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all duration-300 bg-slate-50/50 hover:bg-white focus:bg-white text-xs justify-between w-full"
+                      disabled={loading}
+                    >
+                      {state || "Select your state..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <div className="flex items-center border-b px-3">
+                      <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                      <input
+                        className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                        placeholder="Search states..."
+                        value={stateSearch}
+                        onChange={(e) => setStateSearch(e.target.value)}
+                      />
+                    </div>
+                    <div className="max-h-64 overflow-y-auto">
+                      {nigerianStates
+                        .filter((stateName) =>
+                          stateName.toLowerCase().includes(stateSearch.toLowerCase())
+                        )
+                        .map((stateName) => (
+                          <div
+                            key={stateName}
+                            className="flex items-center px-3 py-2 hover:bg-accent hover:text-accent-foreground cursor-pointer"
+                            onClick={() => {
+                              setState(stateName);
+                              setStateSearch("");
+                            }}
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 ${
+                                state === stateName ? "opacity-100" : "opacity-0"
+                              }`}
+                            />
+                            {stateName}
+                          </div>
+                        ))}
+                      {nigerianStates.filter((stateName) =>
+                        stateName.toLowerCase().includes(stateSearch.toLowerCase())
+                      ).length === 0 && (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">
+                          No states found.
+                        </div>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-600/5 to-pink-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+              </div>
+            </div>
+
             {isPrivilegedRole && (
               <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded-md">
                 Admin and Support Agent accounts are created by an administrator. After approval, you will be able to set your password.
@@ -317,9 +430,12 @@ export default function SignupPage() {
             <div className="text-center space-y-2">
               <div className="text-xs">
                 <span className="text-slate-600">Already have an account?</span>{" "}
-                <Link to="/login" className="font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-200 underline-offset-4 hover:underline">
+                <button
+                  onClick={() => navigate('/login')}
+                  className="font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-200 underline-offset-4 hover:underline bg-transparent border-none p-0 cursor-pointer pointer-events-auto relative z-10"
+                >
                   Sign In
-                </Link>
+                </button>
               </div>
 
               <div className="relative">

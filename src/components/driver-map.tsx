@@ -22,7 +22,7 @@ declare module 'leaflet' {
 }
 
 
-// Custom marker icons based on status and GPS
+// Custom marker icons based on status and GPS - Car icons
 const createMarkerIcon = (status: Driver['status'], gpsStatus?: Driver['gpsStatus'], isOffline?: boolean) => {
   let color = '#6b7280'; // gray for off duty
   let borderColor = 'white';
@@ -54,11 +54,21 @@ const createMarkerIcon = (status: Driver['status'], gpsStatus?: Driver['gpsStatu
     borderWidth = 2;
   }
 
+  // Car SVG icon
+  const carIconSvg = `
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M5 11l1.5-4.5h11L18 11v8a1 1 0 01-1 1h-1a1 1 0 01-1-1v-1H8v1a1 1 0 01-1 1H6a1 1 0 01-1-1v-8z" fill="${color}" stroke="${borderColor}" stroke-width="${borderWidth}" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="6.5" cy="16.5" r="1.5" fill="white"/>
+      <circle cx="17.5" cy="16.5" r="1.5" fill="white"/>
+      <path d="M8.5 11h7l-1-3h-5l-1 3z" fill="${color}" stroke="${borderColor}" stroke-width="1"/>
+    </svg>
+  `;
+
   return L.divIcon({
-    html: `<div style="background-color: ${color}; width: 16px; height: 16px; border-radius: 50%; border: ${borderWidth}px solid ${borderColor}; box-shadow: 0 0 4px rgba(0,0,0,0.3);"></div>`,
-    className: 'custom-marker-icon',
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
+    html: carIconSvg,
+    className: 'custom-car-marker-icon',
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
   });
 };
 
@@ -171,6 +181,12 @@ interface LocationHistoryPoint {
   accuracy?: number;
 }
 
+interface DriverLocation {
+  latitude: number;
+  longitude: number;
+  vehicleColor?: string;
+}
+
 interface DriverMapProps {
   drivers: Driver[];
   selectedDriver?: Driver;
@@ -187,6 +203,10 @@ interface DriverMapProps {
   // Movement trails
   showMovementTrails?: boolean;
   locationHistory?: { [driverId: string]: LocationHistoryPoint[] };
+  // Current driver location
+  driverLocation?: DriverLocation | null;
+  // Default center for map
+  defaultCenter?: [number, number];
 }
 
 export default function DriverMap({
@@ -201,7 +221,9 @@ export default function DriverMap({
   showCurrentLocation = false,
   currentLocationAccuracy,
   showMovementTrails = false,
-  locationHistory = {}
+  locationHistory = {},
+  driverLocation = null,
+  defaultCenter
 }: DriverMapProps) {
 
   console.log('[DriverMap] Props received:', {
@@ -213,14 +235,16 @@ export default function DriverMap({
     currentLocationAccuracy
   });
 
-  // Default center (can be adjusted based on your location)
-  const defaultCenter: [number, number] = [6.5244, 3.3792]; // Lagos, Nigeria
+  // Default center - use provided center or fallback to Lagos
+  const mapCenter: [number, number] = defaultCenter || [6.5244, 3.3792]; // Lagos, Nigeria
 
   const validDrivers = drivers.filter(driver =>
     typeof driver.latitude === 'number' &&
     typeof driver.longitude === 'number' &&
     !isNaN(driver.latitude) &&
-    !isNaN(driver.longitude)
+    !isNaN(driver.longitude) &&
+    driver.latitude !== 0 &&
+    driver.longitude !== 0
   );
 
   console.log('[DriverMap] Valid drivers count:', validDrivers.length);
@@ -262,7 +286,7 @@ export default function DriverMap({
   return (
     <div className={cn(className, "relative overflow-hidden")}>
       <MapContainer
-        center={defaultCenter}
+        center={mapCenter}
         zoom={10}
         style={{ height: '100%', width: '100%' }}
         whenReady={handleMapReady}
@@ -330,6 +354,52 @@ export default function DriverMap({
             </Marker>
           );
         })()}
+
+        {/* Driver's car marker */}
+        {driverLocation && (
+          <Marker
+            position={[driverLocation.latitude, driverLocation.longitude]}
+            icon={L.divIcon({
+              html: `
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="2" y="6" width="20" height="12" rx="2" fill="#ffffff" stroke="#2563eb" stroke-width="2"/>
+                  <rect x="4" y="8" width="16" height="8" fill="#ffffff"/>
+                  <rect x="6" y="10" width="12" height="4" fill="#dc2626"/>
+                  <circle cx="7" cy="18" r="2" fill="#ffffff" stroke="#2563eb" stroke-width="1"/>
+                  <circle cx="17" cy="18" r="2" fill="#ffffff" stroke="#2563eb" stroke-width="1"/>
+                  <rect x="1" y="4" width="22" height="2" fill="#dc2626"/>
+                  <text x="12" y="15" text-anchor="middle" fill="#ffffff" font-size="8" font-weight="bold">H</text>
+                </svg>
+              `,
+              className: 'driver-car-marker',
+              iconSize: [32, 32],
+              iconAnchor: [16, 16],
+            })}
+          >
+            <Popup>
+              <div style={{ padding: '8px', minWidth: '200px' }}>
+                <h3 style={{ fontWeight: 'bold', fontSize: '16px', marginBottom: '8px' }}>Your Vehicle Location</h3>
+                <div style={{ fontSize: '14px', lineHeight: '1.4' }}>
+                  <p><strong>Coordinates:</strong> {driverLocation.latitude.toFixed(6)}, {driverLocation.longitude.toFixed(6)}</p>
+                  <p><strong>Vehicle:</strong> {driverLocation.vehicleColor || 'White with blue and orange humanitarian markings'}</p>
+                  <p><strong>Status:</strong>
+                    <span style={{
+                      marginLeft: '4px',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      fontWeight: '500',
+                      backgroundColor: '#d1fae5',
+                      color: '#065f46'
+                    }}>
+                      Active Driver
+                    </span>
+                  </p>
+                </div>
+              </div>
+            </Popup>
+          </Marker>
+        )}
 
         {validDrivers.map((driver) => (
           <Marker

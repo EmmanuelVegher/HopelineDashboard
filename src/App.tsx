@@ -3,6 +3,7 @@ import RootLayout from './app/layout';
 import HomePage from './app/page';
 import LoginPage from './app/login/page';
 import SignupPage from './app/signup/page';
+import ForgotPasswordPage from './app/forgot-password/page';
 import DashboardLayout from './app/dashboard/layout';
 import DashboardPage from './app/dashboard/page';
 import AssistanceLayout from './app/assistance/layout';
@@ -30,7 +31,6 @@ import UserManagementPage from './app/admin/user-management/page';
 import AdminProfilePage from './app/admin/profile/page';
 import VehicleManagementPage from './app/admin/vehicle-management/page';
 import DriverLayout from './app/driver/layout';
-import DriverTasksPage from './app/driver/tasks/page';
 import DriverProfilePage from './app/driver/profile/page';
 import DriverSettingsPage from './app/driver/settings/page';
 import DriverHistoryPage from './app/driver/history/page';
@@ -44,6 +44,7 @@ function App() {
           <Route index element={<HomePage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="signup" element={<SignupPage />} />
+          <Route path="forgot-password" element={<ForgotPasswordPage />} />
           <Route path="dashboard" element={<DashboardLayout />}>
             <Route index element={<DashboardPage />} />
           </Route>
@@ -69,8 +70,7 @@ function App() {
             <Route index element={<WeatherPage />} />
           </Route>
           <Route path="driver" element={<DriverLayout />}>
-            <Route index element={<DriverTasksPage />} />
-            <Route path="tasks" element={<DriverTasksPage />} />
+            <Route index element={<DriverMapPage />} />
             <Route path="profile" element={<DriverProfilePage />} />
             <Route path="settings" element={<DriverSettingsPage />} />
             <Route path="history" element={<DriverHistoryPage />} />

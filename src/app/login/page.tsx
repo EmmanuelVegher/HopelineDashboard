@@ -83,9 +83,9 @@ export default function LoginPage() {
           toast({ title: "Admin Login Successful", description: "Redirecting to the admin dashboard..." });
           navigate("/admin");
         } else if (['driver', 'pilot', 'responder', 'rider'].includes(role)) {
-          console.log("Redirecting to /driver for role:", userData.role);
-          toast({ title: "Login Successful", description: "Redirecting to driver management page..." });
-          navigate("/driver");
+          console.log("Redirecting to /driver/map for role:", userData.role);
+          toast({ title: "Login Successful", description: "Redirecting to driver dashboard..." });
+          navigate("/driver/map");
         } else {
           console.log("Redirecting to /dashboard for role:", userData.role);
           toast({ title: "Login Successful", description: "Redirecting to your dashboard..." });
@@ -241,11 +241,18 @@ export default function LoginPage() {
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {loading ? "Signing In..." : "Sign In"}
             </Button>
-            <div className="text-xs sm:text-sm text-center">
-              Don't have an account?{" "}
-              <Link to="/signup" className="underline font-medium text-primary">
-                Sign up
-              </Link>
+            <div className="text-xs sm:text-sm text-center space-y-1">
+              <div>
+                Don't have an account?{" "}
+                <Link to="/signup" className="underline font-medium text-primary">
+                  Sign up
+                </Link>
+              </div>
+              <div>
+                <Link to="/forgot-password" className="underline font-medium text-primary">
+                  Forgot Password?
+                </Link>
+              </div>
             </div>
             <Separator className="my-2" />
             <AnonymousSosDialog>

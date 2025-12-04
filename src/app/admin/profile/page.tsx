@@ -634,19 +634,6 @@ export default function AdminProfilePage() {
                                             <p className="text-sm text-muted-foreground">{currentUserProfile?.accountStatus || 'Active'}</p>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        {currentUserProfile?.isOnline ? (
-                                            <Wifi className="h-4 w-4 text-green-500" />
-                                        ) : (
-                                            <WifiOff className="h-4 w-4 text-red-500" />
-                                        )}
-                                        <div>
-                                            <Label className="text-sm font-medium">Online Status</Label>
-                                            <p className="text-sm text-muted-foreground">
-                                                {currentUserProfile?.isOnline ? 'Online' : 'Offline'}
-                                            </p>
-                                        </div>
-                                    </div>
                                 </div>
                                 <div className="space-y-4">
                                     <div>
@@ -791,11 +778,17 @@ export default function AdminProfilePage() {
                                         <Label className="text-sm font-medium">User ID</Label>
                                         <p className="text-xs text-muted-foreground font-mono">{currentUserProfile?.uid || currentUserProfile?.id}</p>
                                     </div>
-                                    <div>
-                                        <Label className="text-sm font-medium">Profile Completion</Label>
-                                        <div className="flex items-center gap-2">
-                                            <Progress value={currentUserProfile?.profileCompleted || 0} className="flex-1" />
-                                            <span className="text-sm text-muted-foreground">{currentUserProfile?.profileCompleted || 0}%</span>
+                                    <div className="flex items-center gap-2">
+                                        {currentUserProfile?.isOnline ? (
+                                            <Wifi className="h-4 w-4 text-green-500" />
+                                        ) : (
+                                            <WifiOff className="h-4 w-4 text-red-500" />
+                                        )}
+                                        <div>
+                                            <Label className="text-sm font-medium">Online Status</Label>
+                                            <p className="text-sm text-muted-foreground">
+                                                {currentUserProfile?.isOnline ? 'Online' : 'Offline'}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>

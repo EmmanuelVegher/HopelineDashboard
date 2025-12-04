@@ -626,9 +626,15 @@ export default function TrackDriversPage() {
         setSelectedDriver(null);
     }
 
-    const handleTrack = (location: string) => {
-        const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
-        window.open(googleMapsUrl, "_blank");
+    const handleTrack = (driver: Driver) => {
+        if (driver.latitude && driver.longitude && driver.latitude !== 0 && driver.longitude !== 0) {
+            const googleMapsUrl = `https://www.google.com/maps/@${driver.latitude},${driver.longitude},15z`;
+            window.open(googleMapsUrl, "_blank");
+        } else {
+            // Fallback to search if no coordinates
+            const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(driver.location)}`;
+            window.open(googleMapsUrl, "_blank");
+        }
     };
 
     const handleGPSTroubleshooting = (driver: Driver) => {
@@ -938,7 +944,7 @@ export default function TrackDriversPage() {
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-2 pt-4 border-t">
-                                            <Button size="sm" onClick={() => handleTrack(driver.location)}><MapPinned className="mr-2 h-4 w-4"/>Track</Button>
+                                            <Button size="sm" onClick={() => handleTrack(driver)}><MapPinned className="mr-2 h-4 w-4"/>Track</Button>
                                             <Button size="sm" variant="outline" onClick={() => handleContact(driver)}><MessageSquare className="mr-2 h-4 w-4"/>Contact</Button>
                                             {(driver.gpsStatus === 'lost' || driver.trackingStatus === 'offline' || driver.isOffline) && (
                                                 <Button size="sm" variant="outline" onClick={() => handleGPSTroubleshooting(driver)} className="text-orange-600 border-orange-200 hover:bg-orange-50">

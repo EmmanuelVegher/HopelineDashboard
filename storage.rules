@@ -7,6 +7,12 @@ service firebase.storage {
       allow write: if request.auth != null;
     }
 
+    // Allow authenticated users to read and write driver profile images
+    match /driver-profiles/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
     // Allow authenticated users to read and write vehicle images
     match /vehicles/{allPaths=**} {
       allow read: if request.auth != null;

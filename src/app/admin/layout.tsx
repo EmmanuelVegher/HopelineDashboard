@@ -33,8 +33,9 @@ import { useLoading } from "@/contexts/LoadingProvider";
 import { useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { LoadingSpinner } from "@/components/loading-spinner";
+import { User } from "lucide-react";
 
 const navLinks = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -47,7 +48,7 @@ const navLinks = [
   { to: "/admin/contact-management", label: "Contact Numbers", icon: PhoneOutgoing },
 ];
 
-function AdminSidebar() {
+function AdminSidebar({ adminProfile }: { adminProfile?: {firstName: string; lastName: string; image?: string} | null }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { state } = useSidebar();
@@ -63,7 +64,7 @@ function AdminSidebar() {
     <Sidebar>
       <SidebarHeader>
         <div className="flex items-center gap-2">
-            <img src="/caritas-logo.png" alt="Caritas Nigeria Logo" width={40} height={40} />
+            <img src="/shelter_logo.png" alt="Caritas Nigeria Logo" width={40} height={40} />
             {state === 'expanded' && <h1 className="text-xl font-bold">Hopeline Admin</h1>}
         </div>
       </SidebarHeader>
@@ -85,6 +86,27 @@ function AdminSidebar() {
         </SidebarMenu>
       </SidebarContent>
        <SidebarContent className="p-2 mt-auto" >
+         {/* Admin Profile Section */}
+         <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+           <div className="text-center">
+             <div className="w-16 h-16 mx-auto mb-2 rounded-full overflow-hidden bg-gray-200">
+               {adminProfile?.image ? (
+                 <img
+                   src={adminProfile.image}
+                   alt="Profile"
+                   className="w-full h-full object-cover"
+                 />
+               ) : (
+                 <div className="w-full h-full flex items-center justify-center text-gray-400">
+                   <User className="w-8 h-8" />
+                 </div>
+               )}
+             </div>
+             <p className="text-sm font-medium text-gray-900">
+               {adminProfile ? `${adminProfile.firstName} ${adminProfile.lastName}`.trim() || 'Admin User' : 'Loading...'}
+             </p>
+           </div>
+         </div>
          {state === 'expanded' && (
             <div className="text-center px-2 py-4 space-y-4">
                 <p className="text-xs text-sidebar-foreground/70">Supported By</p>
@@ -114,6 +136,8 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const [authLoading, setAuthLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [adminProfile, setAdminProfile] = useState<{firstName: string; lastName: string; image?: string} | null>(null);
 
   useEffect(() => {
     setIsLoading(false);
@@ -164,6 +188,49 @@ export default function AdminLayout() {
     return () => unsubscribe();
   }, [navigate]);
 
+  // Fetch admin profile data for sidebar
+  useEffect(() => {
+    const fetchAdminProfile = async () => {
+      const user = auth.currentUser;
+      if (!user) {
+        console.log('Admin layout: No authenticated user for profile fetch');
+        return;
+      }
+
+      console.log('Admin layout: Fetching profile for user:', user.uid);
+
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          console.log('Admin layout: Profile data received:', {
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            image: userData.image,
+            profileImage: userData.profileImage
+          });
+
+          const profileData = {
+            firstName: userData.firstName || '',
+            lastName: userData.lastName || '',
+            image: userData.image || userData.profileImage || '',
+          };
+
+          console.log('Admin layout: Setting adminProfile:', profileData);
+          setAdminProfile(profileData);
+        } else {
+          console.log('Admin layout: No user document found for profile');
+        }
+      } catch (error) {
+        console.error('Admin layout: Error fetching profile:', error);
+      }
+    };
+
+    if (isAuthorized) {
+      fetchAdminProfile();
+    }
+  }, [isAuthorized]);
+
   // Show loading spinner while checking authentication
   if (authLoading) {
     return (
@@ -182,7 +249,7 @@ export default function AdminLayout() {
     <UserManagementProvider>
       <AdminDataProvider>
           <SidebarProvider>
-              <AdminSidebar />
+              <AdminSidebar adminProfile={adminProfile} />
               <SidebarInset>
                   <AdminHeader />
                   <main className="flex flex-1 flex-col gap-4 p-4 sm:px-8 sm:py-6">

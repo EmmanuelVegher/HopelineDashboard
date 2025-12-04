@@ -306,11 +306,9 @@ export function useGeolocation(initialOptions?: UseGeolocationOptions): UseGeolo
     setState(prev => ({ ...prev, error: null }));
   }, []);
 
-  // Initialize permission check and GPS status on mount
-  useEffect(() => {
-    updatePermission();
-    updateGPSStatus();
-  }, [updatePermission, updateGPSStatus]);
+  // Initialize permission check and GPS status on mount - only when explicitly requested
+  // Removed automatic initialization to prevent blocking page loads
+  // Permission will be checked when startWatching() or requestPermission() is called
 
   // Cleanup on unmount
   useEffect(() => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { db, auth, messaging } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -14,13 +15,15 @@ import DriverMap from '@/components/driver-map';
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { useToast } from '@/hooks/use-toast';
 import { useGeolocation } from '@/hooks/useGeolocation';
-import { useLocationStreaming } from '@/hooks/useLocationStreaming';
+// Location streaming removed to prevent browser crashes
+// import { useLocationStreaming } from '@/hooks/useLocationStreaming';
 
 interface AssignedTask extends SosAlert {
   assignedAt: Date;
 }
 
 export default function DriverPage() {
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState<AssignedTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
@@ -29,13 +32,28 @@ export default function DriverPage() {
   const [routingError, setRoutingError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Geolocation hooks
+  // Redirect to /driver/tasks as this page is deprecated
+  useEffect(() => {
+    console.log('DriverPage: Redirecting to /driver/tasks');
+    navigate('/driver/tasks', { replace: true });
+  }, [navigate]);
+
+  // Geolocation hooks - only initialize when actually needed for tracking
   const geolocation = useGeolocation();
-  const locationStreaming = useLocationStreaming({
-    userId: userId || '',
-    batchInterval: 10000, // 10 seconds
-    minDistanceChange: 50, // 50 meters
-  });
+  // Location streaming removed to prevent browser crashes
+  // const locationStreaming = useLocationStreaming({
+  //   userId: userId || '',
+  //   batchInterval: 10000, // 10 seconds
+  //   minDistanceChange: 50, // 50 meters
+  // });
+
+  // Prevent automatic streaming on page load - only start when explicitly requested
+  // useEffect(() => {
+  //   if (locationStreaming.state.isStreaming && !trackingTaskId) {
+  //     console.log('[DriverPage] Stopping automatic location streaming on page load');
+  //     locationStreaming.stopStreaming();
+  //   }
+  // }, [locationStreaming.state.isStreaming, trackingTaskId]);
 
   // Calculate distance between two coordinates using Haversine formula
   const calculateDistance = useCallback((lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -99,11 +117,11 @@ export default function DriverPage() {
     return () => unsubscribe();
   }, [userId]);
 
-  // Push notification setup
+  // Push notification setup - delay to prevent blocking page load
   useEffect(() => {
     if (!userId) return;
 
-    const requestPermission = async () => {
+    const timer = setTimeout(async () => {
       try {
         const permission = await Notification.requestPermission();
         if (permission === 'granted') {
@@ -126,15 +144,9 @@ export default function DriverPage() {
         }
       } catch (error) {
         console.error('Error getting FCM token:', error);
-        toast({
-          title: 'Notification Setup Failed',
-          description: 'Could not enable push notifications. Please try again.',
-          variant: 'destructive',
-        });
+        // Don't show error toast on page load to avoid blocking UX
       }
-    };
-
-    requestPermission();
+    }, 1000); // Delay by 1 second to allow page to load first
 
     // Listen for messages
     const unsubscribeMessage = onMessage(messaging, (payload) => {
@@ -145,7 +157,10 @@ export default function DriverPage() {
       });
     });
 
-    return () => unsubscribeMessage();
+    return () => {
+      clearTimeout(timer);
+      unsubscribeMessage();
+    };
   }, [userId, toast]);
 
   // Update driver location when tracking using the new streaming hook
@@ -262,10 +277,11 @@ export default function DriverPage() {
         console.log('[DriverPage] Set destination:', [task.location.latitude, task.location.longitude]);
       }
 
+      // Location streaming removed to prevent browser crashes
       // Start location streaming (handles permission internally)
-      console.log('[DriverPage] Calling locationStreaming.startStreaming()');
-      await locationStreaming.startStreaming();
-      console.log('[DriverPage] locationStreaming.startStreaming() completed');
+      // console.log('[DriverPage] Calling locationStreaming.startStreaming()');
+      // await locationStreaming.startStreaming();
+      // console.log('[DriverPage] locationStreaming.startStreaming() completed');
 
       // Update task status to In Transit
       console.log('[DriverPage] Updating task status to In Transit');
@@ -292,8 +308,9 @@ export default function DriverPage() {
 
   const stopTrip = async (taskId: string) => {
     try {
+      // Location streaming removed to prevent browser crashes
       // Stop location streaming
-      locationStreaming.stopStreaming();
+      // locationStreaming.stopStreaming();
 
       // Update task status back to Responding
       await updateTaskStatus(taskId, 'Responding');
@@ -354,15 +371,8 @@ export default function DriverPage() {
           </CardTitle>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Badge variant={locationStreaming.state.isStreaming ? "default" : "secondary"} className="text-xs">
-                {locationStreaming.state.isStreaming ? (
-                  <>
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-1"></div>
-                    Live Tracking Active
-                  </>
-                ) : (
-                  'Tracking Inactive'
-                )}
+              <Badge variant="secondary" className="text-xs">
+                Location Tracking Disabled
               </Badge>
               {trackingTaskId && (
                 <Badge variant="outline" className="text-xs">
@@ -378,14 +388,22 @@ export default function DriverPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <DriverMap
-            drivers={[]} // We'll show current driver location separately
-            className="h-96"
-            enableRouting={!!trackingTaskId}
-            currentPosition={geolocation.state.position ? [geolocation.state.position.coords.latitude, geolocation.state.position.coords.longitude] : undefined}
-            destination={destination}
-            onRoutingError={handleRoutingError}
-          />
+          {userId ? (
+            <DriverMap
+              drivers={[]} // We'll show current driver location separately
+              className="h-96"
+              enableRouting={!!trackingTaskId}
+              currentPosition={geolocation.state.position ? [geolocation.state.position.coords.latitude, geolocation.state.position.coords.longitude] : undefined}
+              destination={destination}
+              onRoutingError={handleRoutingError}
+              showCurrentLocation={!!geolocation.state.position}
+              currentLocationAccuracy={geolocation.state.position?.coords.accuracy}
+            />
+          ) : (
+            <div className="h-96 flex items-center justify-center bg-muted rounded-lg">
+              <p className="text-muted-foreground">Loading map...</p>
+            </div>
+          )}
 
           {/* Current Location Display */}
           {geolocation.state.position && (
@@ -539,7 +557,7 @@ export default function DriverPage() {
                   <>
                     <div className="flex-1 text-sm text-green-600 flex items-center gap-1">
                       <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      {locationStreaming.state.isStreaming ? 'Live Tracking Active' : 'Tracking Starting...'}
+                      Trip In Progress
                     </div>
                     <Button
                       size="sm"

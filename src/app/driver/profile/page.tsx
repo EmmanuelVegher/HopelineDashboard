@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { db, auth } from '@/lib/firebase';
+import { db, auth, storage } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +13,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { User, Phone, Mail, Car, MapPin } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { User, Phone, Mail, Car, MapPin, ImagePlus, Trash2 } from 'lucide-react';
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { useToast } from '@/hooks/use-toast';
 import { type Vehicle } from '@/lib/data';
@@ -32,6 +34,8 @@ interface DriverProfile {
   task: string;
   selectedVehicleId?: string;
   vehicleDetails?: Vehicle;
+  image?: string;
+  profileImage?: string;
 }
 
 export default function DriverProfilePage() {
@@ -41,6 +45,10 @@ export default function DriverProfilePage() {
   const [formData, setFormData] = useState<Partial<DriverProfile>>({});
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -65,6 +73,7 @@ export default function DriverProfilePage() {
               task: userData.task || '',
               selectedVehicleId: userData.selectedVehicleId || '',
               vehicleDetails: userData.vehicleDetails,
+              image: userData.image || userData.profileImage || '',
             };
             setProfile(profileData);
             setFormData(profileData);
@@ -107,13 +116,93 @@ export default function DriverProfilePage() {
     }
   }, [profile?.vehicleDetails]);
 
-  const handleSave = async () => {
-    if (!auth.currentUser) return;
+  // Ensure profile data is valid
+  useEffect(() => {
+    if (profile && (!profile.name || profile.name.trim() === '')) {
+      console.warn('Profile name is empty, this might cause rendering issues');
+    }
+  }, [profile]);
 
+  const handleSave = async () => {
+    if (!auth.currentUser || saving) return;
+
+    setSaving(true);
     try {
-      await updateDoc(doc(db, 'users', auth.currentUser.uid), formData);
-      setProfile(formData as DriverProfile);
+      let imageUrl = formData.image || '';
+
+      if (imageFile) {
+        const storageRef = ref(storage, `driver-profiles/${Date.now()}_${imageFile.name}`);
+        const uploadTask = uploadBytesResumable(storageRef, imageFile);
+
+        await new Promise<void>((resolve, reject) => {
+          uploadTask.on('state_changed',
+            (snapshot) => {
+              const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+              setUploadProgress(progress);
+            },
+            (error) => {
+              console.error("Upload failed:", error);
+              toast({ title: "Image Upload Failed", description: "Could not upload profile image.", variant: "destructive" });
+              setUploadProgress(null);
+              reject(error);
+            },
+            async () => {
+              try {
+                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                imageUrl = downloadURL;
+                resolve();
+              } catch (error) {
+                reject(error);
+              }
+            }
+          );
+        });
+      }
+
+      const dataToSave = {
+        ...formData,
+        image: imageUrl,
+        profileImage: imageUrl, // Also set profileImage for consistency
+      };
+
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), dataToSave);
+
+      // Update local state with proper data structure
+      const updatedProfile: DriverProfile = {
+        firstName: dataToSave.firstName || '',
+        lastName: dataToSave.lastName || '',
+        name: `${dataToSave.firstName || ''} ${dataToSave.lastName || ''}`.trim() || dataToSave.name || '',
+        email: dataToSave.email || '',
+        phone: dataToSave.phone || '',
+        vehicle: dataToSave.vehicle || '',
+        vehicleImageUrl: dataToSave.vehicleImageUrl || '',
+        location: dataToSave.location || '',
+        bio: dataToSave.bio || '',
+        role: dataToSave.role || 'driver',
+        status: dataToSave.status || 'Available',
+        task: dataToSave.task || '',
+        selectedVehicleId: dataToSave.selectedVehicleId || '',
+        vehicleDetails: dataToSave.vehicleDetails,
+        image: dataToSave.image || '',
+        profileImage: dataToSave.profileImage || '',
+      };
+
+      // Validate required fields
+      if (!updatedProfile.name || updatedProfile.name.trim() === '') {
+        console.error('Profile name is empty after save, this will cause rendering issues');
+        throw new Error('Profile name cannot be empty');
+      }
+
+      console.log('Updating profile state:', updatedProfile);
+      setProfile(updatedProfile);
+      setFormData(updatedProfile);
+
+      // Close dialog and reset states
       setEditing(false);
+      setImageFile(null);
+      setImagePreview(null);
+      setUploadProgress(null);
+
       toast({
         title: 'Profile Updated',
         description: 'Your profile has been successfully updated.',
@@ -125,12 +214,37 @@ export default function DriverProfilePage() {
         description: 'Failed to update profile. Please try again.',
         variant: 'destructive',
       });
+      setUploadProgress(null);
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleCancel = () => {
     setFormData(profile || {});
     setEditing(false);
+    setImageFile(null);
+    setImagePreview(null);
+    setUploadProgress(null);
+    setSaving(false);
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImageFile(file);
+      if (imagePreview && imagePreview.startsWith('blob:')) {
+        URL.revokeObjectURL(imagePreview);
+      }
+      const previewUrl = URL.createObjectURL(file);
+      setImagePreview(previewUrl);
+    }
+  };
+
+  const handleImageRemove = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    setFormData({ ...formData, image: '' });
   };
 
   if (loading) {
@@ -142,6 +256,7 @@ export default function DriverProfilePage() {
   }
 
   if (!profile) {
+    console.log('Profile is null, showing not found message');
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">Profile not found.</p>
@@ -149,12 +264,40 @@ export default function DriverProfilePage() {
     );
   }
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Driver Profile</h1>
-        <Badge variant="outline">{profile.role}</Badge>
-      </div>
+  console.log('Rendering profile page with profile:', profile);
+
+  try {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Driver Profile</h1>
+          <Badge variant="outline">{profile.role}</Badge>
+        </div>
+
+      {/* Profile Image Display */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col items-center space-y-4">
+            <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-gray-200">
+              {profile.image ? (
+                <img
+                  src={profile.image}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                  <User className="w-16 h-16 text-gray-400" />
+                </div>
+              )}
+            </div>
+            <div className="text-center">
+              <h2 className="text-2xl font-bold">{profile.name}</h2>
+              <p className="text-muted-foreground">{profile.role}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -428,13 +571,55 @@ export default function DriverProfilePage() {
                 rows={3}
               />
             </div>
+
+            <div className="space-y-2">
+              <Label>Profile Image</Label>
+              <div className="flex items-center gap-4">
+                <div className="w-24 h-24 rounded-md border border-dashed flex items-center justify-center bg-muted overflow-hidden">
+                  {imagePreview || formData.image ? (
+                    <img src={imagePreview || formData.image} alt="Profile preview" className="object-cover w-full h-full" />
+                  ) : (
+                    <ImagePlus className="h-8 w-8 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <Input id="profileImage" type="file" onChange={handleImageChange} accept="image/*" />
+                  <p className="text-xs text-muted-foreground mt-1">Upload a new profile image.</p>
+                  {(imagePreview || formData.image) && (
+                    <Button type="button" size="sm" variant="ghost" className="text-red-500 hover:text-red-600 mt-1" onClick={handleImageRemove}>
+                      <Trash2 className="mr-1 h-4 w-4" /> Remove Image
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {uploadProgress !== null && (
+                <div className="space-y-1">
+                  <Label>Upload Progress</Label>
+                  <Progress value={uploadProgress} />
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={handleCancel}>Cancel</Button>
-            <Button onClick={handleSave}>Save Changes</Button>
+            <Button variant="outline" onClick={handleCancel} disabled={saving}>Cancel</Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
+  } catch (error) {
+    console.error('Error rendering profile page:', error);
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-red-600 mb-4">Something went wrong</h2>
+          <p className="text-muted-foreground mb-4">There was an error loading the profile page.</p>
+          <p className="text-sm text-muted-foreground">Error: {error instanceof Error ? error.message : 'Unknown error'}</p>
+        </div>
+      </div>
+    );
+  }
 }

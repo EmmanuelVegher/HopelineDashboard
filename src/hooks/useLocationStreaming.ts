@@ -507,10 +507,9 @@ export function useLocationStreaming(options: LocationStreamingOptions): UseLoca
     currentSignalStrengthRef.current = geolocation.state.signalStrength;
   }, [geolocation.state.gpsStatus, geolocation.state.signalStrength]);
 
-  // Initialize cached location on mount
-  useEffect(() => {
-    getCachedLocation();
-  }, [getCachedLocation]);
+  // Initialize cached location on mount - only when needed
+  // Removed automatic initialization to prevent blocking page loads
+  // Cached location will be loaded when getCachedLocation() is explicitly called
 
   // Cleanup on unmount
   useEffect(() => {

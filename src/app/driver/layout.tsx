@@ -16,29 +16,30 @@ import {
   User,
   Settings,
   History,
-  Map,
+  Car,
   LogOut,
+  Bell,
 } from "lucide-react";
 import { useLocation, useNavigate, Outlet, Link } from "react-router-dom";
 import { useLoading } from '@/contexts/LoadingProvider';
 import { useEffect, useState } from 'react';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { useToast } from '@/hooks/use-toast';
+import { SosAlert } from '@/ai/schemas/sos';
 
 const driverRoles = ['driver', 'pilot', 'responder', 'rider', 'Driver', 'Pilot', 'Responder', 'Rider'];
 
 const navLinks = [
-  { to: "/driver/tasks", label: "Tasks", icon: CheckCircle },
+  { to: "/driver/map", label: "Tasks", icon: Car },
   { to: "/driver/profile", label: "Profile", icon: User },
   { to: "/driver/settings", label: "Settings", icon: Settings },
   { to: "/driver/history", label: "History", icon: History },
-  { to: "/driver/map", label: "Map", icon: Map },
 ];
 
-function DriverSidebar() {
+function DriverSidebar({ activeAlertsCount = 0, driverProfile }: { activeAlertsCount?: number; driverProfile?: {firstName: string; lastName: string; image?: string} | null }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { state } = useSidebar();
@@ -73,8 +74,8 @@ function DriverSidebar() {
     <Sidebar>
       <SidebarHeader>
         <div className="flex items-center gap-2">
-            <img src="/hopeline-logo.png" alt="Hopeline Logo" width={40} height={40} />
-            {state === 'expanded' && <h1 className="text-xl font-bold">Driver Panel</h1>}
+            <img src="/shelter_logo.png" alt="Hopeline Logo" width={40} height={40} />
+            {state === 'expanded' && <h1 className="text-xl font-bold">Pilot Panel</h1>}
         </div>
       </SidebarHeader>
       <SidebarContent className="p-2">
@@ -85,9 +86,14 @@ function DriverSidebar() {
             return (
               <SidebarMenuItem key={label}>
                 <SidebarMenuButton isActive={isActive} tooltip={label} asChild>
-                  <Link to={to}>
+                  <Link to={to} className="flex items-center gap-2">
                     <Icon />
-                    {label}
+                    <span>{label}</span>
+                    {label === 'Tasks' && activeAlertsCount > 0 && (
+                      <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+                        {activeAlertsCount}
+                      </span>
+                    )}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -96,6 +102,29 @@ function DriverSidebar() {
         </SidebarMenu>
       </SidebarContent>
       <SidebarContent className="p-2 mt-auto">
+        {/* Driver Profile Section */}
+        {driverProfile && (
+          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+            <div className="text-center">
+              <div className="w-16 h-16 mx-auto mb-2 rounded-full overflow-hidden bg-gray-200">
+                {driverProfile.image ? (
+                  <img
+                    src={driverProfile.image}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-400">
+                    <User className="w-8 h-8" />
+                  </div>
+                )}
+              </div>
+              <p className="text-sm font-medium text-gray-900">
+                {driverProfile.firstName} {driverProfile.lastName}
+              </p>
+            </div>
+          </div>
+        )}
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={handleLogout} tooltip="Logout">
@@ -109,11 +138,18 @@ function DriverSidebar() {
   );
 }
 
+interface MapTask extends SosAlert {
+  assignedAt: Date;
+}
+
 export default function DriverLayout() {
   const { setIsLoading } = useLoading();
   const navigate = useNavigate();
   const [authLoading, setAuthLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [tasks, setTasks] = useState<MapTask[]>([]);
+  const [driverProfile, setDriverProfile] = useState<{firstName: string; lastName: string; image?: string} | null>(null);
 
   useEffect(() => {
     setIsLoading(false);
@@ -128,6 +164,8 @@ export default function DriverLayout() {
         setAuthLoading(false);
         return;
       }
+
+      setUserId(user.uid);
 
       try {
         const userDocRef = doc(db, "users", user.uid);
@@ -160,6 +198,50 @@ export default function DriverLayout() {
     return () => unsubscribe();
   }, [navigate]);
 
+  // Fetch tasks for notification count
+  useEffect(() => {
+    if (!userId) return;
+
+    const q = query(
+      collection(db, 'sosAlerts'),
+      where('assignedTeam.driverId', '==', userId)
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const mapTasks: MapTask[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data() as SosAlert;
+        mapTasks.push({
+          ...data,
+          id: doc.id,
+          assignedAt: data.timestamp?.toDate() || new Date(),
+        });
+      });
+      setTasks(mapTasks);
+    });
+
+    return () => unsubscribe();
+  }, [userId]);
+
+  // Fetch driver profile data for sidebar
+  useEffect(() => {
+    if (!userId) return;
+
+    const userRef = doc(db, 'users', userId);
+    const unsubscribe = onSnapshot(userRef, (doc) => {
+      if (doc.exists()) {
+        const userData = doc.data();
+        setDriverProfile({
+          firstName: userData.firstName || '',
+          lastName: userData.lastName || '',
+          image: userData.image || userData.profileImage || '',
+        });
+      }
+    });
+
+    return () => unsubscribe();
+  }, [userId]);
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -172,9 +254,11 @@ export default function DriverLayout() {
     return null;
   }
 
+  const activeAlertsCount = tasks.filter(t => t.status === 'Active' || t.status === 'Responding').length;
+
   return (
     <SidebarProvider>
-      <DriverSidebar />
+      <DriverSidebar activeAlertsCount={activeAlertsCount} driverProfile={driverProfile} />
       <SidebarInset>
         <main className="flex flex-1 flex-col gap-4 p-4 sm:px-8 sm:py-6">
           <Outlet />
