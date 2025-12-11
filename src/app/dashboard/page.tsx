@@ -136,7 +136,7 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 dark:from-slate-900 dark:via-blue-900 dark:to-emerald-900 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
         {/* Header Section */}
         <div className="text-center mb-8 sm:mb-12">
@@ -146,7 +146,7 @@ export default function Home() {
               HopeLine Dashboard
             </h1>
           </div>
-          <p className="text-slate-600 text-sm sm:text-base lg:text-lg max-w-4xl mx-auto leading-relaxed">
+          <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base lg:text-lg max-w-4xl mx-auto leading-relaxed">
             Your emergency assistance platform for finding shelter, getting help, and staying safe in Bayelsa and Adamawa states. 
             A project supported by the CITI Foundation.
           </p>
@@ -168,17 +168,17 @@ export default function Home() {
         {/* Quick Actions Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {quickActions.map((action, index) => (
-            <Card 
-              key={index} 
-              className={`${action.bgColor} ${action.borderColor} border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col items-center justify-center p-6 sm:p-8`}
+            <Card
+              key={index}
+              className={`${action.bgColor} dark:${action.bgColor.replace('50', '900').replace('100', '800')} ${action.borderColor} dark:${action.borderColor.replace('200', '700')} border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col items-center justify-center p-6 sm:p-8`}
             >
               <div className={`${action.iconBg} p-4 rounded-2xl mb-4 transition-all duration-300 hover:scale-110`}>
                 <action.icon className={`h-8 w-8 sm:h-10 sm:w-10 ${action.iconColor}`} />
               </div>
-              <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 mb-2 text-center">
+              <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-200 mb-2 text-center">
                 {action.title}
               </CardTitle>
-              <CardDescription className="text-sm sm:text-base text-slate-600 mb-6 text-center">
+              <CardDescription className="text-sm sm:text-base text-slate-600 dark:text-slate-300 mb-6 text-center">
                 {action.description}
               </CardDescription>
               <Link to={action.href} className="w-full">
@@ -200,16 +200,16 @@ export default function Home() {
         {/* Secondary Actions */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           {secondaryActions.map((action, index) => (
-            <Card key={index} className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+            <Card key={index} className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
               <CardHeader className="flex-row items-center gap-4 space-y-0 p-6 sm:p-8">
                 <div className="bg-blue-100 p-3 rounded-xl transition-all duration-300 hover:scale-110">
                   <action.icon className="h-6 w-6 sm:h-7 sm:w-7 text-blue-600" />
                 </div>
                 <div className="flex-1">
-                  <CardTitle className="text-lg sm:text-xl font-bold text-slate-800">
+                  <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-200">
                     {action.title}
                   </CardTitle>
-                  <CardDescription className="text-sm sm:text-base text-slate-600">
+                  <CardDescription className="text-sm sm:text-base text-slate-600 dark:text-slate-300">
                     {action.description}
                   </CardDescription>
                 </div>
@@ -228,7 +228,7 @@ export default function Home() {
         {/* Stats Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
           {statsData.map((stat, index) => (
-            <Card key={index} className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 p-6 sm:p-8">
+            <Card key={index} className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 p-6 sm:p-8">
               <div className="flex flex-col items-center text-center">
                 <div className={`${stat.bgColor} p-3 rounded-2xl mb-4 transition-all duration-300 hover:scale-110`}>
                   <stat.icon className={`h-6 w-6 sm:h-8 sm:w-8 ${stat.color}`} />
@@ -236,11 +236,11 @@ export default function Home() {
                 {loading ? (
                   <Skeleton className="h-8 w-16 sm:w-20 mx-auto" />
                 ) : (
-                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800 mb-2">
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800 dark:text-slate-200 mb-2">
                     {stat.value}
                   </p>
                 )}
-                <p className="text-xs sm:text-sm text-slate-600 font-medium">
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium">
                   {stat.label}
                 </p>
               </div>
@@ -251,17 +251,17 @@ export default function Home() {
         {/* USSD & Contacts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
           {/* USSD Codes */}
-          <Card className="bg-gradient-to-br from-yellow-50 to-amber-50 border-yellow-200/50 backdrop-blur-sm shadow-lg">
+          <Card className="bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900 dark:to-amber-900 border-yellow-200/50 dark:border-yellow-700/50 backdrop-blur-sm shadow-lg">
             <CardHeader className="pb-4 sm:pb-6">
               <div className="flex items-center gap-3">
                 <div className="bg-yellow-100 p-2 rounded-xl">
                   <Phone className="h-5 w-5 text-yellow-600" />
                 </div>
                 <div>
-                  <CardTitle className="text-lg sm:text-xl font-bold text-slate-800">
+                  <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-200">
                     No Smartphone? No Wahala!
                   </CardTitle>
-                  <CardDescription className="text-sm sm:text-base text-slate-600">
+                  <CardDescription className="text-sm sm:text-base text-slate-600 dark:text-slate-300">
                     Access emergency services using USSD codes on any mobile phone
                   </CardDescription>
                 </div>
@@ -293,17 +293,17 @@ export default function Home() {
           </Card>
 
           {/* Emergency Contacts */}
-          <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200/50 backdrop-blur-sm shadow-lg">
+          <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 border-green-200/50 dark:border-green-700/50 backdrop-blur-sm shadow-lg">
             <CardHeader className="pb-4 sm:pb-6">
               <div className="flex items-center gap-3">
                 <div className="bg-green-100 p-2 rounded-xl">
                   <Activity className="h-5 w-5 text-green-600" />
                 </div>
                 <div>
-                  <CardTitle className="text-lg sm:text-xl font-bold text-slate-800">
+                  <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-200">
                     Emergency Contacts
                   </CardTitle>
-                  <CardDescription className="text-sm sm:text-base text-slate-600">
+                  <CardDescription className="text-sm sm:text-base text-slate-600 dark:text-slate-300">
                     Important phone numbers for emergency situations
                   </CardDescription>
                 </div>

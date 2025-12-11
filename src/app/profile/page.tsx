@@ -159,7 +159,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 dark:from-slate-900 dark:via-blue-900 dark:to-emerald-900 p-4 sm:p-6 lg:p-8">
       <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
         {/* Header */}
         <div className="text-center">
@@ -169,16 +169,16 @@ export default function ProfilePage() {
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-slate-800 via-blue-700 to-purple-700 bg-clip-text text-transparent mb-3 sm:mb-4">
             My Profile
           </h1>
-          <p className="text-slate-600 text-sm sm:text-base lg:text-lg">
+          <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base lg:text-lg">
             Manage your personal information and account settings
           </p>
         </div>
 
         {/* Main Profile Card */}
-        <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-2xl overflow-hidden">
+        <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-2xl overflow-hidden">
           <CardHeader className="pb-6">
-            <CardTitle className="text-lg sm:text-xl font-bold text-slate-800">Personal Information</CardTitle>
-            <CardDescription className="text-sm sm:text-base text-slate-600">Update your details and profile picture</CardDescription>
+            <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-200">Personal Information</CardTitle>
+            <CardDescription className="text-sm sm:text-base text-slate-600 dark:text-slate-300">Update your details and profile picture</CardDescription>
           </CardHeader>
           
           <CardContent className="space-y-6 sm:space-y-8">
@@ -200,18 +200,18 @@ export default function ProfilePage() {
                 <Input id="image-upload" type="file" className="hidden" onChange={handleImageChange} accept="image/*" />
               </div>
               <div className="text-center sm:text-left flex-1">
-                <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800 mb-2">{displayName || 'No display name'}</h2>
-                <div className="flex items-center gap-2 text-slate-600 mb-2">
+                <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800 dark:text-slate-200 mb-2">{displayName || 'No display name'}</h2>
+                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 mb-2">
                   <Mail className="h-4 w-4" />
                   <span className="text-sm sm:text-base">{profile.email}</span>
                 </div>
-                <div className="flex items-center gap-2 text-slate-600 mb-3">
+                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 mb-3">
                   <Shield className="h-4 w-4" />
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                  <Badge variant="secondary" className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
                     {profile.role}
                   </Badge>
                 </div>
-                <div className="flex items-center gap-2 text-slate-500 text-sm">
+                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm">
                   <Calendar className="h-4 w-4" />
                   <span>Joined {new Date(profile.createdAt?.toDate?.() || Date.now()).toLocaleDateString()}</span>
                 </div>
@@ -221,7 +221,7 @@ export default function ProfilePage() {
             {/* Form Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               <div className="space-y-3">
-                <Label htmlFor="displayName" className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <Label htmlFor="displayName" className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
                   <User className="h-4 w-4 text-blue-500" />
                   Display Name
                 </Label>
@@ -235,7 +235,7 @@ export default function ProfilePage() {
               </div>
               
               <div className="space-y-3">
-                <Label htmlFor="mobile" className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <Label htmlFor="mobile" className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
                   <Phone className="h-4 w-4 text-green-500" />
                   Mobile Number
                 </Label>
@@ -250,7 +250,7 @@ export default function ProfilePage() {
               </div>
               
               <div className="space-y-3">
-                <Label htmlFor="firstName" className="text-sm font-semibold text-slate-700">First Name</Label>
+                <Label htmlFor="firstName" className="text-sm font-semibold text-slate-700 dark:text-slate-300">First Name</Label>
                 <Input 
                   id="firstName" 
                   value={firstName} 
@@ -261,7 +261,7 @@ export default function ProfilePage() {
               </div>
               
               <div className="space-y-3">
-                <Label htmlFor="lastName" className="text-sm font-semibold text-slate-700">Last Name</Label>
+                <Label htmlFor="lastName" className="text-sm font-semibold text-slate-700 dark:text-slate-300">Last Name</Label>
                 <Input 
                   id="lastName" 
                   value={lastName} 
@@ -272,7 +272,7 @@ export default function ProfilePage() {
               </div>
               
               <div className="space-y-3 md:col-span-2">
-                <Label htmlFor="gender" className="text-sm font-semibold text-slate-700">Gender</Label>
+                <Label htmlFor="gender" className="text-sm font-semibold text-slate-700 dark:text-slate-300">Gender</Label>
                 <Select value={gender} onValueChange={setGender}>
                   <SelectTrigger className="h-12 border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20">
                     <SelectValue placeholder="Select gender" />
@@ -322,15 +322,15 @@ export default function ProfilePage() {
         </Card>
 
         {/* Account Status */}
-        <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200/50 backdrop-blur-sm shadow-lg">
+        <Card className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 border-green-200/50 dark:border-green-700/50 backdrop-blur-sm shadow-lg">
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
               <div className="bg-green-100 p-3 rounded-2xl">
                 <Check className="h-6 w-6 text-green-600" />
               </div>
               <div className="flex-1">
-                <h3 className="font-bold text-green-800 mb-1">Profile Complete</h3>
-                <p className="text-green-700 text-sm">Your profile is up to date and complete</p>
+                <h3 className="font-bold text-green-800 dark:text-green-200 mb-1">Profile Complete</h3>
+                <p className="text-green-700 dark:text-green-300 text-sm">Your profile is up to date and complete</p>
               </div>
               <Badge className="bg-green-100 text-green-800">
                 Active

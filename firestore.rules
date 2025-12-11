@@ -18,9 +18,39 @@ service cloud.firestore {
 
     // Rule for the 'users' collection
     match /users/{userId} {
-      // Any authenticated user can read user documents (e.g., to find support agents).
-      // This is safe as long as user docs don't contain sensitive info.
-      allow read: if request.auth != null;
+      // Helper function to check if user is a support agent
+      function isSupportAgent() {
+        return request.auth != null &&
+               exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'support agent';
+      }
+
+      // Helper function to check if user is an admin
+      function isAdmin() {
+        return request.auth != null &&
+               exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
+      }
+
+      // Allow read operations - simplified for better reliability
+      allow read: if request.auth != null && (
+        // Users can always read their own document
+        request.auth.uid == userId ||
+        // Support agents can read any user document
+        isSupportAgent() ||
+        // Admins can read any user document
+        isAdmin()
+      );
+
+      // Allow list/query operations
+      allow list: if request.auth != null && (
+        // Support agents can query users
+        isSupportAgent() ||
+        // Admins can query users
+        isAdmin() ||
+        // Users can query (for finding support agents, etc.)
+        true
+      );
 
       // A user can create their own document when they sign up.
       // The new document's ID must match their authentication UID.
@@ -29,7 +59,7 @@ service cloud.firestore {
       // A user can only update their OWN data, or admins can update any user.
       allow update: if request.auth != null && (
         request.auth.uid == userId ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin'
+        isAdmin()
       );
     }
 
@@ -84,25 +114,132 @@ service cloud.firestore {
 
     // Consolidated rules for the 'chats' collection
     match /chats/{chatId} {
-      // Allow list/query if the user's UID is in the participants array.
-      // This is needed for the app to check if a chat already exists.
-      allow list: if request.auth != null && request.query.filters.size() > 0 && request.query.filters[0].value == request.auth.uid;
+      // Helper function to check if user is a support agent
+      function isSupportAgent() {
+        return request.auth != null &&
+               exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'support agent';
+      }
 
-      // Allow read/update/delete on a specific chat document if the user is a participant.
-      allow read, update, delete: if request.auth != null && request.auth.uid in resource.data.participants;
+      // Allow list/query operations
+      allow list: if request.auth != null && (
+        // Regular users can query chats where they are participants
+        (request.query.filters.size() > 0 &&
+         request.query.filters[0].field == 'participants' &&
+         request.query.filters[0].op == 'array-contains' &&
+         request.query.filters[0].value == request.auth.uid) ||
+        // Support agents can query chats assigned to them or all active chats for dashboard
+        (isSupportAgent() && (
+          // Query assigned chats
+          (request.query.filters.size() >= 1 &&
+           request.query.filters[0].field == 'agentId' &&
+           request.query.filters[0].op == '==' &&
+           request.query.filters[0].value == request.auth.uid) ||
+          // Query all active chats for dashboard overview
+          (request.query.filters.size() >= 1 &&
+           request.query.filters[0].field == 'status' &&
+           request.query.filters[0].op == '==' &&
+           request.query.filters[0].value == 'active')
+        ))
+      );
 
-      // Allow a user to create a chat if their UID is in the list of participants.
+      // Allow read/update/delete on a specific chat document if the user is a participant or assigned support agent
+      allow read, update, delete: if request.auth != null && (
+        request.auth.uid in resource.data.participants ||
+        (isSupportAgent() && resource.data.agentId == request.auth.uid) ||
+        // Allow support agents to read active chats for dashboard
+        (isSupportAgent() && resource.data.status == 'active')
+      );
+
+      // Allow a user to create a chat if their UID is in the list of participants
       allow create: if request.auth != null && request.auth.uid in request.resource.data.participants;
 
       // Rules for messages subcollection within a chat
       match /messages/{messageId} {
-        // Allow read access to messages if the user is a participant of the parent chat.
-        // This is more efficient than checking individual participants.
-        allow read: if request.auth != null && get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid]);
+        // Allow read access to messages if the user is a participant of the parent chat or assigned support agent
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid]) ||
+          (isSupportAgent() && get(/databases/$(database)/documents/chats/$(chatId)).data.agentId == request.auth.uid) ||
+          // Allow support agents to read messages from active chats
+          (isSupportAgent() && get(/databases/$(database)/documents/chats/$(chatId)).data.status == 'active')
+        );
 
-        // A user can only create a message if they are authenticated and the senderId in the new message is their own UID.
+        // A user can only create a message if they are authenticated and the senderId in the new message is their own UID
         allow create: if request.auth != null && request.auth.uid == request.resource.data.senderId;
+
+        // Allow updates to messages (for status changes like delivered/read)
+        allow update: if request.auth != null && (
+          // Users can update their own messages
+          request.auth.uid == resource.data.senderId ||
+          // Support agents can update messages in chats they're assigned to
+          (isSupportAgent() && get(/databases/$(database)/documents/chats/$(chatId)).data.agentId == request.auth.uid) ||
+          // Users can update messages in their chats (for status updates)
+          get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid])
+        );
       }
+    }
+
+    // Rules for the 'calls' collection (for voice calls)
+    match /calls/{callId} {
+      // Helper function to check if user is a support agent
+      function isSupportAgent() {
+        return request.auth != null &&
+               exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'support agent';
+      }
+
+      // Allow support agents to query active calls for dashboard
+      allow list: if isSupportAgent() && (
+        request.query.filters.size() >= 1 &&
+        request.query.filters[0].field == 'status' &&
+        request.query.filters[0].op == 'in' &&
+        request.query.filters[0].value.hasAny(['ringing', 'active'])
+      );
+
+      // Allow read access for support agents
+      allow read: if isSupportAgent();
+
+      // Allow support agents to update call status
+      allow update: if isSupportAgent();
+    }
+
+    // Rules for the 'location_requests' collection
+    match /location_requests/{requestId} {
+      // Helper function to check if user is a support agent
+      function isSupportAgent() {
+        return request.auth != null &&
+               exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'support agent';
+      }
+
+      // Allow support agents full access to location requests
+      allow read, list, write: if isSupportAgent();
+    }
+
+    // Rules for the 'emergency_locations' collection
+    match /emergency_locations/{emergencyId} {
+      // Helper function to check if user is a support agent
+      function isSupportAgent() {
+        return request.auth != null &&
+               exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'support agent';
+      }
+
+      // Allow support agents full access to emergency locations
+      allow read, list, write: if isSupportAgent();
+    }
+
+    // Rules for the 'notifications' collection
+    match /notifications/{notificationId} {
+      // Helper function to check if user is a support agent
+      function isSupportAgent() {
+        return request.auth != null &&
+               exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'support agent';
+      }
+
+      // Allow support agents full access to notifications
+      allow read, list, write, delete: if isSupportAgent();
     }
   }
 }

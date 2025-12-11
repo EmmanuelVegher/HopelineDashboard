@@ -64,13 +64,13 @@ const renderCurrentConditions = (loading: boolean, weatherData: GetWeatherOutput
     ];
     
     return weatherStats.map((stat) => (
-        <Card key={stat.label} className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+        <Card key={stat.label} className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
             <CardContent className="p-4 sm:p-6 flex flex-col items-center text-center">
                 <div className={`${stat.bgColor} p-3 rounded-2xl mb-3 transition-all duration-300 hover:scale-110`}>
                     <stat.icon className={`h-6 w-6 ${stat.color}`} />
                 </div>
-                <p className="text-2xl sm:text-3xl font-bold text-slate-800 mb-1">{stat.value}{stat.unit}</p>
-                <p className="text-sm text-slate-600 font-medium">{stat.label}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-200 mb-1">{stat.value}{stat.unit}</p>
+                <p className="text-sm text-slate-600 dark:text-slate-300 font-medium">{stat.label}</p>
             </CardContent>
         </Card>
     ));
@@ -79,7 +79,7 @@ const renderCurrentConditions = (loading: boolean, weatherData: GetWeatherOutput
 const renderForecast = (loading: boolean, weatherData: GetWeatherOutput | null) => {
      if (loading) {
         return (
-             <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+             <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
                 <CardContent className="p-4 sm:p-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
                     {Array.from({ length: 5 }).map((_, i) => (
                         <Card key={i} className="p-4 flex flex-col items-center gap-3 bg-slate-50/50">
@@ -96,7 +96,7 @@ const renderForecast = (loading: boolean, weatherData: GetWeatherOutput | null) 
     if (!weatherData) return null;
 
     return (
-        <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+        <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
              <CardHeader className="text-center sm:text-left">
                 <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                     <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
@@ -108,12 +108,12 @@ const renderForecast = (loading: boolean, weatherData: GetWeatherOutput | null) 
                     const Icon = iconMap[day.icon] || Cloud;
                     return (
                          <Card key={day.day} className="p-4 flex flex-col items-center gap-3 bg-slate-50/50 hover:bg-slate-100/50 transition-all duration-200 hover:scale-105">
-                            <p className="font-bold text-sm sm:text-base text-slate-800">{day.day}</p>
-                            <div className="bg-blue-100 p-3 rounded-2xl">
-                                <Icon className="h-8 w-8 text-blue-600"/>
+                            <p className="font-bold text-sm sm:text-base text-slate-800 dark:text-slate-200">{day.day}</p>
+                            <div className="bg-blue-100 dark:bg-blue-900 p-3 rounded-2xl">
+                                <Icon className="h-8 w-8 text-blue-600 dark:text-blue-400"/>
                             </div>
-                            <p className="text-xl sm:text-2xl font-bold text-slate-800">{day.temp}</p>
-                            <p className="text-xs sm:text-sm text-slate-600 capitalize text-center leading-tight">{day.description}</p>
+                            <p className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-200">{day.temp}</p>
+                            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 capitalize text-center leading-tight">{day.description}</p>
                         </Card>
                     )
                 })}
@@ -201,7 +201,7 @@ export default function WeatherPage() {
     const MainIcon = weatherData && weatherData.forecast.length > 0 ? iconMap[weatherData.forecast[0].icon] : Loader2;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-emerald-50 p-4 sm:p-6 lg:p-8">
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-emerald-50 dark:from-blue-900 dark:via-cyan-900 dark:to-emerald-900 p-4 sm:p-6 lg:p-8">
             <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8">
                 {/* Header Section */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -209,7 +209,7 @@ export default function WeatherPage() {
                         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
                             Weather Alerts & Forecast
                         </h1>
-                        <p className="text-slate-600 text-sm sm:text-base lg:text-lg mt-2 flex items-center gap-2">
+                        <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base lg:text-lg mt-2 flex items-center gap-2">
                             <MapPin className="h-4 w-4 text-blue-500" />
                             Conditions for {locationName}
                         </p>
@@ -233,7 +233,7 @@ export default function WeatherPage() {
                 </div>
 
                 {/* Main Weather Card */}
-                <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-2xl overflow-hidden">
+                <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-2xl overflow-hidden">
                     <CardContent className="p-6 sm:p-8 lg:p-12">
                         <div className="flex flex-col lg:flex-row items-center justify-between gap-6 lg:gap-8">
                             {loading ? (
@@ -244,9 +244,9 @@ export default function WeatherPage() {
                                 </div>
                             ) : weatherData ? (
                                 <div className="flex flex-col items-center text-center lg:items-start lg:text-left flex-1">
-                                    <p className="text-slate-600 text-sm sm:text-base lg:text-lg capitalize mb-2">{weatherData.currentConditions.description}</p>
-                                    <p className="text-6xl sm:text-7xl lg:text-8xl font-bold text-slate-800 mb-4">{weatherData.currentConditions.temperature}</p>
-                                    <p className="text-base sm:text-lg lg:text-xl font-semibold text-blue-600 leading-relaxed">{weatherData.narrativeSummary}</p>
+                                    <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base lg:text-lg capitalize mb-2">{weatherData.currentConditions.description}</p>
+                                    <p className="text-6xl sm:text-7xl lg:text-8xl font-bold text-slate-800 dark:text-slate-200 mb-4">{weatherData.currentConditions.temperature}</p>
+                                    <p className="text-base sm:text-lg lg:text-xl font-semibold text-blue-600 dark:text-blue-400 leading-relaxed">{weatherData.narrativeSummary}</p>
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center text-center lg:items-start lg:text-left flex-1">
@@ -295,7 +295,7 @@ export default function WeatherPage() {
                     </TabsContent>
                     
                     <TabsContent value="alerts" className="mt-6">
-                         <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+                         <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
                             <CardHeader className="text-center sm:text-left">
                                 <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                                     <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-red-600" />
@@ -383,7 +383,7 @@ export default function WeatherPage() {
                 </Tabs>
 
                 {/* USSD Section */}
-                <Card className="bg-gradient-to-br from-yellow-50 to-amber-50 border-yellow-200/50 backdrop-blur-sm shadow-lg">
+                <Card className="bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900 dark:to-amber-900 border-yellow-200/50 dark:border-yellow-700/50 backdrop-blur-sm shadow-lg">
                     <CardHeader className="text-center sm:text-left">
                         <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                             <Phone className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-600" />

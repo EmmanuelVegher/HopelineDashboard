@@ -80,7 +80,7 @@ export default function SettingsPage() {
 
   if (!user || !profile) {
     return (
-      <Card>
+      <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-2xl">
         <CardContent className="p-6 text-center">
           <p>You must be logged in to view your settings.</p>
         </CardContent>
@@ -91,15 +91,15 @@ export default function SettingsPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Settings</CardTitle>
-        <CardDescription>Manage your application preferences.</CardDescription>
+        <CardTitle className="text-slate-800 dark:text-slate-200">Settings</CardTitle>
+        <CardDescription className="text-slate-600 dark:text-slate-300">Manage your application preferences.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
         <div className="space-y-4">
             <div className="flex items-start gap-4">
                 <Languages className="h-6 w-6 text-primary mt-1" />
                 <div>
-                    <h3 className="text-lg font-semibold">Language</h3>
+                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Language</h3>
                     <p className="text-muted-foreground text-sm">Choose the language for application text and chat translation.</p>
                 </div>
             </div>
@@ -122,7 +122,7 @@ export default function SettingsPage() {
             <div className="flex items-start gap-4">
                 <Bell className="h-6 w-6 text-primary mt-1" />
                 <div>
-                    <h3 className="text-lg font-semibold">Notifications</h3>
+                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Notifications</h3>
                     <p className="text-muted-foreground text-sm">Manage how you receive notifications.</p>
                 </div>
             </div>

@@ -23,6 +23,11 @@
     --border: 210 20% 90%;
     --input: 210 20% 95%;
     --ring: 210 85% 45%;
+    --overlay: 0 0% 0%;
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 98%;
+    --warning: 45 93% 47%;
+    --warning-foreground: 0 0% 98%;
     --chart-1: 210 85% 45%;
     --chart-2: 155 65% 35%;
     --chart-3: 35 85% 55%;
@@ -37,6 +42,19 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 240 5.9% 90%;
     --sidebar-ring: 346.8 77.2% 49.8%;
+    --gradient-bg-start: 210 40% 98%;
+    --gradient-bg-middle: 180 40% 98%;
+    --gradient-bg-end: 160 40% 98%;
+    --brand-indigo: 231 48% 48%;
+    --brand-indigo-text: 231 48% 38%;
+    --brand-purple: 262 83% 58%;
+    --brand-purple-text: 262 83% 48%;
+    --brand-blue: 217 91% 60%;
+    --brand-blue-text: 217 91% 50%;
+    --brand-green: 142 76% 36%;
+    --brand-green-text: 142 76% 26%;
+    --brand-yellow: 45 93% 47%;
+    --brand-yellow-text: 45 93% 37%;
   }
   .dark {
     --background: 215 25% 5%;
@@ -58,6 +76,11 @@
     --border: 215 15% 20%;
     --input: 215 15% 15%;
     --ring: 210 85% 55%;
+    --overlay: 0 0% 0%;
+    --success: 142 76% 46%;
+    --success-foreground: 0 0% 98%;
+    --warning: 45 93% 57%;
+    --warning-foreground: 0 0% 98%;
     --chart-1: 210 85% 55%;
     --chart-2: 155 65% 45%;
     --chart-3: 35 85% 65%;
@@ -71,6 +94,19 @@
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 0 0% 14.9%;
     --sidebar-ring: 0 0% 98%;
+    --gradient-bg-start: 215 25% 9%;
+    --gradient-bg-middle: 210 85% 15%;
+    --gradient-bg-end: 160 65% 15%;
+    --brand-indigo: 231 48% 58%;
+    --brand-indigo-text: 231 48% 68%;
+    --brand-purple: 262 83% 68%;
+    --brand-purple-text: 262 83% 78%;
+    --brand-blue: 217 91% 70%;
+    --brand-blue-text: 217 91% 80%;
+    --brand-green: 142 76% 46%;
+    --brand-green-text: 142 76% 56%;
+    --brand-yellow: 45 93% 57%;
+    --brand-yellow-text: 45 93% 67%;
   }
 }
 
@@ -256,6 +292,10 @@
   /* Gradient backgrounds for different sections */
   .gradient-primary {
     @apply bg-gradient-to-br from-blue-50 via-cyan-50 to-emerald-50;
+  }
+
+  .gradient-bg {
+    background: linear-gradient(to bottom right, hsl(var(--gradient-bg-start)), hsl(var(--gradient-bg-middle)), hsl(var(--gradient-bg-end)));
   }
 
   .gradient-secondary {

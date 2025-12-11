@@ -223,23 +223,23 @@ export default function FindShelterPage() {
                             ))}
                         </SelectContent>
                     </Select>
-                    <Button className="h-11 bg-black text-white hover:bg-gray-800" onClick={handleGetCurrentLocation} disabled={locationLoading}>
+                    <Button className="h-11 bg-black dark:bg-gray-800 text-white hover:bg-gray-800 dark:hover:bg-gray-700" onClick={handleGetCurrentLocation} disabled={locationLoading}>
                         {locationLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <LocateFixed className="mr-2 h-4 w-4" />}
                         {locationLoading ? 'Getting Location...' : 'Use Current Location'}
                     </Button>
                 </div>
-                <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-lg flex items-center gap-4">
+                <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900 border border-blue-100 dark:border-blue-700 rounded-lg flex items-center gap-4">
                     <MapPin className="h-6 w-6 text-blue-600" />
                     <div>
-                        <p className="text-sm text-blue-800 font-semibold">Your Current Location</p>
-                         {userLocation ? (
-                            <>
-                                <p className="text-xs text-blue-700">{userLocation.city}, {userLocation.state}, {userLocation.country}</p>
-                                <p className="text-xs text-blue-700/80">Coordinates: {userLocation.lat.toFixed(4)}° N, {userLocation.lon.toFixed(4)}° E</p>
-                            </>
-                        ) : (
-                            <p className="text-xs text-blue-700">Click the button above to find your location.</p>
-                        )}
+                        <p className="text-sm text-blue-800 dark:text-blue-200 font-semibold">Your Current Location</p>
+                          {userLocation ? (
+                             <>
+                                 <p className="text-xs text-blue-700 dark:text-blue-300">{userLocation.city}, {userLocation.state}, {userLocation.country}</p>
+                                 <p className="text-xs text-blue-700/80 dark:text-blue-300/80">Coordinates: {userLocation.lat.toFixed(4)}° N, {userLocation.lon.toFixed(4)}° E</p>
+                             </>
+                         ) : (
+                             <p className="text-xs text-blue-700 dark:text-blue-300">Click the button above to find your location.</p>
+                         )}
                     </div>
                 </div>
             </Card>
@@ -276,7 +276,7 @@ export default function FindShelterPage() {
                                     <div className="p-6">
                                         <div className="flex justify-between items-start">
                                             <div>
-                                                <h2 className="text-xl font-bold">{shelter.name}</h2>
+                                                <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200">{shelter.name}</h2>
                                                 <p className="text-sm text-muted-foreground">{shelter.organization} - {shelter.location}</p>
                                             </div>
                                             {shelter.securityLevel && (
@@ -297,7 +297,7 @@ export default function FindShelterPage() {
                                                     <Zap className="h-4 w-4"/>
                                                     <span>Capacity</span>
                                                 </div>
-                                                <p className="text-sm font-bold text-green-600">{shelter.availableCapacity} spaces available</p>
+                                                <p className="text-sm font-bold text-green-600 dark:text-green-400">{shelter.availableCapacity} spaces available</p>
                                             </div>
                                             <Progress value={capacityPercentage} colorClassName={getCapacityProgressColor(capacityPercentage)} />
                                             <p className="text-xs text-muted-foreground mt-1">{currentOccupancy}/{shelter.capacity} occupied ({capacityPercentage}%)</p>
@@ -321,7 +321,7 @@ export default function FindShelterPage() {
                                         </div>
 
                                         <div className="flex gap-4 mt-6">
-                                            <Button className="w-full bg-black text-white hover:bg-gray-800" onClick={() => handleGetDirections(shelter)}>
+                                            <Button className="w-full bg-black dark:bg-gray-800 text-white hover:bg-gray-800 dark:hover:bg-gray-700" onClick={() => handleGetDirections(shelter)}>
                                                 <Send className="mr-2 h-4 w-4" />
                                                 Get Directions
                                             </Button>

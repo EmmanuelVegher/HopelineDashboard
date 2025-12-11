@@ -102,7 +102,7 @@ export default function NavigatePage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-emerald-50 p-4 sm:p-6 lg:p-8">
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-emerald-50 dark:from-blue-900 dark:via-cyan-900 dark:to-emerald-900 p-4 sm:p-6 lg:p-8">
             <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
                 {/* Header Section */}
                 <div className="text-center">
@@ -112,21 +112,21 @@ export default function NavigatePage() {
                     <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-3 sm:mb-4">
                         Route Navigation
                     </h1>
-                    <p className="text-slate-600 text-sm sm:text-base lg:text-lg leading-relaxed max-w-2xl mx-auto">
+                    <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base lg:text-lg leading-relaxed max-w-2xl mx-auto">
                         Get safe, step-by-step directions to shelters and emergency locations in Bayelsa and Adamawa states
                     </p>
                 </div>
 
                 {/* Main Navigation Card */}
-                <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-2xl overflow-hidden">
+                <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-2xl overflow-hidden" data-route-section>
                     <CardHeader className="text-center sm:text-left pb-6">
                         <div className="flex items-center gap-3 mb-2">
                             <div className="bg-blue-100 p-3 rounded-2xl">
                                 <Target className="h-6 w-6 text-blue-600" />
                             </div>
                             <div>
-                                <CardTitle className="text-lg sm:text-xl font-bold text-slate-800">Choose Your Destination</CardTitle>
-                                <CardDescription className="text-sm sm:text-base text-slate-600">Select a shelter or enter a custom destination</CardDescription>
+                                <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-200">Choose Your Destination</CardTitle>
+                                <CardDescription className="text-sm sm:text-base text-slate-600 dark:text-slate-300">Select a shelter or enter a custom destination</CardDescription>
                             </div>
                         </div>
                     </CardHeader>
@@ -168,7 +168,7 @@ export default function NavigatePage() {
 
                         {/* Custom Destination */}
                         <div className="space-y-3">
-                            <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
                                 <Route className="h-4 w-4 text-green-500" />
                                 Custom Destination
                             </label>
@@ -194,15 +194,15 @@ export default function NavigatePage() {
                 </Card>
 
                 {/* Location Card */}
-                <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-2xl">
+                <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-2xl">
                     <CardHeader className="text-center sm:text-left pb-4">
                         <div className="flex items-center gap-3">
                             <div className="bg-green-100 p-3 rounded-2xl">
                                 <CheckCircle className="h-6 w-6 text-green-600" />
                             </div>
                             <div>
-                                <CardTitle className="text-lg sm:text-xl font-bold text-slate-800">Your Current Location</CardTitle>
-                                <CardDescription className="text-sm sm:text-base text-slate-600">Your starting point for navigation</CardDescription>
+                                <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-200">Your Current Location</CardTitle>
+                                <CardDescription className="text-sm sm:text-base text-slate-600 dark:text-slate-300">Your starting point for navigation</CardDescription>
                             </div>
                         </div>
                     </CardHeader>
@@ -241,7 +241,7 @@ export default function NavigatePage() {
                 </Card>
 
                 {/* Safety Tips */}
-                <Card className="bg-gradient-to-r from-orange-50 to-yellow-50 border-orange-200/50 backdrop-blur-sm shadow-lg">
+                <Card className="bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900 dark:to-yellow-900 border-orange-200/50 dark:border-orange-700/50 backdrop-blur-sm shadow-lg" data-safety-tips>
                     <CardHeader className="text-center sm:text-left">
                         <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                             <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-orange-600" />
@@ -291,19 +291,46 @@ export default function NavigatePage() {
                 </Card>
 
                 {/* Quick Actions */}
-                <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-2xl">
+                <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-2xl">
                     <CardContent className="p-6">
-                        <h3 className="font-bold text-lg text-slate-800 mb-4 text-center">Quick Actions</h3>
+                        <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-4 text-center">Quick Actions</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <Button variant="outline" className="h-12 border-2 border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 hover:scale-105">
+                            <Button
+                                variant="outline"
+                                className="h-12 border-2 border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 hover:scale-105"
+                                onClick={() => {
+                                    if (userLocation) {
+                                        const googleMapsUrl = `https://www.google.com/maps/@${userLocation.latitude},${userLocation.longitude},15z`;
+                                        window.open(googleMapsUrl, "_blank");
+                                    } else {
+                                        toast({ title: "Location needed", description: "Please get your current location first.", variant: "destructive" });
+                                    }
+                                }}
+                            >
                                 <Map className="mr-2 h-4 w-4" />
                                 View Map
                             </Button>
-                            <Button variant="outline" className="h-12 border-2 border-green-200 text-green-600 hover:bg-green-50 hover:border-green-300 transition-all duration-200 hover:scale-105">
+                            <Button
+                                variant="outline"
+                                className="h-12 border-2 border-green-200 text-green-600 hover:bg-green-50 hover:border-green-300 transition-all duration-200 hover:scale-105"
+                                onClick={() => {
+                                    // Scroll to the route finding section
+                                    document.querySelector('[data-route-section]')?.scrollIntoView({ behavior: 'smooth' });
+                                    toast({ title: "Safe Routes", description: "Use the route finder above to get safe directions to shelters." });
+                                }}
+                            >
                                 <Route className="mr-2 h-4 w-4" />
                                 Safe Routes
                             </Button>
-                            <Button variant="outline" className="h-12 border-2 border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300 transition-all duration-200 hover:scale-105">
+                            <Button
+                                variant="outline"
+                                className="h-12 border-2 border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300 transition-all duration-200 hover:scale-105"
+                                onClick={() => {
+                                    // Scroll to the safety tips section
+                                    document.querySelector('[data-safety-tips]')?.scrollIntoView({ behavior: 'smooth' });
+                                    toast({ title: "Help & Tips", description: "Check the safety tips below for navigation guidance." });
+                                }}
+                            >
                                 <Info className="mr-2 h-4 w-4" />
                                 Help & Tips
                             </Button>

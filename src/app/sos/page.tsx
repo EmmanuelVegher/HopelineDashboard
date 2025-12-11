@@ -126,7 +126,7 @@ export default function SOSPage() {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50 dark:from-red-900 dark:via-orange-900 dark:to-yellow-900 p-4 sm:p-6 lg:p-8">
       <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
         {/* Header Section */}
         <div className="text-center">
@@ -136,16 +136,16 @@ export default function SOSPage() {
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent mb-3 sm:mb-4">
             Emergency SOS
           </h1>
-          <p className="text-slate-600 text-sm sm:text-base lg:text-lg leading-relaxed max-w-2xl mx-auto">
-            Send an immediate emergency alert to CARITAS Nigeria, the Police, and local response teams in Bayelsa and Adamawa.
+          <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base lg:text-lg leading-relaxed max-w-2xl mx-auto">
+            Send an immediate emergency alert to CARITAS Nigeria, the Police, and local response teams.
           </p>
         </div>
 
         {/* SOS Button Section */}
-        <Alert className="bg-gradient-to-r from-red-50 to-orange-50 border-red-200/50 backdrop-blur-sm shadow-lg">
+        <Alert className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900 dark:to-orange-900 border-red-200/50 dark:border-red-700/50 backdrop-blur-sm shadow-lg">
           <AlertTriangle className="h-5 w-5 text-red-600" />
           <AlertTitle className="text-red-800 font-semibold">Immediate Life-Threatening Emergency?</AlertTitle>
-          <AlertDescription className="text-red-700/90">
+          <AlertDescription className="text-red-700/90 dark:text-red-300/90">
             Click the button below to send an instant SOS with your location. Your information will be sent after you click.
           </AlertDescription>
           <div className="flex justify-center mt-4 sm:mt-6">
@@ -163,7 +163,7 @@ export default function SOSPage() {
               <div className="absolute inset-2 bg-white rounded-full shadow-lg flex items-center justify-center">
                 <div className="text-center">
                   <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-red-600 mb-2">SOS</div>
-                  <div className="text-xs sm:text-sm text-slate-600 font-medium">EMERGENCY</div>
+                  <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium">EMERGENCY</div>
                 </div>
               </div>
               {isSubmitting && (
@@ -184,13 +184,13 @@ export default function SOSPage() {
         </Alert>
 
         {/* Emergency Types Grid */}
-        <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+        <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
           <CardHeader className="text-center sm:text-left">
-            <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2">
+            <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-red-500" />
               Type of Emergency
             </CardTitle>
-            <CardDescription className="text-sm sm:text-base text-slate-600">
+            <CardDescription className="text-sm sm:text-base text-slate-600 dark:text-slate-300">
               Select the emergency type to help response teams prepare appropriate assistance
             </CardDescription>
           </CardHeader>
@@ -211,7 +211,7 @@ export default function SOSPage() {
                   <div className={`p-2 sm:p-3 rounded-lg ${type.color} mb-2 transition-all duration-200 hover:scale-110`}>
                     <type.icon className="h-6 w-6 sm:h-7 sm:w-7" />
                   </div>
-                  <span className="text-xs sm:text-sm font-medium text-slate-800 leading-tight">{type.name}</span>
+                  <span className="text-xs sm:text-sm font-medium text-slate-800 dark:text-slate-200 leading-tight">{type.name}</span>
                   {selectedEmergency === type.name && (
                     <Check className="h-4 w-4 text-green-600 absolute mt-1" />
                   )}
@@ -222,13 +222,13 @@ export default function SOSPage() {
         </Card>
         
         {/* Additional Information */}
-        <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+        <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
           <CardHeader className="text-center sm:text-left">
-            <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2">
+            <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
               <FileText className="h-5 w-5 text-blue-500" />
               Additional Information (Optional)
             </CardTitle>
-            <CardDescription className="text-sm sm:text-base text-slate-600">
+            <CardDescription className="text-sm sm:text-base text-slate-600 dark:text-slate-300">
               Provide any extra details to help responders understand your situation
             </CardDescription>
           </CardHeader>
@@ -245,7 +245,7 @@ export default function SOSPage() {
         {/* Location and USSD Info */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* Location Card */}
-          <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200/50 backdrop-blur-sm shadow-lg">
+          <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900 dark:to-cyan-900 border-blue-200/50 dark:border-blue-700/50 backdrop-blur-sm shadow-lg">
             <CardHeader className="flex flex-row items-center gap-3 pb-3">
               <div className="bg-blue-100 p-2 rounded-xl">
                 <MapPin className="h-5 w-5 text-blue-600" />
@@ -294,7 +294,7 @@ export default function SOSPage() {
           </Card>
           
           {/* USSD Card */}
-          <Card className="bg-gradient-to-br from-yellow-50 to-amber-50 border-yellow-200/50 backdrop-blur-sm shadow-lg">
+          <Card className="bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900 dark:to-amber-900 border-yellow-200/50 dark:border-yellow-700/50 backdrop-blur-sm shadow-lg">
             <CardHeader className="flex flex-row items-center gap-3 pb-3">
               <div className="bg-yellow-100 p-2 rounded-xl">
                 <Phone className="h-5 w-5 text-yellow-600" />
@@ -338,15 +338,15 @@ export default function SOSPage() {
         </div>
 
         {/* Emergency Instructions */}
-        <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200/50 backdrop-blur-sm shadow-lg">
+        <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 border-green-200/50 dark:border-green-700/50 backdrop-blur-sm shadow-lg">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-start gap-3">
               <div className="bg-green-100 p-2 rounded-lg">
                 <CheckCircle className="h-5 w-5 text-green-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-green-800 mb-2">What happens next?</h3>
-                <ul className="text-sm text-green-700 space-y-1">
+                <h3 className="font-semibold text-green-800 dark:text-green-200 mb-2">What happens next?</h3>
+                <ul className="text-sm text-green-700 dark:text-green-300 space-y-1">
                   <li>• Your location and emergency details are sent to response teams</li>
                   <li>• Local authorities and CARITAS Nigeria are notified</li>
                   <li>• You should receive confirmation within 30 seconds</li>

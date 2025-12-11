@@ -55,7 +55,7 @@ export type Shelter = {
       name: string;
       details: string;
       userId?: string;
-      status: 'Moving to Shelter' | 'Needs Assistance' | 'Emergency' | 'Safe';
+      status: 'Moving to Shelter' | 'Needs Assistance' | 'Emergency' | 'Safe' | 'Eligible for Shelter';
       currentLocation: string;
       destination?: string;
       vulnerabilities: string[];
@@ -69,7 +69,9 @@ export type Shelter = {
           mattress?: boolean;
           foodPack?: boolean;
           hygieneKit?: boolean;
-      }
+      };
+      surveyCompleted?: boolean;
+      surveyId?: string;
   }
   
   export type UserProfile = {
@@ -87,6 +89,8 @@ export type Shelter = {
       mobile: number;
       profileCompleted: number;
       language?: string;
+      state?: string;
+      location?: string;
       // Location streaming data
       latitude?: number;
       longitude?: number;

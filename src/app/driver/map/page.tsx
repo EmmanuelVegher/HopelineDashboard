@@ -43,7 +43,7 @@ export default function DriverMapPage() {
   const [selectedTask, setSelectedTask] = useState<MapTask | null>(null);
   console.log("DriverMapPage: selectedTask:", selectedTask);
   const [mapView, setMapView] = useState<'all' | 'active' | 'resolved'>('all');
-  const [driverLocation, setDriverLocation] = useState<DriverLocation | null>(null);
+  const [driverLocation, setDriverLocation] = useState<DriverLocation | undefined>(undefined);
   const [trackingStats, setTrackingStats] = useState<TrackingStats>({
     speed: 0,
     distanceTraveled: 0,
@@ -51,6 +51,9 @@ export default function DriverMapPage() {
     startTime: null,
     lastPosition: null,
   });
+  const [isTracking, setIsTracking] = useState(false);
+  const [trackingPath, setTrackingPath] = useState<[number, number][]>([]);
+  const [followDriver, setFollowDriver] = useState(false);
   const { toast } = useToast();
 
   // Initialize geolocation and location streaming hooks
@@ -253,6 +256,58 @@ export default function DriverMapPage() {
     return () => unsubscribe();
   }, [userId]);
 
+  // Handle live tracking location updates
+  useEffect(() => {
+    if (isTracking && geolocation.state.position) {
+      const currentPos = geolocation.state.position;
+      const [lat, lng] = [currentPos.coords.latitude, currentPos.coords.longitude];
+
+      // Add current position to tracking path
+      setTrackingPath(prev => {
+        const newPath = [...prev];
+        // Only add if it's significantly different from the last point
+        if (newPath.length === 0 ||
+            calculateDistance(newPath[newPath.length - 1][0], newPath[newPath.length - 1][1], lat, lng) > 10) { // 10 meters minimum
+          newPath.push([lat, lng]);
+        }
+        return newPath;
+      });
+
+      // Update tracking statistics
+      const lastPos = trackingStats.lastPosition;
+      let newDistance = trackingStats.distanceTraveled;
+      let newSpeed = 0;
+
+      if (lastPos) {
+        const distanceIncrement = calculateDistance(
+          lastPos.coords.latitude,
+          lastPos.coords.longitude,
+          currentPos.coords.latitude,
+          currentPos.coords.longitude
+        );
+        newDistance += distanceIncrement;
+
+        // Calculate speed (m/s) if we have time difference
+        const timeDiff = (currentPos.timestamp - lastPos.timestamp) / 1000; // seconds
+        if (timeDiff > 0) {
+          newSpeed = distanceIncrement / timeDiff;
+        }
+      }
+
+      const timeElapsed = trackingStats.startTime
+        ? (Date.now() - trackingStats.startTime.getTime()) / 1000
+        : 0;
+
+      setTrackingStats(prev => ({
+        ...prev,
+        speed: newSpeed,
+        distanceTraveled: newDistance,
+        timeElapsed,
+        lastPosition: currentPos,
+      }));
+    }
+  }, [isTracking, geolocation.state.position, trackingStats.lastPosition, trackingStats.startTime, calculateDistance]);
+
   const filteredTasks = tasks.filter(task => {
     switch (mapView) {
       case 'active':
@@ -348,6 +403,83 @@ export default function DriverMapPage() {
     }
   };
 
+  const handleStartTracking = useCallback(async () => {
+    try {
+      console.log('[handleStartTracking] Starting location tracking...');
+      console.log('[handleStartTracking] Current permission state:', geolocation.state.permission);
+
+      // Always request permission first to ensure we have the latest state
+      const permission = await geolocation.requestPermission();
+      console.log('[handleStartTracking] Permission result:', permission);
+
+      if (permission !== 'granted') {
+        // Provide specific guidance based on permission state
+        let errorMessage = 'Location permission required for tracking.';
+        if (permission === 'denied') {
+          errorMessage += ' Please enable location access in your browser settings and refresh the page.';
+        } else if (permission === 'prompt') {
+          errorMessage += ' Please allow location access when prompted.';
+        }
+        throw new Error(errorMessage);
+      }
+
+      // Start geolocation watching
+      console.log('[handleStartTracking] Starting geolocation watching...');
+      geolocation.startWatching();
+
+      // Initialize tracking
+      setIsTracking(true);
+      setTrackingPath([]); // Clear previous path
+      setFollowDriver(true); // Enable following by default
+
+      setTrackingStats(prev => ({
+        ...prev,
+        startTime: new Date(),
+        speed: 0,
+        distanceTraveled: 0,
+        timeElapsed: 0,
+        lastPosition: geolocation.state.position,
+      }));
+
+      toast({
+        title: 'Live Tracking Started',
+        description: 'Your location is now being tracked in real-time.',
+      });
+
+      console.log('[handleStartTracking] Live tracking started successfully');
+    } catch (error) {
+      console.error('Error starting tracking:', error);
+      toast({
+        title: 'Tracking Failed',
+        description: error instanceof Error ? error.message : 'Failed to start location tracking. Please check your browser settings.',
+        variant: 'destructive',
+      });
+    }
+  }, [geolocation, toast]);
+
+  const handleStopTracking = useCallback(() => {
+    geolocation.stopWatching();
+    setIsTracking(false);
+    setFollowDriver(false);
+    setTrackingStats(prev => ({
+      ...prev,
+      startTime: null,
+    }));
+    toast({
+      title: 'Live Tracking Stopped',
+      description: 'Location tracking has been stopped.',
+    });
+  }, [geolocation]);
+
+  const handleLocationError = useCallback((error: string) => {
+    console.error('Location error:', error);
+    toast({
+      title: 'Location Error',
+      description: error,
+      variant: 'destructive',
+    });
+  }, [toast]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -429,6 +561,11 @@ export default function DriverMapPage() {
                     ? [driverLocation.latitude, driverLocation.longitude]
                     : undefined
                 }
+                // Live tracking props
+                isTracking={isTracking}
+                trackingPath={trackingPath}
+                followDriver={followDriver}
+                onLocationError={handleLocationError}
                 onRoutingError={(error) => {
                   toast({
                     title: 'Routing Error',
@@ -449,37 +586,96 @@ export default function DriverMapPage() {
               <CardTitle className="flex items-center gap-2">
                 <Activity className="h-5 w-5" />
                 Live Tracking
+                {isTracking && (
+                  <Badge variant="default" className="ml-auto">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-1"></div>
+                    Active
+                  </Badge>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-2">
-                {/* Location streaming removed to prevent browser crashes */}
-                <Button
-                  disabled
-                  className="flex-1"
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  Tracking Disabled
-                </Button>
+                {!isTracking ? (
+                  <Button
+                    onClick={handleStartTracking}
+                    className="flex-1"
+                    disabled={!geolocation.state.isSupported || geolocation.state.permission === 'denied'}
+                  >
+                    <Play className="h-4 w-4 mr-2" />
+                    {geolocation.state.permission === 'denied' ? 'Location Blocked' : 'Start Live Tracking'}
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleStopTracking}
+                    variant="destructive"
+                    className="flex-1"
+                  >
+                    <Square className="h-4 w-4 mr-2" />
+                    Stop Tracking
+                  </Button>
+                )}
               </div>
 
-              {geolocation.state.position && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Current Location:</span>
-                    <span className="font-mono text-xs">
-                      {geolocation.state.position.coords.latitude.toFixed(4)},
-                      {geolocation.state.position.coords.longitude.toFixed(4)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Accuracy:</span>
-                    <Badge variant={geolocation.state.position.coords.accuracy < 50 ? "default" : "secondary"}>
-                      ±{Math.round(geolocation.state.position.coords.accuracy)}m
-                    </Badge>
-                  </div>
+              {!geolocation.state.isSupported && (
+                <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
+                  Geolocation is not supported in this browser.
                 </div>
               )}
+
+              {/* Follow Driver Toggle */}
+              {isTracking && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Follow Driver</span>
+                  <Button
+                    variant={followDriver ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setFollowDriver(!followDriver)}
+                  >
+                    {followDriver ? "On" : "Off"}
+                  </Button>
+                </div>
+              )}
+
+              {/* Permission Status */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Location Permission:</span>
+                  <Badge variant={
+                    geolocation.state.permission === 'granted' ? 'default' :
+                    geolocation.state.permission === 'denied' ? 'destructive' :
+                    geolocation.state.permission === 'prompt' ? 'secondary' : 'outline'
+                  }>
+                    {geolocation.state.permission === 'granted' ? 'Granted' :
+                     geolocation.state.permission === 'denied' ? 'Denied' :
+                     geolocation.state.permission === 'prompt' ? 'Prompt' : 'Unknown'}
+                  </Badge>
+                </div>
+
+                {geolocation.state.permission === 'denied' && (
+                  <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
+                    Location access is blocked. Click the lock icon in your browser's address bar and allow location access.
+                  </div>
+                )}
+
+                {geolocation.state.position && (
+                  <>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Current Location:</span>
+                      <span className="font-mono text-xs">
+                        {geolocation.state.position.coords.latitude.toFixed(4)},
+                        {geolocation.state.position.coords.longitude.toFixed(4)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Accuracy:</span>
+                      <Badge variant={geolocation.state.position.coords.accuracy < 50 ? "default" : "secondary"}>
+                        ±{Math.round(geolocation.state.position.coords.accuracy)}m
+                      </Badge>
+                    </div>
+                  </>
+                )}
+              </div>
 
               {/* Location streaming removed to prevent browser crashes */}
               {/* {locationStreaming.state.error && (
@@ -490,9 +686,8 @@ export default function DriverMapPage() {
             </CardContent>
           </Card>
 
-          {/* Location streaming removed to prevent browser crashes */}
           {/* Tracking Statistics */}
-          {/* {locationStreaming.state.isStreaming && (
+          {isTracking && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -524,9 +719,13 @@ export default function DriverMapPage() {
                     {Math.floor(trackingStats.timeElapsed / 60)}:{(trackingStats.timeElapsed % 60).toFixed(0).padStart(2, '0')}
                   </span>
                 </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Path Points</span>
+                  <span className="font-semibold">{trackingPath.length}</span>
+                </div>
               </CardContent>
             </Card>
-          )} */}
+          )}
 
           {/* Task Selection */}
           {filteredTasks.length > 0 && (
@@ -659,11 +858,12 @@ export default function DriverMapPage() {
                           size="sm"
                           className="flex-1"
                           onClick={() => {
-                            // Start Trip - update status to In Transit
+                            // Start Trip - update status to In Transit and start tracking
                             updateTaskStatus(selectedTask.id, 'In Transit');
+                            handleStartTracking();
                             toast({
                               title: 'Trip Started',
-                              description: 'Task is now in progress.',
+                              description: 'Live tracking and navigation have begun.',
                             });
                           }}
                         >

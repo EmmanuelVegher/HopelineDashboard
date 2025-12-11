@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { TranslationProvider } from './contexts/TranslationProvider';
 import RootLayout from './app/layout';
 import HomePage from './app/page';
 import LoginPage from './app/login/page';
@@ -14,6 +15,7 @@ import NavigateLayout from './app/navigate/layout';
 import NavigatePage from './app/navigate/page';
 import ProfileLayout from './app/profile/layout';
 import ProfilePage from './app/profile/page';
+import DashboardProfilePage from './app/dashboard/profile/page';
 import SettingsLayout from './app/settings/layout';
 import SettingsPage from './app/settings/page';
 import SosLayout from './app/sos/layout';
@@ -35,61 +37,92 @@ import DriverProfilePage from './app/driver/profile/page';
 import DriverSettingsPage from './app/driver/settings/page';
 import DriverHistoryPage from './app/driver/history/page';
 import DriverMapPage from './app/driver/map/page';
+import SupportAgentLayout from './app/support-agent/layout';
+import SupportAgentDashboard from './app/support-agent/page';
+import SupportAgentChatsPage from './app/support-agent/chats/page';
+import IndividualChatPage from './app/support-agent/chats/[id]/page';
+import SupportAgentCallsPage from './app/support-agent/calls/page';
+import SupportAgentHistoryPage from './app/support-agent/history/page';
+import SupportAgentMapPage from './app/support-agent/map/page';
+import SupportAgentProfilePage from './app/support-agent/profile/page';
+import SupportAgentSettingsPage from './app/support-agent/settings/page';
+import SupportAgentNotificationsPage from './app/support-agent/notifications/page';
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<RootLayout />}>
-          <Route index element={<HomePage />} />
-          <Route path="login" element={<LoginPage />} />
-          <Route path="signup" element={<SignupPage />} />
-          <Route path="forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="dashboard" element={<DashboardLayout />}>
-            <Route index element={<DashboardPage />} />
+    <TranslationProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<RootLayout />}>
+            <Route index element={<HomePage />} />
+            <Route path="login" element={<LoginPage />} />
+            <Route path="signup" element={<SignupPage />} />
+            <Route path="forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="dashboard" element={<DashboardLayout />}>
+              <Route index element={<DashboardPage />} />
+              <Route path="assistance" element={<AssistancePage />} />
+              <Route path="find-shelter" element={<FindShelterPage />} />
+              <Route path="navigate" element={<NavigatePage />} />
+              <Route path="profile" element={<DashboardProfilePage />} />
+              <Route path="settings" element={<SettingsPage />} />
+              <Route path="sos" element={<SosPage />} />
+              <Route path="weather" element={<WeatherPage />} />
+            </Route>
+            {/* Keep individual routes for backward compatibility */}
+            <Route path="assistance" element={<DashboardLayout />}>
+              <Route index element={<AssistancePage />} />
+            </Route>
+            <Route path="find-shelter" element={<DashboardLayout />}>
+              <Route index element={<FindShelterPage />} />
+            </Route>
+            <Route path="navigate" element={<DashboardLayout />}>
+              <Route index element={<NavigatePage />} />
+            </Route>
+            <Route path="profile" element={<DashboardLayout />}>
+              <Route index element={<ProfilePage />} />
+            </Route>
+            <Route path="settings" element={<DashboardLayout />}>
+              <Route index element={<SettingsPage />} />
+            </Route>
+            <Route path="sos" element={<DashboardLayout />}>
+              <Route index element={<SosPage />} />
+            </Route>
+            <Route path="weather" element={<DashboardLayout />}>
+              <Route index element={<WeatherPage />} />
+            </Route>
+            <Route path="driver" element={<DriverLayout />}>
+              <Route index element={<DriverMapPage />} />
+              <Route path="profile" element={<DriverProfilePage />} />
+              <Route path="settings" element={<DriverSettingsPage />} />
+              <Route path="history" element={<DriverHistoryPage />} />
+              <Route path="map" element={<DriverMapPage />} />
+            </Route>
+            <Route path="support-agent" element={<SupportAgentLayout />}>
+              <Route index element={<SupportAgentDashboard />} />
+              <Route path="chats" element={<SupportAgentChatsPage />} />
+              <Route path="chats/:id" element={<IndividualChatPage />} />
+              <Route path="calls" element={<SupportAgentCallsPage />} />
+              <Route path="history" element={<SupportAgentHistoryPage />} />
+              <Route path="map" element={<SupportAgentMapPage />} />
+              <Route path="profile" element={<SupportAgentProfilePage />} />
+              <Route path="settings" element={<SupportAgentSettingsPage />} />
+              <Route path="notifications" element={<SupportAgentNotificationsPage />} />
+            </Route>
+            <Route path="shelter/:id" element={<ShelterPage />} />
+            <Route path="admin" element={<AdminLayout />}>
+              <Route index element={<AdminPage />} />
+              <Route path="profile" element={<AdminProfilePage />} />
+              <Route path="contact-management" element={<ContactManagementPage />} />
+              <Route path="displaced-persons" element={<DisplacedPersonsPage />} />
+              <Route path="track-drivers" element={<TrackDriversPage />} />
+              <Route path="track-shelter" element={<TrackShelterPage />} />
+              <Route path="user-management" element={<UserManagementPage />} />
+              <Route path="vehicle-management" element={<VehicleManagementPage />} />
+            </Route>
           </Route>
-          <Route path="assistance" element={<AssistanceLayout />}>
-            <Route index element={<AssistancePage />} />
-          </Route>
-          <Route path="find-shelter" element={<FindShelterLayout />}>
-            <Route index element={<FindShelterPage />} />
-          </Route>
-          <Route path="navigate" element={<NavigateLayout />}>
-            <Route index element={<NavigatePage />} />
-          </Route>
-          <Route path="profile" element={<ProfileLayout />}>
-            <Route index element={<ProfilePage />} />
-          </Route>
-          <Route path="settings" element={<SettingsLayout />}>
-            <Route index element={<SettingsPage />} />
-          </Route>
-          <Route path="sos" element={<SosLayout />}>
-            <Route index element={<SosPage />} />
-          </Route>
-          <Route path="weather" element={<WeatherLayout />}>
-            <Route index element={<WeatherPage />} />
-          </Route>
-          <Route path="driver" element={<DriverLayout />}>
-            <Route index element={<DriverMapPage />} />
-            <Route path="profile" element={<DriverProfilePage />} />
-            <Route path="settings" element={<DriverSettingsPage />} />
-            <Route path="history" element={<DriverHistoryPage />} />
-            <Route path="map" element={<DriverMapPage />} />
-          </Route>
-          <Route path="shelter/:id" element={<ShelterPage />} />
-          <Route path="admin" element={<AdminLayout />}>
-            <Route index element={<AdminPage />} />
-            <Route path="profile" element={<AdminProfilePage />} />
-            <Route path="contact-management" element={<ContactManagementPage />} />
-            <Route path="displaced-persons" element={<DisplacedPersonsPage />} />
-            <Route path="track-drivers" element={<TrackDriversPage />} />
-            <Route path="track-shelter" element={<TrackShelterPage />} />
-            <Route path="user-management" element={<UserManagementPage />} />
-            <Route path="vehicle-management" element={<VehicleManagementPage />} />
-          </Route>
-        </Route>
-      </Routes>
-    </Router>
+        </Routes>
+      </Router>
+    </TranslationProvider>
   );
 }
 

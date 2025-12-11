@@ -25,6 +25,11 @@ interface GoogleMapProps {
   driverLocation?: DriverLocation;
   defaultCenter?: [number, number];
   onRoutingError?: (error: string) => void;
+  // Live tracking props
+  isTracking?: boolean;
+  trackingPath?: [number, number][];
+  followDriver?: boolean;
+  onLocationError?: (error: string) => void;
   className?: string;
 }
 
@@ -38,6 +43,11 @@ export default function GoogleMap({
   driverLocation,
   defaultCenter = [6.5244, 3.3792], // Lagos, Nigeria
   onRoutingError,
+  // Live tracking props
+  isTracking = false,
+  trackingPath = [],
+  followDriver = false,
+  onLocationError,
   className = 'h-96 w-full',
 }: GoogleMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -45,8 +55,12 @@ export default function GoogleMap({
   const markersRef = useRef<google.maps.Marker[]>([]);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const directionsServiceRef = useRef<google.maps.DirectionsService | null>(null);
+  const trackingMarkerRef = useRef<google.maps.Marker | null>(null);
+  const trackingPathRef = useRef<google.maps.Polyline | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [billingError, setBillingError] = useState<string | null>(null);
+  const [currentTrackingPosition, setCurrentTrackingPosition] = useState<[number, number] | null>(null);
 
   // Initialize Google Maps using the new functional API
   useEffect(() => {
@@ -72,12 +86,30 @@ export default function GoogleMap({
       console.log('Google Maps script loaded successfully');
       setIsLoaded(true);
       setLoadError(null);
+      setBillingError(null);
     };
 
     script.onerror = (error) => {
       console.error('Error loading Google Maps script:', error);
       setLoadError('Failed to load Google Maps. Please check your API key and network connection.');
+      setBillingError(null);
     };
+
+    // Add global error handler for Google Maps billing errors
+    const handleGoogleMapsError = (event: ErrorEvent) => {
+      if (event.error && (
+        event.error.message?.includes('BillingNotEnabledMapError') ||
+        event.error.message?.includes('billing') ||
+        event.error.message?.includes('This API project is not authorized to use this API')
+      )) {
+        console.error('Google Maps billing error detected:', event.error);
+        setBillingError('Google Maps billing is not enabled for this API key. Please enable billing in your Google Cloud Console and ensure the Maps API is activated.');
+        setLoadError(null);
+        setIsLoaded(false);
+      }
+    };
+
+    window.addEventListener('error', handleGoogleMapsError);
 
     // Check if script is already loaded
     const existingScript = document.querySelector(`script[src*="maps.googleapis.com"]`);
@@ -147,9 +179,21 @@ export default function GoogleMap({
         }
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error initializing Google Map:', error);
-      setLoadError('Failed to initialize map.');
+
+      // Check for billing-related errors
+      if (error?.message?.includes('BillingNotEnabledMapError') ||
+          error?.message?.includes('billing') ||
+          error?.message?.includes('This API project is not authorized to use this API') ||
+          error?.message?.includes('Geocoding API') ||
+          error?.message?.includes('Maps API')) {
+        setBillingError('Google Maps billing is not enabled for this API key. Please enable billing in your Google Cloud Console and ensure the Maps API is activated.');
+        setLoadError(null);
+      } else {
+        setLoadError('Failed to initialize map.');
+        setBillingError(null);
+      }
     }
   }, [isLoaded, defaultCenter, driverLocation]);
 
@@ -275,8 +319,17 @@ export default function GoogleMap({
         markersRef.current.push(currentLocationMarker);
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating markers:', error);
+
+      // Check for billing-related errors during marker operations
+      if (error?.message?.includes('BillingNotEnabledMapError') ||
+          error?.message?.includes('billing') ||
+          error?.message?.includes('This API project is not authorized to use this API')) {
+        setBillingError('Google Maps billing is not enabled for this API key. Please enable billing in your Google Cloud Console and ensure the Maps API is activated.');
+        setLoadError(null);
+        setIsLoaded(false);
+      }
     }
   }, [isLoaded, driverLocation, selectedTask, showCurrentLocation, currentPosition, currentLocationAccuracy, createCarIcon]);
 
@@ -301,8 +354,60 @@ export default function GoogleMap({
             directionsRendererRef.current.setMap(null);
             directionsRendererRef.current.setMap(googleMapRef.current);
           }
+
+          // Provide more helpful error messages
+          let errorMessage = 'Unable to calculate route';
+          let showFallbackLine = false;
+
+          switch (status) {
+            case 'REQUEST_DENIED':
+              errorMessage = 'Directions API not enabled. Please enable the Directions API in Google Cloud Console for your API key.';
+              showFallbackLine = true; // Show straight line as fallback
+              break;
+            case 'OVER_QUERY_LIMIT':
+              errorMessage = 'Too many routing requests. Please try again later.';
+              showFallbackLine = true;
+              break;
+            case 'NOT_FOUND':
+              errorMessage = 'Route not found between these locations.';
+              showFallbackLine = true;
+              break;
+            case 'ZERO_RESULTS':
+              errorMessage = 'No driving route available between these points.';
+              showFallbackLine = true;
+              break;
+            default:
+              errorMessage = `Unable to calculate route: ${status}`;
+              showFallbackLine = true;
+          }
+
+          // Show fallback straight line for routing errors
+          if (showFallbackLine && currentPosition && destination) {
+            const fallbackLine = new google.maps.Polyline({
+              path: [
+                { lat: currentPosition[0], lng: currentPosition[1] },
+                { lat: destination[0], lng: destination[1] }
+              ],
+              geodesic: true,
+              strokeColor: '#6b7280', // Gray fallback line
+              strokeOpacity: 0.6,
+              strokeWeight: 3,
+              strokeDashArray: [10, 5], // Dashed line to indicate it's not a real route
+              map: googleMapRef.current,
+            });
+
+            // Store fallback line for cleanup
+            if (!directionsRendererRef.current) {
+              directionsRendererRef.current = {
+                setMap: (map: google.maps.Map | null) => {
+                  fallbackLine.setMap(map);
+                },
+              } as any;
+            }
+          }
+
           if (onRoutingError) {
-            onRoutingError(`Unable to calculate route: ${status}`);
+            onRoutingError(errorMessage);
           }
         }
       });
@@ -314,6 +419,89 @@ export default function GoogleMap({
       }
     }
   }, [isLoaded, currentPosition, destination, onRoutingError]);
+
+  // Handle live tracking marker
+  useEffect(() => {
+    if (!isLoaded || !googleMapRef.current) return;
+
+    if (isTracking && currentPosition) {
+      const [lat, lng] = currentPosition;
+
+      // Create or update tracking marker
+      if (!trackingMarkerRef.current) {
+        trackingMarkerRef.current = new google.maps.Marker({
+          position: { lat, lng },
+          map: googleMapRef.current,
+          icon: createCarIcon('#f59e0b'), // Orange for tracking
+          title: 'Live Tracking',
+          zIndex: 1000, // Ensure it appears on top
+        });
+
+        // Add info window for tracking marker
+        const trackingInfoWindow = new google.maps.InfoWindow({
+          content: `<div style="padding: 8px; min-width: 200px;">
+              <h3 style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">🚗 Live Tracking Active</h3>
+              <div style="font-size: 14px; line-height: 1.4;">
+                <p><strong>Coordinates:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
+                <p><strong>Status:</strong> <span style="margin-left: 4px; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; background-color: #fef3c7; color: #92400e;">In Transit</span></p>
+                <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">📍 Real-time location updates</p>
+              </div>
+            </div>`,
+        });
+
+        trackingMarkerRef.current.addListener('click', () => {
+          trackingInfoWindow.open(googleMapRef.current, trackingMarkerRef.current);
+        });
+      } else {
+        // Animate marker to new position
+        const newPosition = new google.maps.LatLng(lat, lng);
+        trackingMarkerRef.current.setPosition(newPosition);
+      }
+
+      setCurrentTrackingPosition(currentPosition);
+
+      // Follow driver if enabled
+      if (followDriver && googleMapRef.current) {
+        googleMapRef.current.panTo({ lat, lng });
+      }
+    } else {
+      // Remove tracking marker when not tracking
+      if (trackingMarkerRef.current) {
+        trackingMarkerRef.current.setMap(null);
+        trackingMarkerRef.current = null;
+      }
+      setCurrentTrackingPosition(null);
+    }
+  }, [isLoaded, isTracking, currentPosition, followDriver, createCarIcon]);
+
+  // Handle tracking path visualization
+  useEffect(() => {
+    if (!isLoaded || !googleMapRef.current) return;
+
+    if (isTracking && trackingPath.length > 1) {
+      // Create or update tracking path
+      const pathCoordinates = trackingPath.map(([lat, lng]) => ({ lat, lng }));
+
+      if (!trackingPathRef.current) {
+        trackingPathRef.current = new google.maps.Polyline({
+          path: pathCoordinates,
+          geodesic: true,
+          strokeColor: '#f59e0b', // Orange path
+          strokeOpacity: 0.8,
+          strokeWeight: 4,
+          map: googleMapRef.current,
+        });
+      } else {
+        trackingPathRef.current.setPath(pathCoordinates);
+      }
+    } else {
+      // Remove tracking path when not tracking or insufficient points
+      if (trackingPathRef.current) {
+        trackingPathRef.current.setMap(null);
+        trackingPathRef.current = null;
+      }
+    }
+  }, [isLoaded, isTracking, trackingPath]);
 
   // Center map on selected task or driver location
   useEffect(() => {
@@ -333,11 +521,35 @@ export default function GoogleMap({
       };
     }
 
-    if (center) {
+    if (center && !followDriver) { // Don't center if following driver
       googleMapRef.current.setCenter(center);
       googleMapRef.current.setZoom(15);
     }
-  }, [isLoaded, selectedTask, driverLocation]);
+  }, [isLoaded, selectedTask, driverLocation, followDriver]);
+
+  if (billingError) {
+    return (
+      <div className={cn(className, "flex items-center justify-center bg-gradient-to-br from-orange-50 to-red-50 rounded-lg border border-orange-200")}>
+        <div className="text-center p-6 max-w-md">
+          <div className="text-orange-500 text-3xl mb-4">💳</div>
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">Google Maps Billing Required</h3>
+          <p className="text-sm text-gray-600 mb-4">{billingError}</p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <h4 className="text-sm font-medium text-blue-800 mb-2">How to fix this:</h4>
+            <ol className="text-xs text-blue-700 text-left space-y-1">
+              <li>1. Go to <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-900">Google Cloud Console</a></li>
+              <li>2. Enable billing for your project</li>
+              <li>3. Enable the Maps JavaScript API</li>
+              <li>4. Check your API key restrictions</li>
+            </ol>
+          </div>
+          <p className="text-xs text-gray-500">
+            The map functionality will be restored once billing is properly configured.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (loadError) {
     return (
