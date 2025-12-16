@@ -9,14 +9,15 @@ import { Send, Phone, MessageSquare, Video, Mic, Paperclip, Clock, Languages, He
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { auth, db } from "@/lib/firebase"
-import { collection, query, where, getDocs, addDoc, onSnapshot, orderBy, serverTimestamp, Timestamp, doc, setDoc, limit, getDoc } from "firebase/firestore"
+import { auth, db, functions } from "@/lib/firebase"
+import { httpsCallable } from "firebase/functions"
+import { collection, query, where, getDocs, addDoc, onSnapshot, orderBy, serverTimestamp, Timestamp, doc, setDoc, limit, getDoc, runTransaction } from "firebase/firestore"
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import { useToast } from "@/hooks/use-toast"
 import { useAuthState } from "react-firebase-hooks/auth"
 import type { UserProfile } from "@/lib/data"
 import { Skeleton } from "@/components/ui/skeleton"
-import { translateText } from "@/ai/client"
+import { useTranslationContext } from "@/contexts/TranslationProvider"
 
 type Message = {
     id: string;
@@ -27,7 +28,8 @@ type Message = {
     senderEmail: string;
     senderId: string;
     timestamp: Timestamp | null;
-    translatedText?: string;
+    userTranslatedText?: string; // Translation for the user
+    agentTranslatedText?: string; // Translation for the agent
     attachments?: {
         type: 'image' | 'video' | 'audio';
         url: string;
@@ -49,6 +51,7 @@ const assistanceTypes = [
 export default function AssistancePage() {
     const [user, authLoading] = useAuthState(auth);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+    const { currentLanguage } = useTranslationContext();
     const [messages, setMessages] = useState<Message[]>([])
     const [inputValue, setInputValue] = useState('')
     const [chatId, setChatId] = useState<string | null>(null);
@@ -70,46 +73,6 @@ export default function AssistancePage() {
 
     useEffect(scrollToBottom, [messages]);
     
-    const getOrCreateChat = useCallback(async (userId: string, agent: UserProfile) => {
-        setChatLoading(true);
-        const chatsRef = collection(db, 'chats');
-        const q = query(chatsRef, where('participants', 'array-contains', userId));
-
-        try {
-            const querySnapshot = await getDocs(q);
-            let existingChat: { id: string, data: any } | null = null;
-
-            querySnapshot.forEach((doc) => {
-                const data = doc.data();
-                if (data.participants && data.participants.includes(agent.uid)) {
-                    existingChat = { id: doc.id, data };
-                }
-            });
-
-            if (existingChat) {
-                setChatId(existingChat.id);
-            } else {
-                const newChatRef = doc(collection(db, "chats"));
-                await setDoc(newChatRef, {
-                    participants: [userId, agent.uid],
-                    participantInfo: {
-                        [userId]: { email: user?.email },
-                        [agent.uid]: { email: agent.email }
-                    },
-                    createdAt: serverTimestamp(),
-                    lastMessage: "",
-                    status: "active",
-                    userId: userId,
-                    agentId: agent.uid
-                });
-                setChatId(newChatRef.id);
-            }
-        } catch (error) {
-            console.error("Error getting or creating chat:", error);
-        } finally {
-            setChatLoading(false);
-        }
-    }, [user?.email]);
 
      useEffect(() => {
         const fetchUserProfile = async () => {
@@ -125,24 +88,46 @@ export default function AssistancePage() {
     }, [user]);
 
     useEffect(() => {
-        const findSupportAgentAndInitChat = async () => {
+        const findSupportAgentAndExistingChat = async () => {
             if (user) {
-                const usersRef = collection(db, 'users');
-                const q = query(usersRef, where('role', '==', 'support agent'), where('isOnline', '==', true), where('settings.allowDirectMessages', '==', true), limit(1));
-
+                setChatLoading(true);
                 try {
-                    const agentSnapshot = await getDocs(q);
+                    // Try to find an existing chat by checking with available agents
+                    let existingChatFound = false;
+
+                    // First, find available agents
+                    const usersRef = collection(db, 'users');
+                    const agentQuery = query(usersRef, where('role', '==', 'support agent'), limit(5)); // Get a few agents
+                    const agentSnapshot = await getDocs(agentQuery);
+
                     if (!agentSnapshot.empty) {
-                        const agentData = agentSnapshot.docs[0].data() as UserProfile;
-                        setSupportAgent(agentData);
-                        getOrCreateChat(user.uid, agentData);
+                        // Try to get chat with each agent
+                        for (const agentDoc of agentSnapshot.docs) {
+                            const agentData = { ...agentDoc.data(), uid: agentDoc.id } as UserProfile;
+                            const chatIdToCheck = `${user.uid}_${agentData.uid}`;
+                            const chatDoc = await getDoc(doc(db, 'chats', chatIdToCheck));
+
+                            if (chatDoc.exists()) {
+                                // Found existing chat
+                                setChatId(chatIdToCheck);
+                                setSupportAgent(agentData);
+                                existingChatFound = true;
+                                break;
+                            }
+                        }
+
+                        if (!existingChatFound) {
+                            // No existing chat, use the first agent
+                            const agentDoc = agentSnapshot.docs[0];
+                            const agentData = { ...agentDoc.data(), uid: agentDoc.id } as UserProfile;
+                            setSupportAgent(agentData);
+                        }
                     } else {
-                        console.log("No online support agents available.");
-                        // Handle case where no agent is available
-                        setChatLoading(false);
+                        console.log("No support agents available.");
                     }
                 } catch (error) {
-                    console.error("Error finding support agent:", error);
+                    console.error("Error finding support agent or chat:", error);
+                } finally {
                     setChatLoading(false);
                 }
             } else if (!authLoading) {
@@ -150,12 +135,11 @@ export default function AssistancePage() {
             }
         };
 
-        findSupportAgentAndInitChat();
-
-    }, [user, authLoading, getOrCreateChat]);
+        findSupportAgentAndExistingChat();
+    }, [user, authLoading]);
 
     useEffect(() => {
-        if (!chatId || !user || !userProfile) return;
+        if (!chatId || !user) return;
 
         const messagesRef = collection(db, 'chats', chatId, 'messages');
         const q = query(messagesRef, orderBy('timestamp', 'asc'));
@@ -167,30 +151,10 @@ export default function AssistancePage() {
                 msgs.push({ ...data, id: doc.id });
             });
             setMessages(msgs);
-
-            // Handle translation asynchronously after setting messages
-            if (userProfile.language && userProfile.language !== 'English') {
-                msgs.forEach(async (msg, index) => {
-                    if (msg.senderId !== user.uid && msg.content && !msg.translatedText) {
-                        try {
-                            const translationResult = await translateText({ text: msg.content, targetLanguage: userProfile.language });
-                            setMessages(prevMsgs =>
-                                prevMsgs.map(m =>
-                                    m.id === msg.id
-                                        ? { ...m, translatedText: translationResult.translatedText }
-                                        : m
-                                )
-                            );
-                        } catch (error) {
-                            console.error('Translation error:', error);
-                        }
-                    }
-                });
-            }
         });
 
         return () => unsubscribe();
-    }, [chatId, user, userProfile]);
+    }, [chatId, user]);
 
 
     const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -309,15 +273,37 @@ export default function AssistancePage() {
     };
 
     const handleSend = async () => {
-        if ((!inputValue.trim() && attachments.length === 0) || !user || !chatId || sending) {
+        if ((!inputValue.trim() && attachments.length === 0) || !user || !supportAgent || sending) {
             return;
         }
 
         setSending(true);
-        const text = inputValue;
+        const originalText = inputValue;
         setInputValue('');
 
         try {
+            // Create chat if it doesn't exist
+            let currentChatId = chatId;
+            if (!currentChatId) {
+                currentChatId = `${user.uid}_${supportAgent.uid}`;
+                const chatRef = doc(db, 'chats', currentChatId);
+
+                await setDoc(chatRef, {
+                    participants: [user.uid, supportAgent.uid],
+                    participantInfo: {
+                        [user.uid]: { email: user.email },
+                        [supportAgent.uid]: { email: supportAgent.email }
+                    },
+                    createdAt: serverTimestamp(),
+                    lastMessage: "",
+                    status: "active",
+                    userId: user.uid,
+                    agentId: supportAgent.uid,
+                    userLanguage: userProfile?.language || 'English'
+                });
+                setChatId(currentChatId);
+            }
+
             let uploadedAttachments: any[] = [];
 
             if (attachments.length > 0) {
@@ -339,15 +325,57 @@ export default function AssistancePage() {
             // Filter out any undefined attachments
             const validAttachments = uploadedAttachments.filter(att => att && att.url && att.filename);
 
+            // Dual translation: translate for both user and agent
+            let userTranslatedText = originalText;
+            let agentTranslatedText = originalText;
+
+            if (originalText.trim()) {
+                // Get language preferences
+                const userLanguage = userProfile?.language || 'English';
+                const agentLanguage = (supportAgent as any)?.settings?.defaultLanguage || 'English';
+
+                console.log('Original text:', originalText);
+                console.log('User language:', userLanguage);
+                console.log('Agent language:', agentLanguage);
+
+                // Translate for user if different from English
+                if (userLanguage !== 'English') {
+                    try {
+                        const translateFunction = httpsCallable(functions, 'translateText');
+                        const result = await translateFunction({ text: originalText, targetLanguage: userLanguage });
+                        userTranslatedText = (result.data as any).translatedText;
+                        console.log('User translated text:', userTranslatedText);
+                    } catch (error) {
+                        console.error('User translation error:', error);
+                        userTranslatedText = originalText;
+                    }
+                }
+
+                // Translate for agent if different from English
+                if (agentLanguage !== 'English') {
+                    try {
+                        const translateFunction = httpsCallable(functions, 'translateText');
+                        const result = await translateFunction({ text: originalText, targetLanguage: agentLanguage });
+                        agentTranslatedText = (result.data as any).translatedText;
+                        console.log('Agent translated text:', agentTranslatedText);
+                    } catch (error) {
+                        console.error('Agent translation error:', error);
+                        agentTranslatedText = originalText;
+                    }
+                }
+            }
+
             const messageData: any = {
-                content: text || "",
+                content: originalText, // Keep original for processing
                 messageType: validAttachments.length > 0 ? "media" : "text",
-                originalText: text || "",
+                originalText: originalText,
+                userTranslatedText: userTranslatedText, // For user's display
+                agentTranslatedText: agentTranslatedText, // For agent's display
                 receiverId: receiverId,
                 senderEmail: senderEmail,
                 senderId: senderId,
                 timestamp: serverTimestamp(),
-                translatedText: text || ""
+                status: 'sent'
             };
 
             // Only add attachments field if there are valid attachments
@@ -355,18 +383,20 @@ export default function AssistancePage() {
                 messageData.attachments = validAttachments;
             }
 
-            const messagesRef = collection(db, 'chats', chatId, 'messages');
+            if (!currentChatId) throw new Error('Chat ID not set');
+
+            const messagesRef = collection(db, 'chats', currentChatId, 'messages');
             await addDoc(messagesRef, messageData);
 
-            // Also update the lastMessage on the chat document
+            // Also update the lastMessage on the chat document (use agent translated for agent display)
             const lastMessage = uploadedAttachments.length > 0 ?
-                `📎 ${uploadedAttachments.length} attachment${uploadedAttachments.length > 1 ? 's' : ''}${text ? ': ' + text : ''}` :
-                text;
-            await setDoc(doc(db, 'chats', chatId), { lastMessage, lastMessageTimestamp: serverTimestamp() }, { merge: true });
+                `📎 ${uploadedAttachments.length} attachment${uploadedAttachments.length > 1 ? 's' : ''}${agentTranslatedText ? ': ' + agentTranslatedText : ''}` :
+                agentTranslatedText;
+            await setDoc(doc(db, 'chats', currentChatId), { lastMessage, lastMessageTimestamp: serverTimestamp() }, { merge: true });
 
         } catch (error) {
             console.error("Error sending message:", error);
-            setInputValue(text);
+            setInputValue(originalText);
             toast({ title: "Error", description: "Failed to send message", variant: "destructive" });
         } finally {
             setSending(false);
@@ -461,12 +491,20 @@ export default function AssistancePage() {
                                         ))}
                                     </div>
                                 )}
-                                {(message.content || message.translatedText) && (
-                                    <div>
-                                        <p className="text-sm">{typeof message.translatedText === 'string' ? message.translatedText : message.content}</p>
-                                        {typeof message.translatedText === 'string' && <p className="text-xs text-gray-500 italic mt-1">Original: {message.content}</p>}
-                                    </div>
-                                )}
+                                {(message.content || message.userTranslatedText || message.agentTranslatedText) && (
+    <div>
+        {/* Display translated text for all messages */}
+        <p className="text-sm">
+            {message.userTranslatedText || message.content}
+        </p>
+        {/* Show original text if translation exists and is different */}
+        {message.userTranslatedText && message.userTranslatedText !== message.content && (
+            <p className="text-xs text-gray-200 italic mt-1">
+                Original: {message.content}
+            </p>
+        )}
+    </div>
+)}
                             </div>
                             <p className="text-xs text-muted-foreground px-2">
                                 {message.timestamp ? new Date(message.timestamp.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Sending...'}
@@ -534,12 +572,12 @@ export default function AssistancePage() {
                         onChange={(e) => setInputValue(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                         className="pr-20 pl-10"
-                        disabled={!chatId || sending || uploadingAttachments}
+                        disabled={sending || uploadingAttachments}
                     />
                     <div className="absolute left-1 top-1/2 -translate-y-1/2 flex items-center">
                         <Popover>
                             <PopoverTrigger asChild>
-                                <Button variant="ghost" size="icon" aria-label="Attach file" disabled={!chatId || sending || uploadingAttachments}>
+                                <Button variant="ghost" size="icon" aria-label="Attach file" disabled={sending || uploadingAttachments}>
                                     <Paperclip className="h-5 w-5" />
                                 </Button>
                             </PopoverTrigger>
@@ -649,7 +687,7 @@ export default function AssistancePage() {
                                     <>
                                         <div className="relative">
                                             <Avatar className="h-10 w-10 border">
-                                                {supportAgent.settings?.profileVisibility === 'public' && supportAgent.image ? (
+                                                {supportAgent.image ? (
                                                     <AvatarImage
                                                         src={supportAgent.image}
                                                         alt={supportAgent.displayName || supportAgent.email || 'Support Agent'}
@@ -664,28 +702,24 @@ export default function AssistancePage() {
                                                         }}
                                                     />
                                                 ) : null}
-                                                <AvatarFallback className={supportAgent.settings?.profileVisibility === 'public' && supportAgent.image ? 'hidden' : ''}>
-                                                    {supportAgent.settings?.profileVisibility === 'public' ? (
-                                                        supportAgent.displayName?.[0]?.toUpperCase() ||
-                                                        supportAgent.firstName?.[0]?.toUpperCase() ||
-                                                        supportAgent.email?.[0]?.toUpperCase() ||
-                                                        'S'
-                                                    ) : 'S'}
+                                                <AvatarFallback className={supportAgent.image ? 'hidden' : ''}>
+                                                    {supportAgent.displayName?.[0]?.toUpperCase() ||
+                                                     supportAgent.firstName?.[0]?.toUpperCase() ||
+                                                     supportAgent.email?.[0]?.toUpperCase() ||
+                                                     'S'}
                                                 </AvatarFallback>
                                             </Avatar>
-                                            {supportAgent.settings?.showOnlineStatus !== false && <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-white"></span>}
+                                            <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-white"></span>
                                         </div>
                                         <div>
                                             <p className="font-semibold">
-                                                {supportAgent.settings?.profileVisibility === 'public' ? (
-                                                    supportAgent.displayName ||
-                                                    `${supportAgent.firstName || ''} ${supportAgent.lastName || ''}`.trim() ||
-                                                    supportAgent.email ||
-                                                    'Support Agent'
-                                                ) : 'Support Agent'}
+                                                {supportAgent.displayName ||
+                                                 `${supportAgent.firstName || ''} ${supportAgent.lastName || ''}`.trim() ||
+                                                 supportAgent.email ||
+                                                 'Support Agent'}
                                             </p>
                                             <p className="text-sm text-muted-foreground">
-                                                {supportAgent.settings?.showOnlineStatus !== false ? 'Online - Support Agent' : 'Support Agent'}
+                                                {'Online - Support Agent'}
                                             </p>
                                         </div>
                                     </>
@@ -728,16 +762,16 @@ export default function AssistancePage() {
 
             <Card className="bg-gray-50">
                 <CardContent className="p-6 text-center">
-                    <h3 className="font-semibold mb-2">24/7 Emergency Support Available</h3>
-                    <p className="text-sm text-muted-foreground mb-4">Our assistance teams are available around the clock for emergency situations</p>
+                    <h3 className="font-semibold mb-2 text-black">24/7 Emergency Support Available</h3>
+                    <p className="text-sm text-black mb-4">Our assistance teams are available around the clock for emergency situations</p>
                     <div className="flex justify-center items-center gap-6 text-sm">
                         <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4 text-primary" />
-                            <span>Response time: &lt; 5 minutes</span>
+                            <span className="text-black">Response time: {"<"} 5 minutes</span>
                         </div>
                          <div className="flex items-center gap-2">
                             <Languages className="h-4 w-4 text-primary" />
-                            <span>Multilingual support</span>
+                            <span className="text-black">Multilingual support</span>
                         </div>
                     </div>
                 </CardContent>

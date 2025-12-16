@@ -1,4 +1,3 @@
-
 {
     "compilerOptions": {
       "module": "commonjs",
@@ -8,6 +7,8 @@
       "sourceMap": true,
       "strict": true,
       "target": "es2017",
+      "skipLibCheck": true,
+      "types": [],
       "baseUrl": ".",
       "paths": {
         "@/*": ["../../src/*"]
@@ -18,4 +19,3 @@
       "src"
     ]
   }
-  

@@ -1,20 +1,21 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendTaskAssignmentNotification = exports.processapprovedusers = void 0;
-const logger = require("firebase-functions/logger");
-const scheduler_1 = require("firebase-functions/v2/scheduler");
-const firestore_1 = require("firebase-functions/v2/firestore");
+exports.translateText = exports.sendTaskAssignmentNotification = exports.processapprovedusers = exports.translateNewMessage = void 0;
+const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 // Import flows for side effects (registration)
-require("@/ai/flows/get-weather-flow");
-require("@/ai/flows/send-sos-flow");
-require("@/ai/flows/translate-text-flow");
+// import '../../ai/flows/get-weather-flow';
+// import '../../ai/flows/send-sos-flow';
+// import '../../ai/flows/translate-text-flow';
+// Import translation function
+var translate_only_1 = require("./translate-only");
+Object.defineProperty(exports, "translateNewMessage", { enumerable: true, get: function () { return translate_only_1.translateNewMessage; } });
 admin.initializeApp();
 /**
  * A scheduled function that runs every minute to process approved user requests.
  */
-exports.processapprovedusers = (0, scheduler_1.onSchedule)("every 1 minutes", async () => {
-    logger.info("Checking for approved users...", { structuredData: true });
+exports.processapprovedusers = functions.pubsub.schedule("every 1 minutes").onRun(async () => {
+    console.log("Checking for approved users...");
     const db = admin.firestore();
     const pendingUsersRef = db.collection("pendingUsers");
     try {
@@ -22,7 +23,7 @@ exports.processapprovedusers = (0, scheduler_1.onSchedule)("every 1 minutes", as
         const snapshot = await pendingUsersRef.where("status", "==", "approved")
             .get();
         if (snapshot.empty) {
-            logger.info("No approved users to process.");
+            console.log("No approved users to process.");
             return;
         }
         const promises = snapshot.docs.map(async (doc) => {
@@ -32,15 +33,15 @@ exports.processapprovedusers = (0, scheduler_1.onSchedule)("every 1 minutes", as
                 // 1. Create the user in Firebase Authentication.
                 // The user will need to use the "Forgot Password" flow to set their
                 // password for the first time.
-                logger.info(`Creating user in Auth for: ${email}`);
+                console.log(`Creating user in Auth for: ${email}`);
                 const userRecord = await admin.auth().createUser({
                     email: email,
                     emailVerified: true, // Assuming admin approval is sufficient.
                 });
                 const uid = userRecord.uid;
-                logger.info(`Successfully created user ${email} with uid ${uid}`);
+                console.log(`Successfully created user ${email} with uid ${uid}`);
                 // 2. Create the user profile in the 'users' collection in Firestore.
-                logger.info(`Creating user profile in Firestore for uid: ${uid}`);
+                console.log(`Creating user profile in Firestore for uid: ${uid}`);
                 const userDocRef = db.collection("users").doc(uid);
                 await userDocRef.set({
                     uid: uid,
@@ -57,32 +58,31 @@ exports.processapprovedusers = (0, scheduler_1.onSchedule)("every 1 minutes", as
                     profileCompleted: 0,
                     language: language || 'English', // Default to English if not provided
                 });
-                logger.info(`Successfully created Firestore profile for ${email}`);
+                console.log(`Successfully created Firestore profile for ${email}`);
                 // 3. Delete the request from the 'pendingUsers' collection.
-                logger.info(`Deleting pending request for ${email}`);
+                console.log(`Deleting pending request for ${email}`);
                 await doc.ref.delete();
-                logger.info(`Successfully processed and deleted request for ${email}`);
+                console.log(`Successfully processed and deleted request for ${email}`);
             }
             catch (error) {
-                logger.error(`Failed to process user ${email} with doc ID ${doc.id}`, error);
+                console.error(`Failed to process user ${email} with doc ID ${doc.id}`, error);
                 // Optionally, update the status to "failed" to prevent retries.
                 await doc.ref.update({ status: "failed", error: error.message });
             }
         });
         await Promise.all(promises);
-        logger.info("Finished processing batch of approved users.");
+        console.log("Finished processing batch of approved users.");
     }
     catch (error) {
-        logger.error("Error querying for approved users:", error);
+        console.error("Error querying for approved users:", error);
     }
 });
 /**
  * Send push notification when a task is assigned to a driver
  */
-exports.sendTaskAssignmentNotification = (0, firestore_1.onDocumentUpdated)("sosAlerts", async (event) => {
-    var _a, _b, _c;
-    const beforeData = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
-    const afterData = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
+exports.sendTaskAssignmentNotification = functions.firestore.document("sosAlerts/{alertId}").onUpdate(async (change, context) => {
+    const beforeData = change.before.data();
+    const afterData = change.after.data();
     // Check if assignedTeam was added (task assignment)
     if (!(beforeData === null || beforeData === void 0 ? void 0 : beforeData.assignedTeam) && (afterData === null || afterData === void 0 ? void 0 : afterData.assignedTeam)) {
         const driverId = afterData.assignedTeam.driverId;
@@ -97,7 +97,7 @@ exports.sendTaskAssignmentNotification = (0, firestore_1.onDocumentUpdated)("sos
                         body: `Respond to ${afterData.emergencyType} at ${afterData.location.address || 'specified location'}`,
                     },
                     data: {
-                        alertId: (_c = event.data) === null || _c === void 0 ? void 0 : _c.after.id,
+                        alertId: context.params.alertId,
                         type: "task_assigned",
                         emergencyType: afterData.emergencyType,
                         location: JSON.stringify(afterData.location),
@@ -105,15 +105,82 @@ exports.sendTaskAssignmentNotification = (0, firestore_1.onDocumentUpdated)("sos
                     token: userData.fcmToken,
                 };
                 await admin.messaging().send(message);
-                logger.info(`Push notification sent to driver ${driverId} for task assignment`);
+                console.log(`Push notification sent to driver ${driverId} for task assignment`);
             }
             else {
-                logger.warn(`No FCM token found for driver ${driverId}`);
+                console.warn(`No FCM token found for driver ${driverId}`);
             }
         }
         catch (error) {
-            logger.error(`Error sending push notification to driver ${driverId}:`, error);
+            console.error(`Error sending push notification to driver ${driverId}:`, error);
         }
+    }
+});
+/**
+ * Callable function for translating text using Google Translate API v2
+ */
+exports.translateText = functions.https.onCall(async (data, context) => {
+    var _a;
+    // Check if user is authenticated
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+    const { text, targetLanguage } = data;
+    if (!text || !targetLanguage) {
+        throw new functions.https.HttpsError('invalid-argument', 'Text and targetLanguage are required');
+    }
+    // Language code mappings (full name to ISO)
+    const LANGUAGE_CODES = {
+        'English': 'en',
+        'Yoruba': 'yo',
+        'Hausa': 'ha',
+        'Igbo': 'ig',
+        'Tiv': 'tiv',
+        'Kanuri': 'kr',
+        'en': 'en',
+        'yo': 'yo',
+        'ha': 'ha',
+        'ig': 'ig',
+        'tiv': 'tiv',
+        'kr': 'kr',
+    };
+    const sourceCode = 'en'; // Assuming source is always English
+    const targetCode = LANGUAGE_CODES[targetLanguage] || targetLanguage;
+    // If same language, return original text
+    if (sourceCode === targetCode) {
+        return { translatedText: text };
+    }
+    const API_KEY = (_a = functions.config().googletranslate) === null || _a === void 0 ? void 0 : _a.key;
+    if (!API_KEY) {
+        console.error('GOOGLE_TRANSLATE_API_KEY not configured');
+        throw new functions.https.HttpsError('internal', 'Translation service not configured');
+    }
+    try {
+        const response = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${API_KEY}`, {
+            method: 'POST',
+            body: JSON.stringify({
+                q: text,
+                target: targetCode,
+                // omit source to allow auto-detection
+            }),
+            headers: { 'Content-Type': 'application/json' },
+        });
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Google Translate API error:', response.status, errorData);
+            throw new functions.https.HttpsError('internal', 'Translation API error');
+        }
+        const data = await response.json();
+        if (data.error) {
+            console.error('Google Translate API error:', data.error);
+            throw new functions.https.HttpsError('internal', 'Translation failed');
+        }
+        const translatedText = data.data.translations[0].translatedText;
+        return { translatedText };
+    }
+    catch (error) {
+        console.error('Translation error:', error);
+        throw new functions.https.HttpsError('internal', 'Translation failed');
     }
 });
 //# sourceMappingURL=index.js.map

@@ -117,7 +117,7 @@ export default function ShelterDetailsClient({ shelterId }: { shelterId: string 
 
     if (loading) {
         return (
-             <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 p-4 sm:p-6 lg:p-8">
+             <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4 sm:p-6 lg:p-8">
                 <div className="max-w-6xl mx-auto">
                     <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-2xl">
                         <CardHeader className="pb-6">
@@ -156,20 +156,20 @@ export default function ShelterDetailsClient({ shelterId }: { shelterId: string 
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 p-4 sm:p-6 lg:p-8">
+         <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4 sm:p-6 lg:p-8">
             <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8">
                 {/* Header Card */}
-                <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-2xl overflow-hidden">
+                <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-2xl overflow-hidden">
                     <CardHeader className="pb-6">
                         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                             <div>
-                                <CardTitle className="flex items-center gap-3 text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-800 mb-2">
-                                    <div className="bg-blue-100 p-3 rounded-2xl">
+                                <CardTitle className="flex items-center gap-3 text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2">
+                                    <div className="bg-blue-100 dark:bg-blue-800 p-3 rounded-2xl">
                                         <Building className="h-8 w-8 text-blue-600" />
                                     </div>
                                     {shelter.name}
                                 </CardTitle>
-                                <CardDescription className="flex items-center gap-2 text-base sm:text-lg text-slate-600">
+                                <CardDescription className="flex items-center gap-2 text-base sm:text-lg text-muted-foreground">
                                     <MapPin className="h-5 w-5 text-blue-500" />
                                     {shelter.location}
                                 </CardDescription>
@@ -178,10 +178,10 @@ export default function ShelterDetailsClient({ shelterId }: { shelterId: string 
                                 <Badge variant="secondary" className="bg-green-100 text-green-800 text-sm font-semibold px-3 py-1">
                                     {shelter.status}
                                 </Badge>
-                                <div className="flex items-center gap-2 text-sm text-slate-600">
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                     <Star className="h-4 w-4 text-yellow-500" />
                                     <span className="font-medium">{shelter.rating?.toFixed(1) ?? 'N/A'}</span>
-                                    <span className="text-slate-400">({shelter.ratingCount || 0} reviews)</span>
+                                    <span className="text-slate-400 dark:text-slate-500">({shelter.ratingCount || 0} reviews)</span>
                                 </div>
                             </div>
                         </div>
@@ -192,26 +192,26 @@ export default function ShelterDetailsClient({ shelterId }: { shelterId: string 
                         <div className="space-y-6 sm:space-y-8">
                             {/* Capacity Section */}
                             <div className="bg-slate-50/50 p-6 rounded-2xl border border-slate-200/50">
-                                <h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
+                                <h3 className="font-bold text-lg text-foreground mb-4 flex items-center gap-2">
                                     <Users className="h-5 w-5 text-blue-600" />
                                     Capacity Information
                                 </h3>
                                 <div className="space-y-4">
                                     <div className="flex justify-between items-center">
-                                        <span className="text-slate-600">Current Occupancy</span>
-                                        <span className="font-semibold text-slate-800">{currentOccupancy} / {shelter.capacity}</span>
+                                        <span className="text-muted-foreground">Current Occupancy</span>
+                                        <span className="font-semibold text-foreground">{currentOccupancy} / {shelter.capacity}</span>
                                     </div>
                                     <Progress value={occupancyPercentage} className="h-3" />
                                     <div className="flex justify-between text-sm">
                                         <span className="text-green-600 font-medium">{shelter.availableCapacity} spots available</span>
-                                        <span className="text-slate-500">{occupancyPercentage}% occupied</span>
+                                        <span className="text-muted-foreground">{occupancyPercentage}% occupied</span>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Facilities Section */}
                             <div className="bg-slate-50/50 p-6 rounded-2xl border border-slate-200/50">
-                                <h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
+                                <h3 className="font-bold text-lg text-foreground mb-4 flex items-center gap-2">
                                     <CheckCircle className="h-5 w-5 text-green-600" />
                                     Available Facilities
                                 </h3>
@@ -219,9 +219,9 @@ export default function ShelterDetailsClient({ shelterId }: { shelterId: string 
                                     {shelter.facilities && shelter.facilities.map(facility => {
                                         const IconComponent = facilityIcons[facility] || CheckCircle;
                                         return (
-                                            <div key={facility} className="flex items-center gap-2 bg-white/60 p-3 rounded-lg border border-slate-200/50">
+                                            <div key={facility} className="flex items-center gap-2 bg-white/60 dark:bg-gray-700/60 p-3 rounded-lg border border-slate-200/50 dark:border-slate-600/50">
                                                 <IconComponent className="h-4 w-4 text-blue-600" />
-                                                <span className="text-sm font-medium text-slate-700">{facility}</span>
+                                                <span className="text-sm font-medium text-foreground">{facility}</span>
                                             </div>
                                         );
                                     })}
@@ -230,11 +230,11 @@ export default function ShelterDetailsClient({ shelterId }: { shelterId: string 
 
                             {/* Security Section */}
                             <div className="bg-slate-50/50 p-6 rounded-2xl border border-slate-200/50">
-                                <h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
+                                <h3 className="font-bold text-lg text-foreground mb-4 flex items-center gap-2">
                                     <ShieldCheck className="h-5 w-5 text-purple-600" />
                                     Security Information
                                 </h3>
-                                <p className="text-slate-600 leading-relaxed">{shelter.security || 'Security details not available'}</p>
+                                <p className="text-muted-foreground leading-relaxed">{shelter.security || 'Security details not available'}</p>
                             </div>
 
                             {/* Rating Section */}
@@ -273,7 +273,7 @@ export default function ShelterDetailsClient({ shelterId }: { shelterId: string 
 
                             {/* Action Buttons */}
                             <div className="bg-slate-50/50 p-6 rounded-2xl border border-slate-200/50">
-                                <h3 className="font-bold text-lg text-slate-800 mb-4">Get Help</h3>
+                                <h3 className="font-bold text-lg text-foreground mb-4">Get Help</h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <Button asChild className="bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105">
                                         <Link to="/assistance">
@@ -294,7 +294,7 @@ export default function ShelterDetailsClient({ shelterId }: { shelterId: string 
                         {/* Right Column - Map */}
                         <div className="space-y-4">
                             <div className="bg-slate-50/50 p-6 rounded-2xl border border-slate-200/50">
-                                <h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
+                                <h3 className="font-bold text-lg text-foreground mb-4 flex items-center gap-2">
                                     <Navigation className="h-5 w-5 text-blue-600" />
                                     Route to Shelter
                                 </h3>
@@ -324,15 +324,15 @@ export default function ShelterDetailsClient({ shelterId }: { shelterId: string 
 
                             {/* Quick Stats */}
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-white/60 p-4 rounded-lg border border-slate-200/50 text-center">
+                                <div className="bg-white/60 dark:bg-gray-700/60 p-4 rounded-lg border border-slate-200/50 dark:border-slate-600/50 text-center">
                                     <Clock className="h-6 w-6 text-blue-600 mx-auto mb-2" />
-                                    <p className="text-sm text-slate-600">24/7</p>
-                                    <p className="font-semibold text-slate-800">Available</p>
+                                    <p className="text-sm text-muted-foreground">24/7</p>
+                                    <p className="font-semibold text-foreground">Available</p>
                                 </div>
-                                <div className="bg-white/60 p-4 rounded-lg border border-slate-200/50 text-center">
+                                <div className="bg-white/60 dark:bg-gray-700/60 p-4 rounded-lg border border-slate-200/50 dark:border-slate-600/50 text-center">
                                     <Heart className="h-6 w-6 text-red-600 mx-auto mb-2" />
-                                    <p className="text-sm text-slate-600">Safe</p>
-                                    <p className="font-semibold text-slate-800">Environment</p>
+                                    <p className="text-sm text-muted-foreground">Safe</p>
+                                    <p className="font-semibold text-foreground">Environment</p>
                                 </div>
                             </div>
                         </div>
@@ -340,15 +340,15 @@ export default function ShelterDetailsClient({ shelterId }: { shelterId: string 
                 </Card>
 
                 {/* Emergency Contact Card */}
-                <Card className="bg-gradient-to-r from-red-50 to-orange-50 border-red-200/50 backdrop-blur-sm shadow-lg">
+                <Card className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900 dark:to-orange-900 border-red-200/50 dark:border-red-700/50 backdrop-blur-sm shadow-lg">
                     <CardContent className="p-6">
                         <div className="flex items-center gap-4">
-                            <div className="bg-red-100 p-3 rounded-2xl">
+                            <div className="bg-red-100 dark:bg-red-800 p-3 rounded-2xl">
                                 <Phone className="h-6 w-6 text-red-600" />
                             </div>
                             <div className="flex-1">
-                                <h3 className="font-bold text-red-800 mb-1">Emergency Contact</h3>
-                                <p className="text-red-700 text-sm">For urgent situations, call the shelter directly</p>
+                                <h3 className="font-bold text-red-800 dark:text-red-200 mb-1">Emergency Contact</h3>
+                                <p className="text-red-700 dark:text-red-300 text-sm">For urgent situations, call the shelter directly</p>
                             </div>
                             <Button variant="destructive" asChild className="shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105">
                                 <a href={`tel:${shelter.phone}`}>

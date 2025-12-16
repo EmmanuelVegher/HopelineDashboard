@@ -86,10 +86,11 @@ export type Shelter = {
       lastName: string;
       image: string;
       gender: string;
-      mobile: number;
+      mobile: string;
       profileCompleted: number;
       language?: string;
       state?: string;
+      accountStatus?: string;
       location?: string;
       // Location streaming data
       latitude?: number;

@@ -270,8 +270,8 @@ export default function LoginPage() {
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-slate-800 via-blue-700 to-emerald-700 bg-clip-text text-transparent mb-1 tracking-tight">
             HopeLine
           </h1>
-          <p className="text-slate-600 text-sm sm:text-base font-medium mb-1">Shelter Management System</p>
-          <p className="text-xs text-slate-500 font-medium">Empowering Communities • Saving Lives</p>
+          <p className="text-muted-foreground text-sm sm:text-base font-medium mb-1">Shelter Management System</p>
+          <p className="text-xs text-muted-foreground font-medium">Empowering Communities • Saving Lives</p>
         </div>
 
         <Card className="backdrop-blur-sm bg-card shadow-2xl border-0 rounded-3xl overflow-hidden animate-fade-in-up animate-pulse-glow">
@@ -279,13 +279,13 @@ export default function LoginPage() {
           <CardContent className="relative p-2 sm:p-3 lg:p-4">
             <div className="space-y-3 sm:space-y-4">
               <div className="text-center mb-3 sm:mb-4 animate-slide-in-right">
-                <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white mb-1">Welcome Back</h2>
-                <p className="text-slate-600 dark:text-white text-xs sm:text-sm">Sign in to access your dashboard</p>
+                <h2 className="text-lg sm:text-xl font-bold text-foreground mb-1">Welcome Back</h2>
+                <p className="text-muted-foreground text-xs sm:text-sm">Sign in to access your dashboard</p>
               </div>
 
               <div className="space-y-2 sm:space-y-3">
                 <div className="space-y-3">
-                  <Label htmlFor="email" className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-white flex items-center gap-2">
+                  <Label htmlFor="email" className="text-xs sm:text-sm font-semibold text-foreground flex items-center gap-2">
                     <svg className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
                     </svg>
@@ -306,7 +306,7 @@ export default function LoginPage() {
                 </div>
 
                 <div className="space-y-3">
-                  <Label htmlFor="password" className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-white flex items-center gap-2">
+                  <Label htmlFor="password" className="text-xs sm:text-sm font-semibold text-foreground flex items-center gap-2">
                     <svg className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
@@ -321,7 +321,7 @@ export default function LoginPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                       disabled={loading}
-                      className="h-8 sm:h-10 pl-2 sm:pl-3 pr-8 sm:pr-10 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 transition-all duration-300 bg-slate-50/50 hover:bg-white focus:bg-white text-xs sm:text-sm placeholder:text-slate-400"
+                      className="h-8 sm:h-10 pl-2 sm:pl-3 pr-8 sm:pr-10 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 transition-all duration-300 bg-slate-50/50 hover:bg-white focus:bg-white text-xs sm:text-sm placeholder:text-slate-400 text-black dark:placeholder:text-gray-600"
                     />
                     <button
                       type="button"
@@ -400,10 +400,10 @@ export default function LoginPage() {
                 Emergency SOS
               </Button>
             </AnonymousSosDialog>
-            <p className="text-xs text-center text-muted-foreground dark:text-white mt-1 px-2">Use the SOS button for emergencies without logging in.</p>
+            <p className="text-xs text-center text-white mt-1 px-2">Use the SOS button for emergencies without logging in.</p>
             <div className="w-full text-center space-y-2 sm:space-y-3 pt-1">
               <Separator />
-              <p className="text-xs text-muted-foreground dark:text-white px-2">Supported By</p>
+              <p className="text-xs text-white px-2">Supported By</p>
               <div className="flex justify-center items-center gap-1 sm:gap-2 px-2 flex-wrap">
                 <img
                   src="/caritas-logo.png"

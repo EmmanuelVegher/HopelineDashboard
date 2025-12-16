@@ -31,23 +31,25 @@ import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { LoadingSpinner } from "@/components/loading-spinner";
+import { TranslationProvider, useTranslation } from "@/contexts/TranslationContext";
 
-const navLinks = [
-  { to: "/dashboard", label: "Dashboard", icon: Home },
-  { to: "/dashboard/find-shelter", label: "Find Shelter", icon: Building },
-  { to: "/dashboard/sos", label: "SOS", icon: AlertTriangle },
-  { to: "/dashboard/assistance", label: "Get Help", icon: MessageSquare },
-  { to: "/dashboard/navigate", label: "Navigate", icon: Navigation },
-  { to: "/dashboard/weather", label: "Weather", icon: Sun },
-  { to: "/dashboard/profile", label: "Profile", icon: User },
-  { to: "/dashboard/settings", label: "Settings", icon: Settings },
-];
-
-function UserSidebar({ userProfile }: { userProfile?: {firstName: string; lastName: string; image?: string} | null }) {
+function DashboardContent({ userProfile }: { userProfile?: {firstName: string; lastName: string; image?: string} | null }) {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const { state } = useSidebar();
   const { setIsLoading } = useLoading();
+
+  const navLinks = [
+    { to: "/dashboard", label: t('navigation.dashboard'), icon: Home },
+    { to: "/dashboard/find-shelter", label: t('navigation.findShelter'), icon: Building },
+    { to: "/dashboard/sos", label: t('navigation.sos'), icon: AlertTriangle },
+    { to: "/dashboard/assistance", label: t('navigation.assistance'), icon: MessageSquare },
+    { to: "/dashboard/navigate", label: t('navigation.navigate'), icon: Navigation },
+    { to: "/dashboard/weather", label: t('navigation.weather'), icon: Sun },
+    { to: "/dashboard/profile", label: t('navigation.profile'), icon: User },
+    { to: "/dashboard/settings", label: t('navigation.settings'), icon: Settings },
+  ];
 
   const handleLogout = () => {
     setIsLoading(true);
@@ -121,9 +123,9 @@ function UserSidebar({ userProfile }: { userProfile?: {firstName: string; lastNa
          <SidebarSeparator />
          <SidebarMenu>
             <SidebarMenuItem>
-                 <SidebarMenuButton onClick={handleLogout} tooltip="Logout">
+                 <SidebarMenuButton onClick={handleLogout} tooltip={t('common.logout')}>
                     <LogOut />
-                    Logout
+                    {t('common.logout')}
                 </SidebarMenuButton>
             </SidebarMenuItem>
         </SidebarMenu>
@@ -269,13 +271,15 @@ export default function DashboardLayout() {
   }
 
   return (
-    <SidebarProvider>
-        <UserSidebar userProfile={userProfile} />
-        <SidebarInset>
-            <main className="flex flex-1 flex-col gap-4 p-4 sm:px-8 sm:py-6 bg-gray-50/50 dark:bg-gray-900/50 min-h-screen">
-                <Outlet />
-            </main>
-        </SidebarInset>
-    </SidebarProvider>
+    <TranslationProvider>
+      <SidebarProvider>
+          <DashboardContent userProfile={userProfile} />
+          <SidebarInset>
+              <main className="flex flex-1 flex-col gap-4 p-4 sm:px-8 sm:py-6 bg-gray-50/50 dark:bg-gray-900/50 min-h-screen">
+                  <Outlet />
+              </main>
+          </SidebarInset>
+      </SidebarProvider>
+    </TranslationProvider>
   );
 }

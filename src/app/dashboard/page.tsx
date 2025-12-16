@@ -136,31 +136,31 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 dark:from-slate-900 dark:via-blue-900 dark:to-emerald-900 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
         {/* Header Section */}
         <div className="text-center mb-8 sm:mb-12">
           <div className="inline-flex items-center gap-2 mb-4">
             <Heart className="h-8 w-8 text-red-500" />
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-slate-800 via-blue-700 to-emerald-700 bg-clip-text text-transparent">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-black dark:text-white">
               HopeLine Dashboard
             </h1>
           </div>
-          <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base lg:text-lg max-w-4xl mx-auto leading-relaxed">
-            Your emergency assistance platform for finding shelter, getting help, and staying safe in Bayelsa and Adamawa states. 
+          <p className="text-muted-foreground text-sm sm:text-base lg:text-lg max-w-4xl mx-auto leading-relaxed">
+            Your emergency assistance platform for finding shelter, getting help, and staying safe in Bayelsa and Adamawa states.
             A project supported by the CITI Foundation.
           </p>
         </div>
 
         {/* Emergency Alert */}
-        <Alert className="bg-gradient-to-r from-red-50 to-orange-50 border-red-200/50 backdrop-blur-sm">
+        <Alert className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900 dark:to-orange-900 border-red-200/50 dark:border-red-700/50 backdrop-blur-sm">
           <AlertTriangle className="h-4 w-4 text-red-500" />
-          <AlertTitle className="text-red-800 font-semibold flex items-center gap-2">
+          <AlertTitle className="text-red-800 dark:text-red-200 font-semibold flex items-center gap-2">
             <Shield className="h-4 w-4" />
             Flood & Security Alert
           </AlertTitle>
-          <AlertDescription className="text-red-700/90">
-            Heavy rainfall and potential flooding forecasted for Bayelsa. Increased security vigilance advised in Adamawa. 
+          <AlertDescription className="text-red-700/90 dark:text-red-300">
+            Heavy rainfall and potential flooding forecasted for Bayelsa. Increased security vigilance advised in Adamawa.
             Please find safe shelter immediately.
           </AlertDescription>
         </Alert>
@@ -175,10 +175,12 @@ export default function Home() {
               <div className={`${action.iconBg} p-4 rounded-2xl mb-4 transition-all duration-300 hover:scale-110`}>
                 <action.icon className={`h-8 w-8 sm:h-10 sm:w-10 ${action.iconColor}`} />
               </div>
-              <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-200 mb-2 text-center">
+              <CardTitle className={`text-lg sm:text-xl font-bold mb-2 text-center ${
+                action.title === "Emergency SOS" || action.title === "Get Assistance" ? "text-black" : "text-foreground"
+              }`}>
                 {action.title}
               </CardTitle>
-              <CardDescription className="text-sm sm:text-base text-slate-600 dark:text-slate-300 mb-6 text-center">
+              <CardDescription className="text-sm sm:text-base text-muted-foreground mb-6 text-center">
                 {action.description}
               </CardDescription>
               <Link to={action.href} className="w-full">
@@ -206,10 +208,10 @@ export default function Home() {
                   <action.icon className="h-6 w-6 sm:h-7 sm:w-7 text-blue-600" />
                 </div>
                 <div className="flex-1">
-                  <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-200">
+                  <CardTitle className="text-lg sm:text-xl font-bold text-foreground">
                     {action.title}
                   </CardTitle>
-                  <CardDescription className="text-sm sm:text-base text-slate-600 dark:text-slate-300">
+                  <CardDescription className="text-sm sm:text-base text-muted-foreground">
                     {action.description}
                   </CardDescription>
                 </div>
@@ -236,11 +238,11 @@ export default function Home() {
                 {loading ? (
                   <Skeleton className="h-8 w-16 sm:w-20 mx-auto" />
                 ) : (
-                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800 dark:text-slate-200 mb-2">
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground mb-2">
                     {stat.value}
                   </p>
                 )}
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium">
+                <p className="text-xs sm:text-sm text-muted-foreground font-medium">
                   {stat.label}
                 </p>
               </div>
@@ -258,10 +260,10 @@ export default function Home() {
                   <Phone className="h-5 w-5 text-yellow-600" />
                 </div>
                 <div>
-                  <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-200">
+                  <CardTitle className="text-lg sm:text-xl font-bold text-foreground">
                     No Smartphone? No Wahala!
                   </CardTitle>
-                  <CardDescription className="text-sm sm:text-base text-slate-600 dark:text-slate-300">
+                  <CardDescription className="text-sm sm:text-base text-muted-foreground">
                     Access emergency services using USSD codes on any mobile phone
                   </CardDescription>
                 </div>
@@ -278,15 +280,15 @@ export default function Home() {
                   ))
                 ) : ussdCodes.length > 0 ? (
                   ussdCodes.slice(0, 4).map(item => (
-                    <div key={item.id} className="flex justify-between items-center bg-white/60 backdrop-blur-sm p-3 rounded-xl border border-yellow-200/50">
-                      <span className="text-sm font-medium text-slate-700">{item.name}</span>
-                      <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200 font-mono text-xs">
+                    <div key={item.id} className="flex justify-between items-center bg-white/60 dark:bg-gray-700/60 backdrop-blur-sm p-3 rounded-xl border border-yellow-200/50 dark:border-yellow-600/50">
+                      <span className="text-sm font-medium text-foreground">{item.name}</span>
+                      <Badge variant="outline" className="bg-yellow-100 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200 border-yellow-200 dark:border-yellow-600 font-mono text-xs">
                         {item.code}
                       </Badge>
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-slate-500 text-center py-4">USSD codes not available.</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">USSD codes not available.</p>
                 )}
               </div>
             </CardContent>
@@ -300,10 +302,10 @@ export default function Home() {
                   <Activity className="h-5 w-5 text-green-600" />
                 </div>
                 <div>
-                  <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-200">
+                  <CardTitle className="text-lg sm:text-xl font-bold text-foreground">
                     Emergency Contacts
                   </CardTitle>
-                  <CardDescription className="text-sm sm:text-base text-slate-600 dark:text-slate-300">
+                  <CardDescription className="text-sm sm:text-base text-muted-foreground">
                     Important phone numbers for emergency situations
                   </CardDescription>
                 </div>
@@ -321,16 +323,16 @@ export default function Home() {
                 ) : emergencyContacts.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {emergencyContacts.map(item => (
-                      <div key={item.id} className="flex justify-between items-center bg-white/60 backdrop-blur-sm p-3 rounded-xl border border-green-200/50">
-                        <span className="text-sm font-medium text-slate-700">{item.name}</span>
-                        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 font-mono text-xs">
+                      <div key={item.id} className="flex justify-between items-center bg-white/60 dark:bg-gray-700/60 backdrop-blur-sm p-3 rounded-xl border border-green-200/50 dark:border-green-600/50">
+                        <span className="text-sm font-medium text-foreground">{item.name}</span>
+                        <Badge variant="outline" className="bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 border-green-200 dark:border-green-600 font-mono text-xs">
                           {item.code}
                         </Badge>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-500 text-center py-4">Emergency contacts not available.</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">Emergency contacts not available.</p>
                 )}
               </div>
             </CardContent>

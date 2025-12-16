@@ -34,11 +34,10 @@ export async function getWeather(input: any) {
 }
 
 export async function translateText(input: any) {
-  console.log('Mock translateText called with:', input);
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return {
-    translatedText: `[Mock translation to ${input.targetLanguage}] ${input.text}`
-  };
+  console.log('translateText called with:', input);
+  // Import the actual translation flow
+  const { translateText: translateTextFlow } = await import('./flows/translate-text-flow');
+  return await translateTextFlow(input);
 }
 
 // Re-export types from schemas

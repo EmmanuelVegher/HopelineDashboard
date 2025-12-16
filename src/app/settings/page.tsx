@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -20,6 +19,8 @@ const languages = [
     "Hausa",
     "Igbo",
     "Yoruba",
+    "Tiv",
+    "Kanuri",
     "Nigerian Pidgin"
 ];
 
@@ -30,6 +31,8 @@ export default function SettingsPage() {
   const { toast } = useToast();
 
   const [language, setLanguage] = useState("");
+  const [pushNotifications, setPushNotifications] = useState(false);
+  const [emailNotifications, setEmailNotifications] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -42,6 +45,9 @@ export default function SettingsPage() {
           const profileData = userDoc.data() as UserProfile;
           setProfile(profileData);
           setLanguage(profileData.language || "English");
+          const profileDataAny = profileData as any;
+          setPushNotifications(profileDataAny.pushNotifications ?? false);
+          setEmailNotifications(profileDataAny.emailNotifications ?? true);
         }
         setLoading(false);
       } else if (!authLoading) {
@@ -57,8 +63,12 @@ export default function SettingsPage() {
     
     try {
       const userDocRef = doc(db, "users", user.uid);
-      await updateDoc(userDocRef, { language });
-      toast({ title: "Settings Saved", description: "Your language preference has been updated." });
+      await updateDoc(userDocRef, {
+        language,
+        pushNotifications,
+        emailNotifications
+      });
+      toast({ title: "Settings Saved", description: "Your preferences have been updated." });
     } catch (error) {
       toast({ title: "Failed to update settings", variant: "destructive" });
     } finally {
@@ -111,7 +121,7 @@ export default function SettingsPage() {
                     </SelectTrigger>
                     <SelectContent>
                         {languages.map(lang => (
-                             <SelectItem key={lang} value={lang}>{lang}</SelectItem>
+                              <SelectItem key={lang} value={lang}>{lang}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
@@ -127,17 +137,25 @@ export default function SettingsPage() {
                 </div>
             </div>
             <div className="pl-10 space-y-4">
-                 <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="flex items-center justify-between rounded-lg border p-3">
                     <Label htmlFor="push-notifications" className="font-normal">
                         Push Notifications
                     </Label>
-                    <Switch id="push-notifications" />
+                    <Switch
+                      id="push-notifications"
+                      checked={pushNotifications}
+                      onCheckedChange={setPushNotifications}
+                    />
                 </div>
-                 <div className="flex items-center justify-between rounded-lg border p-3">
-                     <Label htmlFor="email-notifications" className="font-normal">
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                      <Label htmlFor="email-notifications" className="font-normal">
                         Email Notifications
-                    </Label>
-                    <Switch id="email-notifications" checked />
+                      </Label>
+                      <Switch
+                        id="email-notifications"
+                        checked={emailNotifications}
+                        onCheckedChange={setEmailNotifications}
+                      />
                 </div>
             </div>
         </div>

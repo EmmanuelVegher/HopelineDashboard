@@ -1,0 +1,452 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Phone,
+  PhoneCall,
+  PhoneOff,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  Clock,
+  MapPin,
+  Globe,
+  User,
+  AlertCircle,
+  CheckCircle
+} from "lucide-react";
+import { collection, query, where, onSnapshot, orderBy, updateDoc, doc } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase";
+import { useToast } from "@/hooks/use-toast";
+
+interface CallSession {
+  id: string;
+  userId: string;
+  userName: string;
+  userImage?: string;
+  status: 'ringing' | 'active' | 'ended' | 'missed';
+  startTime?: Date;
+  endTime?: Date;
+  duration?: number;
+  language: string;
+  location?: string;
+  priority: 'low' | 'medium' | 'high' | 'emergency';
+  callType: 'voice' | 'video';
+}
+
+export default function SupportAgentCallsPage() {
+  const [activeCalls, setActiveCalls] = useState<CallSession[]>([]);
+  const [callHistory, setCallHistory] = useState<CallSession[]>([]);
+  const [selectedCall, setSelectedCall] = useState<CallSession | null>(null);
+  const [isInCall, setIsInCall] = useState(false);
+  const [callDuration, setCallDuration] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isOnHold, setIsOnHold] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    // Listen for active calls
+    const activeCallsQuery = query(
+      collection(db, 'calls'),
+      where('status', 'in', ['ringing', 'active']),
+      orderBy('startTime', 'desc')
+    );
+
+    const unsubscribeActive = onSnapshot(activeCallsQuery, (snapshot) => {
+      const calls: CallSession[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        calls.push({
+          id: doc.id,
+          userId: data.userId,
+          userName: data.userName || 'Unknown User',
+          userImage: data.userImage,
+          status: data.status || 'ringing',
+          startTime: data.startTime?.toDate(),
+          language: data.language || 'English',
+          location: data.location,
+          priority: data.priority || 'medium',
+          callType: data.callType || 'voice'
+        });
+      });
+      setActiveCalls(calls);
+    });
+
+    // Listen for call history (last 24 hours)
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const historyQuery = query(
+      collection(db, 'calls'),
+      where('status', '==', 'ended'),
+      where('endTime', '>=', yesterday),
+      orderBy('endTime', 'desc'),
+      orderBy('startTime', 'desc')
+    );
+
+    const unsubscribeHistory = onSnapshot(historyQuery, (snapshot) => {
+      const calls: CallSession[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        calls.push({
+          id: doc.id,
+          userId: data.userId,
+          userName: data.userName || 'Unknown User',
+          userImage: data.userImage,
+          status: data.status || 'ended',
+          startTime: data.startTime?.toDate(),
+          endTime: data.endTime?.toDate(),
+          duration: data.duration,
+          language: data.language || 'English',
+          location: data.location,
+          priority: data.priority || 'medium',
+          callType: data.callType || 'voice'
+        });
+      });
+      setCallHistory(calls);
+    });
+
+    return () => {
+      unsubscribeActive();
+      unsubscribeHistory();
+    };
+  }, []);
+
+  // Call duration timer
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isInCall && selectedCall) {
+      interval = setInterval(() => {
+        setCallDuration(prev => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isInCall, selectedCall]);
+
+  const handleAcceptCall = async (call: CallSession) => {
+    try {
+      await updateDoc(doc(db, 'calls', call.id), {
+        status: 'active',
+        agentId: auth.currentUser?.uid,
+        acceptedAt: new Date()
+      });
+      setSelectedCall(call);
+      setIsInCall(true);
+      setCallDuration(0);
+      toast({ title: "Call Connected", description: `Connected to ${call.userName}` });
+    } catch (error) {
+      console.error("Error accepting call:", error);
+      toast({ title: "Error", description: "Failed to accept call", variant: "destructive" });
+    }
+  };
+
+  const handleEndCall = async () => {
+    if (!selectedCall) return;
+
+    try {
+      const duration = callDuration;
+      await updateDoc(doc(db, 'calls', selectedCall.id), {
+        status: 'ended',
+        endTime: new Date(),
+        duration: duration
+      });
+      setIsInCall(false);
+      setSelectedCall(null);
+      setCallDuration(0);
+      toast({ title: "Call Ended", description: `Call with ${selectedCall.userName} ended` });
+    } catch (error) {
+      console.error("Error ending call:", error);
+      toast({ title: "Error", description: "Failed to end call", variant: "destructive" });
+    }
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'emergency': return 'bg-destructive';
+      case 'high': return 'bg-orange-500';
+      case 'medium': return 'bg-yellow-500';
+      default: return 'bg-green-500';
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
+        {/* Header */}
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-green-500 to-cyan-500 rounded-2xl shadow-lg mb-4 sm:mb-6">
+            <PhoneCall className="h-8 w-8 sm:h-10 sm:w-10 text-primary-foreground" />
+          </div>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-green-600 to-cyan-600 bg-clip-text text-transparent mb-3 sm:mb-4">
+            Voice Calls Management
+          </h1>
+          <p className="text-muted-foreground text-sm sm:text-base lg:text-lg">
+            Handle voice and video calls from users in need
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Active Calls */}
+          <Card className="lg:col-span-1">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Phone className="h-5 w-5" />
+                Active Calls
+              </CardTitle>
+              <CardDescription>{activeCalls.length} calls in progress</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <ScrollArea className="h-[400px]">
+                {activeCalls.length === 0 ? (
+                  <div className="p-8 text-center text-slate-500">
+                    <Phone className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No active calls</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 p-4">
+                    {activeCalls.map((call) => (
+                      <div
+                        key={call.id}
+                        className={`p-4 rounded-lg border cursor-pointer transition-colors ${
+                          selectedCall?.id === call.id
+                            ? 'border-green-500 bg-accent'
+                            : 'border-slate-200 hover:bg-slate-50'
+                        }`}
+                        onClick={() => setSelectedCall(call)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-10 w-10">
+                            <AvatarImage src={call.userImage} />
+                            <AvatarFallback>{call.userName[0]}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <p className="font-medium text-foreground truncate">{call.userName}</p>
+                              <div className="flex items-center gap-1">
+                                <div className={`w-2 h-2 rounded-full ${getPriorityColor(call.priority)}`} />
+                                <Badge variant={call.status === 'ringing' ? 'destructive' : 'default'} className="text-xs">
+                                  {call.status}
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="outline" className="text-xs">
+                                <Globe className="h-3 w-3 mr-1" />
+                                {call.language}
+                              </Badge>
+                              {call.callType === 'video' && (
+                                <Badge variant="outline" className="text-xs">
+                                  <User className="h-3 w-3 mr-1" />
+                                  Video
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+
+          {/* Call Interface */}
+          <Card className="lg:col-span-2">
+            {isInCall && selectedCall ? (
+              <>
+                <CardHeader className="text-center border-b">
+                  <div className="flex items-center justify-center gap-4">
+                    <Avatar className="h-16 w-16">
+                      <AvatarImage src={selectedCall.userImage} />
+                      <AvatarFallback className="text-2xl">{selectedCall.userName[0]}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h3 className="text-xl font-semibold">{selectedCall.userName}</h3>
+                      <p className="text-muted-foreground">{selectedCall.language}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Clock className="h-4 w-4" />
+                        <span className="font-mono text-lg">{formatDuration(callDuration)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="flex-1 flex flex-col items-center justify-center p-8 space-y-6">
+                  {/* Call Controls */}
+                  <div className="flex items-center gap-4">
+                    <Button
+                      variant={isMuted ? "destructive" : "outline"}
+                      size="lg"
+                      className="w-16 h-16 rounded-full"
+                      onClick={() => setIsMuted(!isMuted)}
+                    >
+                      {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+                    </Button>
+
+                    <Button
+                      variant={isOnHold ? "secondary" : "outline"}
+                      size="lg"
+                      className="w-16 h-16 rounded-full"
+                      onClick={() => setIsOnHold(!isOnHold)}
+                    >
+                      <VolumeX className="h-6 w-6" />
+                    </Button>
+
+                    <Button
+                      variant="destructive"
+                      size="lg"
+                      className="w-20 h-20 rounded-full"
+                      onClick={handleEndCall}
+                    >
+                      <PhoneOff className="h-8 w-8" />
+                    </Button>
+                  </div>
+
+                  <div className="text-center space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      {isOnHold ? "Call on hold" : "Call in progress"}
+                    </p>
+                    {selectedCall.location && (
+                      <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+                        <MapPin className="h-3 w-3" />
+                        {selectedCall.location}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </>
+            ) : selectedCall && !isInCall ? (
+              <>
+                <CardHeader className="text-center border-b">
+                  <div className="flex items-center justify-center gap-4">
+                    <Avatar className="h-16 w-16">
+                      <AvatarImage src={selectedCall.userImage} />
+                      <AvatarFallback className="text-2xl">{selectedCall.userName[0]}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h3 className="text-xl font-semibold">{selectedCall.userName}</h3>
+                      <p className="text-muted-foreground">{selectedCall.language}</p>
+                      <Badge variant="outline" className="mt-2">
+                        {selectedCall.priority.toUpperCase()} PRIORITY
+                      </Badge>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="flex-1 flex flex-col items-center justify-center p-8 space-y-6">
+                  <div className="text-center space-y-4">
+                    <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                      <PhoneCall className="h-12 w-12 text-green-600 animate-pulse" />
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-semibold">Incoming Call</h4>
+                      <p className="text-muted-foreground">From {selectedCall.userName}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="px-8"
+                      onClick={() => setSelectedCall(null)}
+                    >
+                      Decline
+                    </Button>
+                    <Button
+                      size="lg"
+                      className="px-8 bg-green-600 hover:bg-green-700"
+                      onClick={() => handleAcceptCall(selectedCall)}
+                    >
+                      <Phone className="h-5 w-5 mr-2" />
+                      Accept Call
+                    </Button>
+                  </div>
+                </CardContent>
+              </>
+            ) : (
+              <div className="h-[400px] flex items-center justify-center text-center">
+                <div>
+                  <Phone className="h-16 w-16 mx-auto mb-4 text-slate-400" />
+                  <h3 className="text-lg font-semibold text-muted-foreground mb-2">Select a Call</h3>
+                  <p className="text-slate-500">Choose an active call from the list to manage it</p>
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* Call History */}
+        <Card className="bg-card backdrop-blur-sm border-0 shadow-2xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Recent Call History
+            </CardTitle>
+            <CardDescription>Calls from the last 24 hours</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {callHistory.length === 0 ? (
+              <div className="text-center py-8">
+                <Clock className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                <p className="text-muted-foreground">No recent calls</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {callHistory.map((call) => (
+                  <div key={call.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage src={call.userImage} />
+                        <AvatarFallback>{call.userName[0]}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium text-foreground">{call.userName}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs">
+                            <Globe className="h-3 w-3 mr-1" />
+                            {call.language}
+                          </Badge>
+                          {call.duration && (
+                            <Badge variant="outline" className="text-xs">
+                              <Clock className="h-3 w-3 mr-1" />
+                              {formatDuration(call.duration)}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Badge
+                        variant={call.status === 'ended' ? 'secondary' : 'destructive'}
+                        className="text-xs"
+                      >
+                        {call.status}
+                      </Badge>
+                      {call.endTime && (
+                        <span className="text-xs text-muted-foreground">
+                          {call.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

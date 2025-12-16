@@ -126,7 +126,7 @@ export default function SOSPage() {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50 dark:from-red-900 dark:via-orange-900 dark:to-yellow-900 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4 sm:p-6 lg:p-8">
       <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
         {/* Header Section */}
         <div className="text-center">
@@ -144,7 +144,7 @@ export default function SOSPage() {
         {/* SOS Button Section */}
         <Alert className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900 dark:to-orange-900 border-red-200/50 dark:border-red-700/50 backdrop-blur-sm shadow-lg">
           <AlertTriangle className="h-5 w-5 text-red-600" />
-          <AlertTitle className="text-red-800 font-semibold">Immediate Life-Threatening Emergency?</AlertTitle>
+          <AlertTitle className="text-red-800 dark:text-white font-bold text-lg">Immediate Life-Threatening Emergency?</AlertTitle>
           <AlertDescription className="text-red-700/90 dark:text-red-300/90">
             Click the button below to send an instant SOS with your location. Your information will be sent after you click.
           </AlertDescription>
@@ -211,7 +211,7 @@ export default function SOSPage() {
                   <div className={`p-2 sm:p-3 rounded-lg ${type.color} mb-2 transition-all duration-200 hover:scale-110`}>
                     <type.icon className="h-6 w-6 sm:h-7 sm:w-7" />
                   </div>
-                  <span className="text-xs sm:text-sm font-medium text-slate-800 dark:text-slate-200 leading-tight">{type.name}</span>
+                  <span className="text-xs sm:text-sm font-medium text-black leading-tight">{type.name}</span>
                   {selectedEmergency === type.name && (
                     <Check className="h-4 w-4 text-green-600 absolute mt-1" />
                   )}

@@ -1,4 +1,3 @@
-
 /// <reference types="vite/client" />
 
 // Import the functions you need from the SDKs you need
@@ -7,6 +6,7 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getMessaging } from "firebase/messaging";
+import { getFunctions } from "firebase/functions";
 
 // Debug: Log environment variables
 console.log('Firebase Config Debug:');
@@ -38,5 +38,6 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 const messaging = getMessaging(app);
+const functions = getFunctions(app);
 
-export { app, auth, db, storage, messaging };
+export { app, auth, db, storage, messaging, functions };
