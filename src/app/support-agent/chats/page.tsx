@@ -522,24 +522,28 @@ export default function SupportAgentChatsPage() {
                       <p className="text-sm text-muted-foreground">{selectedChat.userEmail}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline">
-                      <Globe className="h-3 w-3 mr-1" />
-                      {selectedChat.language}
-                    </Badge>
-                    <Button variant="outline" size="sm">
-                      <Phone className="h-4 w-4 mr-2" />
-                      Call
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleCloseChat(selectedChat.id)}
-                    >
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Close Chat
-                    </Button>
-                  </div>
+                  <div className="flex items-center gap-3">
+ 
+
+  <div className="flex flex-col gap-2">
+  
+    <Button variant="outline" size="sm">
+      <Phone className="h-4 w-4 mr-2" />
+      Call
+    </Button>
+
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => handleCloseChat(selectedChat.id)}
+    >
+      <CheckCircle className="h-4 w-4 mr-2" />
+      Close Chat
+    </Button>
+
+  </div>
+</div>
+
                 </CardHeader>
                 <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 h-[400px]">
                   {messages.length === 0 ? (
