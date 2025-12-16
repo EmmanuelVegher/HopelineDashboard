@@ -245,78 +245,80 @@ export default function SupportAgentHistoryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
+    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8 overflow-x-hidden">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6 lg:space-y-8">
         {/* Header */}
         <div className="text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-2xl shadow-lg mb-4 sm:mb-6">
             <History className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
           </div>
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent mb-3 sm:mb-4">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2 sm:mb-3 lg:mb-4">
             Chat History
           </h1>
-          <p className="text-muted-foreground text-sm sm:text-base lg:text-lg">
+          <p className="text-muted-foreground text-sm sm:text-base lg:text-lg px-4 sm:px-0">
             Review and analyze past support conversations
           </p>
         </div>
 
         {/* Filters and Search */}
-        <Card className="bg-card backdrop-blur-sm border-0 shadow-2xl">
-          <CardContent className="p-6">
-            <div className="flex flex-col lg:flex-row gap-4 items-center">
-              <div className="relative flex-1">
+        <Card className="bg-card backdrop-blur-sm border-0 shadow-2xl w-full">
+          <CardContent className="p-4 sm:p-6 lg:p-8 w-full">
+            <div className="space-y-4 w-full">
+              <div className="relative w-full">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
                   placeholder="Search by user name, message, or language..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 h-12 w-full"
                 />
               </div>
 
-              <div className="flex gap-2">
-                <Select value={dateRange} onValueChange={setDateRange}>
-                  <SelectTrigger className="w-32">
-                    <Calendar className="h-4 w-4 mr-2" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1day">Last Day</SelectItem>
-                    <SelectItem value="7days">Last 7 Days</SelectItem>
-                    <SelectItem value="30days">Last 30 Days</SelectItem>
-                    <SelectItem value="90days">Last 90 Days</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="flex flex-col gap-3 w-full">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 w-full">
+                  <Select value={dateRange} onValueChange={setDateRange}>
+                    <SelectTrigger className="w-full h-12">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1day">Last Day</SelectItem>
+                      <SelectItem value="7days">Last 7 Days</SelectItem>
+                      <SelectItem value="30days">Last 30 Days</SelectItem>
+                      <SelectItem value="90days">Last 90 Days</SelectItem>
+                    </SelectContent>
+                  </Select>
 
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-32">
-                    <Filter className="h-4 w-4 mr-2" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="closed">Closed</SelectItem>
-                    <SelectItem value="transferred">Transferred</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-full h-12">
+                      <Filter className="h-4 w-4 mr-2" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="closed">Closed</SelectItem>
+                      <SelectItem value="transferred">Transferred</SelectItem>
+                    </SelectContent>
+                  </Select>
 
-                <Select value={resolutionFilter} onValueChange={setResolutionFilter}>
-                  <SelectTrigger className="w-36">
-                    <SelectValue placeholder="Resolution" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Resolutions</SelectItem>
-                    <SelectItem value="resolved">Resolved</SelectItem>
-                    <SelectItem value="transferred">Transferred</SelectItem>
-                    <SelectItem value="abandoned">Abandoned</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <Select value={resolutionFilter} onValueChange={setResolutionFilter}>
+                    <SelectTrigger className="w-full h-12">
+                      <SelectValue placeholder="Resolution" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Resolutions</SelectItem>
+                      <SelectItem value="resolved">Resolved</SelectItem>
+                      <SelectItem value="transferred">Transferred</SelectItem>
+                      <SelectItem value="abandoned">Abandoned</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                <Button variant="outline" onClick={handleExportHistory}>
+                <Button variant="outline" onClick={handleExportHistory} className="w-full h-12">
                   <Download className="h-4 w-4 mr-2" />
-                  Export
+                  Export Data
                 </Button>
               </div>
             </div>
@@ -324,20 +326,20 @@ export default function SupportAgentHistoryPage() {
         </Card>
 
         {/* Chat History List */}
-        <Card className="bg-card backdrop-blur-sm border-0 shadow-2xl">
-          <CardHeader>
+        <Card className="bg-card backdrop-blur-sm border-0 shadow-2xl w-full">
+          <CardHeader className="p-4 sm:p-6 lg:p-8 pb-4 w-full">
             <CardTitle className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5" />
               Chat Sessions
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="w-full truncate">
               {filteredHistory.length} chats found
               {searchTerm && ` for "${searchTerm}"`}
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 w-full">
             {loading ? (
-              <div className="p-8 space-y-4">
+              <div className="p-4 sm:p-6 lg:p-8 space-y-4">
                 {[...Array(5)].map((_, i) => (
                   <div key={i} className="flex items-center gap-4 p-4">
                     <div className="w-12 h-12 bg-slate-200 rounded-full animate-pulse" />
@@ -349,79 +351,91 @@ export default function SupportAgentHistoryPage() {
                 ))}
               </div>
             ) : filteredHistory.length === 0 ? (
-              <div className="p-8 text-center text-slate-500">
+              <div className="p-6 sm:p-8 lg:p-12 text-center text-slate-500">
                 <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No chat history found</p>
+                <p className="text-base sm:text-lg">No chat history found</p>
                 <p className="text-sm mt-2">Try adjusting your filters or date range</p>
               </div>
             ) : (
-              <ScrollArea className="h-[600px]">
-                <div className="space-y-1">
+              <ScrollArea className="h-[50vh] sm:h-[60vh] lg:h-[600px] w-full overflow-x-hidden">
+                <div className="grid grid-cols-1 gap-0 sm:gap-1 w-full overflow-x-hidden">
                   {filteredHistory.map((chat) => (
                     <div
                       key={chat.id}
-                      className="p-4 border-b border-slate-100 hover:bg-muted/50 transition-colors"
+                      className="p-3 sm:p-4 border-b border-slate-100 hover:bg-muted/50 transition-colors w-full overflow-x-hidden"
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <Avatar className="h-12 w-12">
+                      <div className="flex flex-col gap-4 w-full overflow-x-hidden">
+                        {/* Main content row */}
+                        <div className="flex items-start gap-1 sm:gap-2 lg:gap-3 w-full min-w-0">
+                          <Avatar className="h-12 w-12 flex-shrink-0">
                             <AvatarImage src={chat.userImage} />
-                            <AvatarFallback>
+                            <AvatarFallback className="text-sm">
                               {chat.userFirstName && chat.userLastName
                                 ? `${chat.userFirstName[0]}${chat.userLastName[0]}`
                                 : chat.userName[0] || 'U'}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="font-medium text-foreground truncate">{chat.userName}</p>
-                              <Badge
-                                variant="outline"
-                                className="text-xs px-1.5 py-0.5"
-                              >
-                                <Globe className="h-3 w-3 mr-1" />
-                                {chat.language}
-                              </Badge>
-                              <Badge
-                                variant="outline"
-                                className="text-xs px-1.5 py-0.5"
-                              >
-                                <MessageSquare className="h-3 w-3 mr-1" />
-                                {chat.messageCount}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground truncate max-w-md">{chat.lastMessage}</p>
-                            <div className="flex items-center gap-3 mt-2">
-                              <div className="flex items-center gap-1 text-xs text-slate-500">
-                                <Clock className="h-3 w-3" />
-                                {chat.lastMessageTime.toLocaleString()}
+                            <div className="flex flex-col gap-2 w-full">
+                              {/* Name and badges row */}
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full">
+                                <p className="font-medium text-foreground truncate text-sm sm:text-base">{chat.userName}</p>
+                                <div className="flex flex-wrap gap-1">
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs px-1.5 py-0.5"
+                                  >
+                                    <Globe className="h-3 w-3 mr-1" />
+                                    {chat.language}
+                                  </Badge>
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs px-1.5 py-0.5"
+                                  >
+                                    <MessageSquare className="h-3 w-3 mr-1" />
+                                    {chat.messageCount}
+                                  </Badge>
+                                </div>
                               </div>
-                              {chat.duration && (
-                                <div className="flex items-center gap-1 text-xs text-slate-500">
+
+                              {/* Message */}
+                              <p className="text-sm text-muted-foreground truncate w-full">{chat.lastMessage}</p>
+
+                              {/* Metadata */}
+                              <div className="flex flex-wrap items-center gap-0.5 sm:gap-1 lg:gap-2 text-xs text-slate-500 overflow-x-hidden">
+                                <div className="flex items-center gap-1 flex-shrink-0">
                                   <Clock className="h-3 w-3" />
-                                  {formatDuration(chat.duration)}
+                                  <span className="hidden sm:inline truncate">{chat.lastMessageTime.toLocaleString()}</span>
+                                  <span className="sm:hidden truncate">{chat.lastMessageTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                                 </div>
-                              )}
-                              {chat.location && (
-                                <div className="flex items-center gap-1 text-xs text-slate-500">
-                                  <MapPin className="h-3 w-3" />
-                                  {chat.location}
-                                </div>
-                              )}
+                                {chat.duration && (
+                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                    <Clock className="h-3 w-3" />
+                                    <span className="truncate">{formatDuration(chat.duration)}</span>
+                                  </div>
+                                )}
+                                {chat.location && (
+                                  <div className="flex items-center gap-1 min-w-0 flex-1">
+                                    <MapPin className="h-3 w-3 flex-shrink-0" />
+                                    <span className="truncate">{chat.location}</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-3">
-                          <div className="flex flex-col items-end gap-1">
+                        {/* Actions row */}
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2 lg:gap-3 w-full">
+                          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                             <Badge
-                              className={`text-xs ${getStatusColor(chat.status)} text-white`}
+                              className={`text-xs px-2 py-1 justify-center ${getStatusColor(chat.status)} text-white`}
                             >
                               {chat.status}
                             </Badge>
                             <Badge
                               variant="outline"
-                              className={`text-xs ${getResolutionColor(chat.resolution)} text-white border-transparent`}
+                              className={`text-xs px-2 py-1 justify-center ${getResolutionColor(chat.resolution)} text-white border-transparent`}
                             >
                               {chat.resolution}
                             </Badge>
@@ -431,6 +445,7 @@ export default function SupportAgentHistoryPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleViewChat(chat.id)}
+                            className="w-full sm:w-auto h-10 flex-shrink-0"
                           >
                             <Eye className="h-4 w-4 mr-2" />
                             View

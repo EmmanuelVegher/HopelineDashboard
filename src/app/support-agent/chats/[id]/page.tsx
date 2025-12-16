@@ -401,7 +401,7 @@ export default function IndividualChatPage() {
         </div>
 
         <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-2xl">
-          <CardHeader className="flex-row items-center justify-between border-b">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b">
             <div className="flex items-center gap-3">
               <Avatar className="h-12 w-12">
                 <AvatarImage src={chatSession.userImage} />
@@ -430,10 +430,11 @@ export default function IndividualChatPage() {
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
               <Button
                 variant="outline"
                 size="sm"
+                className="w-full sm:w-auto"
                 onClick={() => toast({ title: "Call Feature", description: "Voice calling will be available soon" })}
               >
                 <Phone className="h-4 w-4 mr-2" />
@@ -442,6 +443,7 @@ export default function IndividualChatPage() {
               <Button
                 variant="outline"
                 size="sm"
+                className="w-full sm:w-auto"
                 onClick={handleCloseChat}
               >
                 <CheckCircle className="h-4 w-4 mr-2" />
