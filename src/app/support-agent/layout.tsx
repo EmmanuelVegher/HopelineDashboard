@@ -11,6 +11,7 @@ import {
   SidebarInset,
   useSidebar,
   SidebarSeparator,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import {
   MessageSquare,
@@ -48,9 +49,16 @@ const navLinks = [
 function SupportAgentSidebar({ userProfile }: { userProfile?: {firstName: string; lastName: string; image?: string; isOnline?: boolean} | null }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const { setIsLoading } = useLoading();
   const { t } = useTranslation();
+
+  // Auto-close mobile sidebar when navigating to a new page
+  useEffect(() => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  }, [location.pathname, isMobile, setOpenMobile]);
 
   const handleLogout = () => {
     setIsLoading(true);
@@ -257,7 +265,14 @@ export default function SupportAgentLayout() {
     <SidebarProvider key={renderCount}>
         <SupportAgentSidebar userProfile={userProfile} />
         <SidebarInset>
-            <main className="flex flex-1 flex-col gap-4 p-4 sm:px-8 sm:py-6 bg-background/50 min-h-screen">
+            <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+                <SidebarTrigger className="-ml-1" />
+                <div className="flex items-center gap-2">
+                    <img src="/hopeline_red.png" alt="Support Agent Logo" width={32} height={32} />
+                    <h1 className="text-lg font-semibold">Support Agent</h1>
+                </div>
+            </header>
+            <main className="flex flex-1 flex-col gap-4 p-4 sm:px-8 sm:py-6 bg-gray-50/50 dark:bg-gray-900/50 min-h-screen">
                 <Outlet />
             </main>
         </SidebarInset>

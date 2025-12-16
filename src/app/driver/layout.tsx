@@ -10,6 +10,7 @@ import {
   SidebarProvider,
   SidebarInset,
   useSidebar,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import {
   CheckCircle,
@@ -23,6 +24,7 @@ import {
 import { useLocation, useNavigate, Outlet, Link } from "react-router-dom";
 import { useLoading } from '@/contexts/LoadingProvider';
 import { useEffect, useState } from 'react';
+import { useEffect as useReactEffect } from 'react';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -42,9 +44,16 @@ const navLinks = [
 function DriverSidebar({ activeAlertsCount = 0, driverProfile }: { activeAlertsCount?: number; driverProfile?: {firstName: string; lastName: string; image?: string} | null }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const { setIsLoading } = useLoading();
   const { toast } = useToast();
+
+  // Auto-close mobile sidebar when navigating to a new page
+  useEffect(() => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  }, [location.pathname, isMobile, setOpenMobile]);
 
   console.log("DriverSidebar: Current location pathname:", location.pathname);
 
@@ -260,7 +269,14 @@ export default function DriverLayout() {
     <SidebarProvider>
       <DriverSidebar activeAlertsCount={activeAlertsCount} driverProfile={driverProfile} />
       <SidebarInset>
-        <main className="flex flex-1 flex-col gap-4 p-4 sm:px-8 sm:py-6">
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <div className="flex items-center gap-2">
+            <img src="/shelter_logo.png" alt="Pilot Panel Logo" width={32} height={32} />
+            <h1 className="text-lg font-semibold">Pilot Panel</h1>
+          </div>
+        </header>
+        <main className="flex flex-1 flex-col gap-4 p-4 sm:px-8 sm:py-6 bg-gray-50/50 dark:bg-gray-900/50 min-h-screen">
           <Outlet />
         </main>
       </SidebarInset>

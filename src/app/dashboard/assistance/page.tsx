@@ -682,7 +682,7 @@ export default function AssistancePage() {
                     <TabsTrigger value="call"><Phone className="mr-2 h-4 w-4"/> Voice Call</TabsTrigger>
                 </TabsList>
                 <TabsContent value="chat">
-                    <Card className="h-[calc(100vh-32rem)] flex flex-col shadow-lg">
+                    <Card className="h-[80vh] flex flex-col shadow-lg">
                         <CardHeader className="flex-row items-center justify-between border-b p-4">
                             <div className="flex items-center gap-3">
                                 {supportAgent ? (
