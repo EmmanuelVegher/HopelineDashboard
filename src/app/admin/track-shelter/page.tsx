@@ -281,53 +281,56 @@ export default function TrackShelterPage() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-1 sm:gap-6">
-                <Card className="max-w-[50vw] sm:max-w-full overflow-hidden">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-xs sm:text-sm font-medium">Total Capacity</CardTitle>
-                        <Building2 className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent className="p-2 sm:p-6">
-                        {loading ? <Skeleton className="h-6 sm:h-8 w-1/2" /> : <div className="text-xl sm:text-3xl font-bold">{totalCapacity}</div> }
-                        {loading ? <Skeleton className="h-3 sm:h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">{totalOccupied} occupied</p> }
-                    </CardContent>
-                </Card>
-                <Card className="max-w-[50vw] sm:max-w-full overflow-hidden">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-xs sm:text-sm font-medium">Available Spaces</CardTitle>
-                        <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
-                    </CardHeader>
-                    <CardContent className="p-2 sm:p-6">
-                        {loading ? <Skeleton className="h-6 sm:h-8 w-1/2" /> : <div className="text-xl sm:text-3xl font-bold">{availableSpaces}</div>}
-                        {loading ? <Skeleton className="h-3 sm:h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">{totalCapacity > 0 ? `${Math.round((availableSpaces / totalCapacity) * 100)}%` : '0%'} available</p>}
-                    </CardContent>
-                </Card>
-                <Card className="max-w-[50vw] sm:max-w-full overflow-hidden">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-xs sm:text-sm font-medium">Active Shelters</CardTitle>
-                        <Shield className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500" />
-                    </CardHeader>
-                    <CardContent className="p-2 sm:p-6">
-                        {loading ? <Skeleton className="h-6 sm:h-8 w-1/2" /> : <div className="text-xl sm:text-3xl font-bold">{activeShelters}</div>}
-                        {loading ? <Skeleton className="h-3 sm:h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">of {shelters?.length || 0} total</p>}
-                    </CardContent>
-                </Card>
-                <Card className="max-w-[50vw] sm:max-w-full overflow-hidden">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-xs sm:text-sm font-medium">Emergency Requests</CardTitle>
-                        <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 text-red-500" />
-                    </CardHeader>
-                    <CardContent className="p-2 sm:p-6">
-                        {loading ? <Skeleton className="h-6 sm:h-8 w-1/2" /> : <div className="text-xl sm:text-3xl font-bold">{emergencyRequests}</div>}
-                        {loading ? <Skeleton className="h-3 sm:h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">pending response</p>}
-                    </CardContent>
-                </Card>
-            </div>
+                 <Card className="max-w-[40vw] sm:max-w-full overflow-hidden">
+                     <CardHeader className="flex flex-row items-center justify-between pb-2">
+                         <CardTitle className="text-xs sm:text-sm font-medium">Total Capacity</CardTitle>
+                         <Building2 className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
+                     </CardHeader>
+                     <CardContent className="p-2 sm:p-6">
+                         {loading ? <Skeleton className="h-6 sm:h-8 w-1/2" /> : <div className="text-xl sm:text-3xl font-bold">{totalCapacity}</div> }
+                         {loading ? <Skeleton className="h-3 sm:h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">{totalOccupied} occupied</p> }
+                     </CardContent>
+                 </Card>
+                 <Card className="max-w-[40vw] sm:max-w-full overflow-hidden">
+                     <CardHeader className="flex flex-row items-center justify-between pb-2">
+                         <CardTitle className="text-xs sm:text-sm font-medium">Available Spaces</CardTitle>
+                         <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
+                     </CardHeader>
+                     <CardContent className="p-2 sm:p-6">
+                         {loading ? <Skeleton className="h-6 sm:h-8 w-1/2" /> : <div className="text-xl sm:text-3xl font-bold">{availableSpaces}</div>}
+                         {loading ? <Skeleton className="h-3 sm:h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">{totalCapacity > 0 ? `${Math.round((availableSpaces / totalCapacity) * 100)}%` : '0%'} available</p>}
+                     </CardContent>
+                 </Card>
+                 <Card className="max-w-[40vw] sm:max-w-full overflow-hidden">
+                     <CardHeader className="flex flex-row items-center justify-between pb-2">
+                         <CardTitle className="text-xs sm:text-sm font-medium">Active Shelters</CardTitle>
+                         <Shield className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500" />
+                     </CardHeader>
+                     <CardContent className="p-2 sm:p-6">
+                         {loading ? <Skeleton className="h-6 sm:h-8 w-1/2" /> : <div className="text-xl sm:text-3xl font-bold">{activeShelters}</div>}
+                         {loading ? <Skeleton className="h-3 sm:h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">of {shelters?.length || 0} total</p>}
+                     </CardContent>
+                 </Card>
+                 <Card className="max-w-[40vw] sm:max-w-full overflow-hidden">
+                     <CardHeader className="flex flex-row items-center justify-between pb-2">
+                         <CardTitle className="text-xs sm:text-sm font-medium">Emergency Requests</CardTitle>
+                         <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 text-red-500" />
+                     </CardHeader>
+                     <CardContent className="p-2 sm:p-6">
+                         {loading ? <Skeleton className="h-6 sm:h-8 w-1/2" /> : <div className="text-xl sm:text-3xl font-bold">{emergencyRequests}</div>}
+                         {loading ? <Skeleton className="h-3 sm:h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">pending response</p>}
+                     </CardContent>
+                 </Card>
+             </div>
 
             <Tabs defaultValue="overview">
-                <TabsList>
-                    <TabsTrigger value="overview">Shelter Overview</TabsTrigger>
-                    <TabsTrigger value="capacity">Capacity Management</TabsTrigger>
-                    <TabsTrigger value="operations">Operations</TabsTrigger>
+                <TabsList className="w-full overflow-x-auto">
+                    <TabsTrigger value="overview" className="truncate">Shelter Overview</TabsTrigger>
+                    <TabsTrigger value="capacity">
+                        <span className="sm:hidden text-center">Capacity<br/>Management</span>
+                        <span className="hidden sm:inline">Capacity Management</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="operations" className="truncate">Operations</TabsTrigger>
                 </TabsList>
                 <TabsContent value="overview" className="mt-6">
                      {permissionError && (
@@ -339,7 +342,7 @@ export default function TrackShelterPage() {
                             </AlertDesc>
                         </Alert>
                     )}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 overflow-x-auto">
                         {loading || !shelters ? (
                              Array.from({ length: 4 }).map((_, i) => (
                                 <Card key={i} className="max-w-[90vw] sm:max-w-full"><CardContent className="p-2 sm:p-6"><Skeleton className="h-48 sm:h-64 w-full" /></CardContent></Card>
@@ -404,10 +407,10 @@ export default function TrackShelterPage() {
                     </div>
                 </TabsContent>
                 <TabsContent value="capacity" className="mt-6">
-                    <Card className="max-w-6xl overflow-hidden">
-                        <CardHeader>
-                            <CardTitle>Capacity Management</CardTitle>
-                            <CardDescription>View detailed capacity information and manage shelter spaces.</CardDescription>
+                    <Card className="max-w-4xl overflow-hidden">
+                        <CardHeader className="p-3 sm:p-6">
+                            <CardTitle className="text-lg sm:text-xl">Capacity Management</CardTitle>
+                            <CardDescription className="text-sm sm:text-base">View detailed capacity information and manage shelter spaces.</CardDescription>
                         </CardHeader>
                         <CardContent className="p-2 sm:p-6">
                             {/* Mobile Card Layout */}
@@ -530,9 +533,9 @@ export default function TrackShelterPage() {
                 </TabsContent>
                  <TabsContent value="operations" className="mt-6">
                     <Card className="max-w-full overflow-hidden">
-                        <CardHeader>
-                            <CardTitle>Shelter Operations</CardTitle>
-                            <CardDescription>
+                        <CardHeader className="p-3 sm:p-6">
+                            <CardTitle className="text-lg sm:text-xl">Shelter Operations</CardTitle>
+                            <CardDescription className="text-sm sm:text-base">
                                 Monitor operational status, requests, and contact managers.
                             </CardDescription>
                         </CardHeader>
