@@ -161,18 +161,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 dark:from-slate-900 dark:via-blue-900 dark:to-emerald-900 p-4 sm:p-6 lg:p-8">
       <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
-        {/* Header */}
-        <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl shadow-lg mb-4 sm:mb-6">
-            <User className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
-          </div>
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-slate-800 via-blue-700 to-purple-700 bg-clip-text text-transparent mb-3 sm:mb-4">
-            My Profile
-          </h1>
-          <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base lg:text-lg">
-            Manage your personal information and account settings
-          </p>
-        </div>
+    
 
         {/* Main Profile Card */}
         <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-2xl overflow-hidden">

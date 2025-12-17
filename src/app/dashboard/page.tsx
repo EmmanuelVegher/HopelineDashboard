@@ -11,12 +11,16 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Shelter, UssdCode } from "@/lib/data";
+import { getWeather } from "@/ai/client";
+import { type GetWeatherOutput } from "@/ai/schemas/weather";
 
 export default function Home() {
   const [stats, setStats] = useState({ shelterCount: 0, peopleAssisted: 0 });
   const [ussdCodes, setUssdCodes] = useState<UssdCode[]>([]);
   const [emergencyContacts, setEmergencyContacts] = useState<UssdCode[]>([]);
+  const [weatherData, setWeatherData] = useState<GetWeatherOutput | null>(null);
   const [loading, setLoading] = useState(true);
+  const [weatherLoading, setWeatherLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -26,14 +30,14 @@ export default function Home() {
           getDocs(collection(db, "shelters")),
           getDocs(collection(db, "ussdCodes"))
         ]);
-        
+
         const sheltersData = shelterSnapshot.docs.map(doc => doc.data() as Shelter);
         const shelterCount = sheltersData.length;
         const peopleAssisted = sheltersData.reduce((acc, shelter) => {
           return acc + (shelter.capacity - shelter.availableCapacity);
         }, 0);
         setStats({ shelterCount, peopleAssisted });
-        
+
         const allCodes = ussdSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UssdCode));
         const ussd = allCodes.filter(c => c.code.startsWith('*'));
         const contacts = allCodes.filter(c => !c.code.startsWith('*'));
@@ -47,6 +51,42 @@ export default function Home() {
     };
 
     fetchStats();
+  }, []);
+
+  useEffect(() => {
+    const fetchWeather = async () => {
+      setWeatherLoading(true);
+      try {
+        // Try to get user's location first, fallback to Bayelsa/Adamawa region
+        let latitude = 5.0; // Default: Bayelsa/Adamawa region
+        let longitude = 6.0;
+
+        if (navigator.geolocation) {
+          try {
+            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: false, // Quick location for dashboard
+                timeout: 5000,
+                maximumAge: 600000 // 10 minutes
+              });
+            });
+            latitude = position.coords.latitude;
+            longitude = position.coords.longitude;
+            console.log(`Dashboard using user location: ${latitude}, ${longitude}`);
+          } catch (locationError) {
+            console.log("Using default location for dashboard weather:", locationError);
+          }
+        }
+
+        const weather = await getWeather({ latitude, longitude }) as GetWeatherOutput;
+        setWeatherData(weather);
+      } catch (error) {
+        console.error("Error fetching weather data:", error);
+      }
+      setWeatherLoading(false);
+    };
+
+    fetchWeather();
   }, []);
 
   const halfIndex = Math.ceil(emergencyContacts.length / 2);
@@ -152,18 +192,42 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Emergency Alert */}
-        <Alert className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900 dark:to-orange-900 border-red-200/50 dark:border-red-700/50 backdrop-blur-sm">
-          <AlertTriangle className="h-4 w-4 text-red-500" />
-          <AlertTitle className="text-red-800 dark:text-red-200 font-semibold flex items-center gap-2">
-            <Shield className="h-4 w-4" />
-            Flood & Security Alert
-          </AlertTitle>
-          <AlertDescription className="text-red-700/90 dark:text-red-300">
-            Heavy rainfall and potential flooding forecasted for Bayelsa. Increased security vigilance advised in Adamawa.
-            Please find safe shelter immediately.
-          </AlertDescription>
-        </Alert>
+        {/* Weather Alerts */}
+        {weatherLoading ? (
+          <Alert className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900 dark:to-cyan-900 border-blue-200/50 dark:border-blue-700/50 backdrop-blur-sm">
+            <Wind className="h-4 w-4 text-blue-500" />
+            <AlertTitle className="text-blue-800 dark:text-blue-200 font-semibold">
+              Loading Weather Information...
+            </AlertTitle>
+            <AlertDescription className="text-blue-700/90 dark:text-blue-300">
+              <Skeleton className="h-4 w-full mt-1" />
+            </AlertDescription>
+          </Alert>
+        ) : weatherData?.alerts && weatherData.alerts.length > 0 ? (
+          weatherData.alerts.map((alert: any, index: number) => (
+            <Alert key={index} className={`bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900 dark:to-orange-900 border-red-200/50 dark:border-red-700/50 backdrop-blur-sm ${alert.severity === 'Severe' ? 'border-l-4 border-l-red-500' : ''}`}>
+              <AlertTriangle className="h-4 w-4 text-red-500" />
+              <AlertTitle className="text-red-800 dark:text-red-200 font-semibold flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                {alert.title}
+              </AlertTitle>
+              <AlertDescription className="text-red-700/90 dark:text-red-300">
+                {alert.description}
+              </AlertDescription>
+            </Alert>
+          ))
+        ) : weatherData ? (
+          <Alert className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900 dark:to-cyan-900 border-blue-200/50 dark:border-blue-700/50 backdrop-blur-sm">
+            <Wind className="h-4 w-4 text-blue-500" />
+            <AlertTitle className="text-blue-800 dark:text-blue-200 font-semibold flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              Weather Update
+            </AlertTitle>
+            <AlertDescription className="text-blue-700/90 dark:text-blue-300">
+              {weatherData.narrativeSummary}
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
         {/* Quick Actions Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">

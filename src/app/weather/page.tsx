@@ -6,7 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getWeather, type GetWeatherOutput } from "@/ai/client";
+import { Input } from "@/components/ui/input";
+import { getWeather } from "@/ai/client";
+import { type GetWeatherOutput } from "@/ai/schemas/weather";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -104,8 +106,8 @@ const renderForecast = (loading: boolean, weatherData: GetWeatherOutput | null) 
                 </CardTitle>
             </CardHeader>
             <CardContent className="p-4 sm:p-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-                {weatherData.forecast.map((day) => {
-                    const Icon = iconMap[day.icon] || Cloud;
+                {weatherData.forecast.map((day: any) => {
+                    const Icon = iconMap[day.icon as keyof typeof iconMap] || Cloud;
                     return (
                          <Card key={day.day} className="p-4 flex flex-col items-center gap-3 bg-slate-50/50 hover:bg-slate-100/50 transition-all duration-200 hover:scale-105">
                             <p className="font-bold text-sm sm:text-base text-slate-800 dark:text-slate-200">{day.day}</p>
@@ -128,12 +130,14 @@ export default function WeatherPage() {
     const [loading, setLoading] = useState(true);
     const [locationName, setLocationName] = useState("your location");
     const [currentCoords, setCurrentCoords] = useState<{latitude: number, longitude: number} | null>(null);
+    const [locationError, setLocationError] = useState<string | null>(null);
+    const [showManualLocation, setShowManualLocation] = useState(false);
     const { toast } = useToast();
 
     const fetchWeather = useCallback(async (latitude: number, longitude: number) => {
         setLoading(true);
         try {
-            const data = await getWeather({ latitude, longitude });
+            const data = await getWeather({ latitude, longitude }) as GetWeatherOutput;
             setWeatherData(data);
         } catch (error) {
             console.error("Failed to fetch weather data:", error);
@@ -149,40 +153,97 @@ export default function WeatherPage() {
 
     const fetchLocationAndWeather = useCallback(() => {
         setLoading(true);
-        if (!navigator.geolocation) {
+        setLocationError(null);
+
+        // Check for HTTPS requirement
+        if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+            const errorMsg = "Location services require HTTPS. Please access this site over a secure connection.";
+            setLocationError(errorMsg);
             toast({
-                title: "Geolocation Not Supported",
-                description: "Please enable location services in your browser.",
+                title: "HTTPS Required",
+                description: errorMsg,
                 variant: "destructive"
             });
             setLoading(false);
             return;
         }
 
+        if (!navigator.geolocation) {
+            const errorMsg = "Geolocation is not supported by this browser.";
+            setLocationError(errorMsg);
+            toast({
+                title: "Geolocation Not Supported",
+                description: errorMsg,
+                variant: "destructive"
+            });
+            setLoading(false);
+            return;
+        }
+
+        // Enhanced geolocation options for better mobile support
+        const options: PositionOptions = {
+            enableHighAccuracy: true, // Use GPS when available
+            timeout: 15000, // 15 second timeout
+            maximumAge: 600000 // Accept positions up to 10 minutes old
+        };
+
         navigator.geolocation.getCurrentPosition(
             async (position) => {
-                const { latitude, longitude } = position.coords;
+                const { latitude, longitude, accuracy } = position.coords;
+                console.log(`Location obtained: ${latitude}, ${longitude} (accuracy: ${accuracy}m)`);
+
                 setCurrentCoords({ latitude, longitude });
+                setLocationError(null);
                 fetchWeather(latitude, longitude);
+
                 try {
-                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                    // Use a more reliable geocoding service
+                    const response = await fetch(
+                        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+                    );
                     const data = await response.json();
-                    const city = data.address.city || data.address.town || data.address.village || "Unknown City";
-                    const state = data.address.state || "Unknown State";
-                    setLocationName(`${city}, ${state}`);
+
+                    if (data.city && data.principalSubdivision) {
+                        setLocationName(`${data.city}, ${data.principalSubdivision}`);
+                    } else if (data.locality) {
+                        setLocationName(data.locality);
+                    } else {
+                        setLocationName("your current location");
+                    }
                 } catch (error) {
                     console.error("Reverse geocoding error:", error);
                     setLocationName("your current location");
                 }
             },
             (error) => {
+                console.error("Geolocation error:", error);
+                let errorMsg = "Could not get your location.";
+                let actionText = "Try Again";
+
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        errorMsg = "Location access denied. Please enable location permissions in your browser or device settings.";
+                        actionText = "Enable Location";
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        errorMsg = "Location information is unavailable. Please check your GPS settings and ensure you're outdoors with a clear view of the sky.";
+                        break;
+                    case error.TIMEOUT:
+                        errorMsg = "Location request timed out. This can happen indoors or in areas with poor GPS signal.";
+                        break;
+                    default:
+                        errorMsg = `Location error: ${error.message}`;
+                }
+
+                setLocationError(errorMsg);
                 toast({
-                    title: "Geolocation Error",
-                    description: "Could not get your location. Please ensure location services are enabled.",
+                    title: "Location Access Required",
+                    description: errorMsg,
                     variant: "destructive"
                 });
                 setLoading(false);
-            }
+            },
+            options
         );
     }, [toast, fetchWeather]);
 
@@ -198,7 +259,7 @@ export default function WeatherPage() {
         }
     };
 
-    const MainIcon = weatherData && weatherData.forecast.length > 0 ? iconMap[weatherData.forecast[0].icon] : Loader2;
+    const MainIcon = weatherData && weatherData.forecast.length > 0 ? iconMap[weatherData.forecast[0].icon as keyof typeof iconMap] || Cloud : Loader2;
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-emerald-50 dark:from-blue-900 dark:via-cyan-900 dark:to-emerald-900 p-4 sm:p-6 lg:p-8">
@@ -212,6 +273,9 @@ export default function WeatherPage() {
                         <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base lg:text-lg mt-2 flex items-center gap-2">
                             <MapPin className="h-4 w-4 text-blue-500" />
                             Conditions for {locationName}
+                            {locationError && (
+                                <span className="text-red-500 text-xs">(Location access required)</span>
+                            )}
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -221,9 +285,20 @@ export default function WeatherPage() {
                                 <span>Last updated: {weatherData.lastUpdated}</span>
                             </div>
                         )}
-                        <Button 
-                            onClick={handleRefresh} 
-                            disabled={loading} 
+                        {locationError && (
+                            <Button
+                                onClick={fetchLocationAndWeather}
+                                disabled={loading}
+                                variant="outline"
+                                className="border-red-300 text-red-700 hover:bg-red-50"
+                            >
+                                <MapPin className="mr-2 h-4 w-4" />
+                                Enable Location
+                            </Button>
+                        )}
+                        <Button
+                            onClick={handleRefresh}
+                            disabled={loading}
                             className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
                         >
                             <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
@@ -231,6 +306,133 @@ export default function WeatherPage() {
                         </Button>
                     </div>
                 </div>
+
+                {/* Location Error Alert */}
+                {locationError && (
+                    <Alert className="bg-red-50 border-red-200">
+                        <AlertTriangle className="h-4 w-4 text-red-600" />
+                        <AlertTitle className="text-red-800">Location Access Required</AlertTitle>
+                        <AlertDescription className="text-red-700">
+                            <div className="space-y-3">
+                                <p>{locationError}</p>
+                                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                                    <strong>Mobile/iOS Users:</strong> Ensure location services are enabled in Settings → Privacy → Location Services, and grant permission when prompted. For best results, use the app outdoors with GPS signal.
+                                </div>
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                    <Button
+                                        onClick={() => setShowManualLocation(true)}
+                                        variant="outline"
+                                        size="sm"
+                                        className="border-red-300 text-red-700 hover:bg-red-50"
+                                    >
+                                        <MapPin className="h-4 w-4 mr-2" />
+                                        Enter Location Manually
+                                    </Button>
+                                    <Button
+                                        onClick={() => {
+                                            // Use default coordinates for Abuja, Nigeria
+                                            const defaultCoords = { latitude: 9.0765, longitude: 7.3986 };
+                                            setCurrentCoords(defaultCoords);
+                                            setLocationName("Abuja, Nigeria");
+                                            setLocationError(null);
+                                            fetchWeather(defaultCoords.latitude, defaultCoords.longitude);
+                                        }}
+                                        variant="outline"
+                                        size="sm"
+                                        className="border-red-300 text-red-700 hover:bg-red-50"
+                                    >
+                                        Use Default Location (Abuja)
+                                    </Button>
+                                    <Button
+                                        onClick={fetchLocationAndWeather}
+                                        size="sm"
+                                        className="bg-red-600 hover:bg-red-700 text-white"
+                                    >
+                                        <RefreshCw className="h-4 w-4 mr-2" />
+                                        Try Again
+                                    </Button>
+                                </div>
+                            </div>
+                        </AlertDescription>
+                    </Alert>
+                )}
+
+                {/* Manual Location Input */}
+                {showManualLocation && (
+                    <Card className="bg-blue-50 border-blue-200">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-blue-800">
+                                <MapPin className="h-5 w-5" />
+                                Enter Location Manually
+                            </CardTitle>
+                            <CardDescription className="text-blue-700">
+                                Enter coordinates or search for a city to get weather information.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-sm font-medium text-blue-800">Latitude</label>
+                                        <Input
+                                            type="number"
+                                            step="0.0001"
+                                            placeholder="9.0765"
+                                            className="mt-1"
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                                const lat = parseFloat(e.target.value);
+                                                if (!isNaN(lat) && currentCoords) {
+                                                    setCurrentCoords({ ...currentCoords, latitude: lat });
+                                                } else if (!isNaN(lat)) {
+                                                    setCurrentCoords({ latitude: lat, longitude: 0 });
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-medium text-blue-800">Longitude</label>
+                                        <Input
+                                            type="number"
+                                            step="0.0001"
+                                            placeholder="7.3986"
+                                            className="mt-1"
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                                const lng = parseFloat(e.target.value);
+                                                if (!isNaN(lng) && currentCoords) {
+                                                    setCurrentCoords({ ...currentCoords, longitude: lng });
+                                                } else if (!isNaN(lng)) {
+                                                    setCurrentCoords({ latitude: 0, longitude: lng });
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex gap-3">
+                                    <Button
+                                        onClick={() => {
+                                            if (currentCoords && currentCoords.latitude && currentCoords.longitude) {
+                                                setLocationName("Custom Location");
+                                                setLocationError(null);
+                                                setShowManualLocation(false);
+                                                fetchWeather(currentCoords.latitude, currentCoords.longitude);
+                                            }
+                                        }}
+                                        className="bg-blue-600 hover:bg-blue-700"
+                                        disabled={!currentCoords || !currentCoords.latitude || !currentCoords.longitude}
+                                    >
+                                        Get Weather
+                                    </Button>
+                                    <Button
+                                        onClick={() => setShowManualLocation(false)}
+                                        variant="outline"
+                                    >
+                                        Cancel
+                                    </Button>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* Main Weather Card */}
                 <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-2xl overflow-hidden">
@@ -306,7 +508,7 @@ export default function WeatherPage() {
                             {loading ? (
                                 <Card className="bg-slate-50/50"><CardContent className="p-4 sm:p-6"><Skeleton className="h-24 w-full"/></CardContent></Card>
                             ) : weatherData && weatherData.alerts.length > 0 ? (
-                                weatherData.alerts.map((alert, index) => (
+                                weatherData.alerts.map((alert: any, index: number) => (
                                     <Card key={index} className={cn("backdrop-blur-sm border-0 shadow-md", getAlertCardClass(alert.severity))}>
                                         <CardContent className="p-4 sm:p-6">
                                             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">

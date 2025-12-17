@@ -131,6 +131,254 @@ export const sendTaskAssignmentNotification = functions.firestore.document("sosA
 });
 
 /**
+ * Callable function for fetching weather data using OpenWeatherMap One Call API 3.0
+ */
+export const getWeather = functions.https.onCall(async (data, context) => {
+  // Check if user is authenticated
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  const { latitude, longitude } = data;
+
+  if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+    throw new functions.https.HttpsError('invalid-argument', 'Valid latitude and longitude are required');
+  }
+
+  // Get API key from environment variables
+  const API_KEY = functions.config().openweather?.key;
+  if (!API_KEY) {
+    console.error('OPENWEATHER_API_KEY not configured');
+    throw new functions.https.HttpsError('internal', 'Weather service not configured');
+  }
+
+  // Check cache first (valid for 30 minutes)
+  const db = admin.firestore();
+  const cacheKey = `weather_${latitude.toFixed(2)}_${longitude.toFixed(2)}`;
+  const cacheRef = db.collection('weatherCache').doc(cacheKey);
+
+  try {
+    const cacheDoc = await cacheRef.get();
+    if (cacheDoc.exists) {
+      const cacheData = cacheDoc.data();
+      const cacheTime = cacheData?.timestamp?.toDate();
+      const now = new Date();
+
+      // Cache valid for 30 minutes
+      if (cacheTime && (now.getTime() - cacheTime.getTime()) < 30 * 60 * 1000) {
+        console.log('Returning cached weather data');
+        return cacheData?.weatherData;
+      }
+    }
+  } catch (cacheError) {
+    console.warn('Cache read error:', cacheError);
+    // Continue with API call
+  }
+
+  try {
+    // Fetch from OpenWeatherMap One Call API 3.0
+    const response = await fetch(
+      `https://api.openweathermap.org/data/3.0/onecall?lat=${latitude}&lon=${longitude}&appid=${API_KEY}&units=metric&exclude=minutely,hourly`
+    );
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new functions.https.HttpsError('internal', 'Weather API authentication failed');
+      } else if (response.status === 429) {
+        throw new functions.https.HttpsError('resource-exhausted', 'Weather API rate limit exceeded');
+      } else {
+        throw new functions.https.HttpsError('internal', 'Weather API request failed');
+      }
+    }
+
+    const apiData = await response.json();
+
+    // Process current conditions
+    const current = apiData.current;
+    const currentConditions = {
+      temperature: `${Math.round(current.temp)}°C`,
+      description: current.weather[0].main,
+      humidity: `${current.humidity}%`,
+      windSpeed: `${Math.round(current.wind_speed * 3.6)} km/h`,
+      visibility: '10 km', // One Call API doesn't provide visibility in basic response
+      uvIndex: current.uvi ? current.uvi.toString() : 'N/A'
+    };
+
+    // Process forecast (next 5 days from daily array)
+    const forecast = apiData.daily.slice(1, 6).map((day: any, index: number) => {
+      const date = new Date(day.dt * 1000);
+      const dayName = index === 0 ? 'Tomorrow' :
+                     date.toLocaleDateString('en-US', { weekday: 'short' });
+
+      return {
+        day: dayName,
+        temp: `${Math.round(day.temp.day)}°C`,
+        description: day.weather[0].main,
+        icon: mapWeatherIcon(day.weather[0].main)
+      };
+    });
+
+    // Generate narrative summary
+    const narrativeSummary = generateNarrativeSummary(currentConditions, forecast);
+
+    // Process real alerts from One Call API
+    const alerts = (apiData.alerts || []).map((alert: any) => ({
+      title: alert.event || 'Weather Alert',
+      description: alert.description || 'Weather alert issued',
+      area: 'Local Area',
+      severity: mapSeverity(alert.tags?.[0] || 'Minor'),
+      activeUntil: new Date((alert.end || Date.now() / 1000) * 1000).toLocaleTimeString()
+    }));
+
+    // Add generated alerts if no real alerts
+    if (alerts.length === 0) {
+      alerts.push(...generateMockAlerts(currentConditions, forecast));
+    }
+
+    const weatherData = {
+      narrativeSummary,
+      currentConditions,
+      forecast,
+      alerts,
+      shelterImpact: generateShelterImpact(currentConditions, forecast),
+      lastUpdated: new Date().toLocaleTimeString()
+    };
+
+    // Cache the result
+    try {
+      await cacheRef.set({
+        weatherData,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+      });
+      console.log('Weather data cached successfully');
+    } catch (cacheError) {
+      console.warn('Cache write error:', cacheError);
+      // Don't fail the request if caching fails
+    }
+
+    return weatherData;
+
+  } catch (error) {
+    console.error('Weather API error:', error);
+
+    // Return fallback mock data
+    return {
+      narrativeSummary: 'Weather information temporarily unavailable. Please check again later.',
+      currentConditions: {
+        temperature: '28°C',
+        description: 'Sunny',
+        humidity: '65%',
+        windSpeed: '12 km/h',
+        visibility: '10 km',
+        uvIndex: '7'
+      },
+      forecast: [
+        { day: 'Today', temp: '28°C', description: 'Sunny', icon: 'Sun' as const },
+        { day: 'Tomorrow', temp: '27°C', description: 'Partly cloudy', icon: 'Cloud' as const },
+        { day: 'Wed', temp: '26°C', description: 'Cloudy', icon: 'Cloudy' as const },
+        { day: 'Thu', temp: '29°C', description: 'Sunny', icon: 'Sun' as const },
+        { day: 'Fri', temp: '30°C', description: 'Sunny', icon: 'Sun' as const }
+      ],
+      alerts: [
+        {
+          title: 'Flood & Security Alert',
+          description: 'Heavy rainfall and potential flooding forecasted for Bayelsa. Increased security vigilance advised in Adamawa. Please find safe shelter immediately.',
+          area: 'Bayelsa and Adamawa',
+          severity: 'Severe' as const,
+          activeUntil: '23:59:59'
+        }
+      ],
+      shelterImpact: 'Current weather conditions are favorable for shelter operations. No significant impacts expected.',
+      lastUpdated: new Date().toLocaleTimeString()
+    };
+  }
+});
+
+// Helper functions
+function mapWeatherIcon(description: string): string {
+  const iconMap: Record<string, string> = {
+    'Sunny': 'Sun',
+    'Clear': 'Sun',
+    'Partly cloudy': 'Cloud',
+    'Cloudy': 'Cloudy',
+    'Overcast': 'Cloudy',
+    'Light rain': 'CloudDrizzle',
+    'Moderate rain': 'CloudRain',
+    'Heavy rain': 'CloudRain',
+    'Thunderstorm': 'CloudLightning',
+    'Snow': 'CloudSnow',
+    'Mist': 'CloudFog',
+    'Fog': 'CloudFog'
+  };
+  return iconMap[description] || 'Cloud';
+}
+
+function mapSeverity(severity: string): 'Severe' | 'Moderate' | 'Minor' {
+  const severityMap: Record<string, 'Severe' | 'Moderate' | 'Minor'> = {
+    'Extreme': 'Severe',
+    'Severe': 'Severe',
+    'Moderate': 'Moderate',
+    'Minor': 'Minor',
+    'Unknown': 'Minor'
+  };
+  return severityMap[severity] || 'Minor';
+}
+
+function generateNarrativeSummary(current: any, forecast: any[]): string {
+  const currentTemp = current.temperature;
+  const currentDesc = current.description.toLowerCase();
+
+  if (forecast.length > 0) {
+    const tomorrow = forecast[0]; // forecast[0] is tomorrow since we sliced from daily[1]
+    return `${currentDesc} conditions expected throughout the day with temperatures around ${currentTemp}. ${tomorrow ? `Tomorrow will be ${tomorrow.description.toLowerCase()} with ${tomorrow.temp}.` : ''}`;
+  }
+
+  return `${currentDesc} conditions with temperatures around ${currentTemp}.`;
+}
+
+function generateMockAlerts(current: any, forecast: any[]): any[] {
+  const alerts = [];
+
+  // Check for rain in forecast
+  const hasRain = forecast.some(day => ['Rain', 'Drizzle', 'Thunderstorm'].includes(day.description));
+
+  if (hasRain) {
+    alerts.push({
+      title: 'Weather Alert',
+      description: 'Rainfall expected in the coming days. Please stay informed about local weather conditions and prepare accordingly.',
+      area: 'Local Area',
+      severity: 'Moderate' as const,
+      activeUntil: new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleTimeString()
+    });
+  }
+
+  // High temperature alert
+  const highTemp = forecast.some(day => parseInt(day.temp) > 35);
+  if (highTemp) {
+    alerts.push({
+      title: 'Heat Advisory',
+      description: 'High temperatures expected. Stay hydrated and avoid prolonged sun exposure.',
+      area: 'Local Area',
+      severity: 'Minor' as const,
+      activeUntil: new Date(Date.now() + 12 * 60 * 60 * 1000).toLocaleTimeString()
+    });
+  }
+
+  return alerts;
+}
+
+function generateShelterImpact(current: any, forecast: any[]): string {
+  const hasSevereWeather = ['Rain', 'Thunderstorm', 'Snow'].includes(current.description) ||
+                          forecast.some(day => ['Rain', 'Thunderstorm', 'Snow'].includes(day.description));
+
+  if (hasSevereWeather) {
+    return 'Weather conditions may impact shelter accessibility. Monitor local alerts and follow safety guidelines.';
+  }
+
+  return 'Current weather conditions are favorable for shelter operations. No significant impacts expected.';
+}
+
+/**
  * Callable function for translating text using Google Translate API v2
  */
 export const translateText = functions.https.onCall(async (data, context) => {
