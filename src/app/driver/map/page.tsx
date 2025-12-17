@@ -1451,11 +1451,29 @@ export default function DriverMapPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => {
-                          console.log('Playback button clicked, opening modal');
-                          setTripSelectionModalOpen(true);
+                        onClick={async () => {
+                          if (!selectedTask) {
+                            toast({
+                              title: 'No Task Selected',
+                              description: 'Please select a task first.',
+                              variant: 'destructive',
+                            });
+                            return;
+                          }
+
+                          if (isReplaying) {
+                            toast({
+                              title: 'Replay in Progress',
+                              description: 'Please wait for the current replay to finish.',
+                              variant: 'destructive',
+                            });
+                            return;
+                          }
+
+                          console.log('Starting playback for selected task:', selectedTask.id);
+                          await startEnhancedReplay(selectedTask);
                         }}
-                        disabled={isReplaying}
+                        disabled={isReplaying || !selectedTask}
                       >
                         <Route className="h-4 w-4 mr-1" />
                         Playback
