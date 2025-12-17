@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { db, auth } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { SosAlert } from '@/ai/schemas/sos';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,9 +10,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { MapPin, Navigation, Play, Square, Activity, Clock, Route, Target, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
+import { MapPin, Navigation, Play, Square, Activity, Clock, Route, Target, AlertTriangle, CheckCircle, XCircle, Pause, SkipBack, SkipForward, RotateCcw } from 'lucide-react';
 import GoogleMap from '@/components/google-map';
 import { LoadingSpinner } from '@/components/loading-spinner';
+import { TripSelectionModal } from '@/components/trip-selection-modal';
 import { useToast } from '@/hooks/use-toast';
 import { useGeolocation } from '@/hooks/useGeolocation';
 // Location streaming removed to prevent browser crashes
@@ -54,7 +58,28 @@ export default function DriverMapPage() {
   const [isTracking, setIsTracking] = useState(false);
   const [trackingPath, setTrackingPath] = useState<[number, number][]>([]);
   const [followDriver, setFollowDriver] = useState(false);
+  const [navigationLine, setNavigationLine] = useState<[number, number][]>([]);
+  const [isReplaying, setIsReplaying] = useState(false);
+  const [replayIndex, setReplayIndex] = useState(0);
+  const [tripSelectionModalOpen, setTripSelectionModalOpen] = useState(false);
+  const [availableTrips, setAvailableTrips] = useState<MapTask[]>([]);
+  const [selectedTripForReplay, setSelectedTripForReplay] = useState<MapTask | null>(null);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0);
+  const [playbackDuration, setPlaybackDuration] = useState(0);
+  const [currentSpeed, setCurrentSpeed] = useState(0);
+  const [replayCoordinates, setReplayCoordinates] = useState<any[]>([]);
+  const [tripStats, setTripStats] = useState({
+    totalDistance: 0,
+    averageSpeed: 0,
+    duration: 0,
+    maxSpeed: 0,
+    minSpeed: 0,
+  });
+  const replayIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
+  const permissionCheckedRef = useRef(false);
 
   // Initialize geolocation and location streaming hooks
   const geolocation = useGeolocation({
@@ -62,6 +87,24 @@ export default function DriverMapPage() {
     timeout: 10000,
     maximumAge: 300000,
   });
+
+  // Check geolocation permission on mount (only once)
+  useEffect(() => {
+    if (permissionCheckedRef.current) return;
+
+    const checkPermission = async () => {
+      try {
+        permissionCheckedRef.current = true;
+        await geolocation.requestPermission();
+      } catch (error) {
+        console.warn('Error checking geolocation permission:', error);
+      }
+    };
+
+    // Small delay to avoid blocking initial render
+    const timer = setTimeout(checkPermission, 100);
+    return () => clearTimeout(timer);
+  }, []); // Remove geolocation dependency to prevent re-runs
 
   // Location streaming removed to prevent browser crashes
   // const locationStreaming = useLocationStreaming({
@@ -85,6 +128,27 @@ export default function DriverMapPage() {
 
     return R * c;
   }, []);
+
+  // Format time display
+  const formatTime = useCallback((milliseconds: number): string => {
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  }, []);
+
+  // Get current timestamp for display
+  const getCurrentTimestamp = useCallback((): string => {
+    if (!selectedTripForReplay || replayIndex >= selectedTripForReplay.trackingData?.coordinates?.length) {
+      return '--:--:--';
+    }
+    const coordinates = selectedTripForReplay.trackingData?.coordinates || [];
+    if (replayIndex < coordinates.length) {
+      const timestamp = coordinates[replayIndex].timestamp;
+      return new Date(timestamp).toLocaleTimeString();
+    }
+    return '--:--:--';
+  }, [selectedTripForReplay, replayIndex]);
 
   // Location streaming removed to prevent browser crashes
   // Update tracking statistics when position changes
@@ -233,6 +297,38 @@ export default function DriverMapPage() {
 
     return () => unsubscribe();
   }, [userId]);
+
+  const fetchAvailableTrips = useCallback(async () => {
+    try {
+      const tripsWithTracking: MapTask[] = [];
+
+      for (const task of tasks) {
+        const taskDoc = await getDoc(doc(db, 'sosAlerts', task.id));
+        if (taskDoc.exists()) {
+          const taskData = taskDoc.data();
+          if (taskData.trackingData && taskData.trackingData.coordinates && taskData.trackingData.coordinates.length > 0) {
+            tripsWithTracking.push(task);
+          }
+        }
+      }
+
+      setAvailableTrips(tripsWithTracking);
+    } catch (error) {
+      console.error('Error fetching available trips:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load available trips.',
+        variant: 'destructive',
+      });
+    }
+  }, [tasks, toast]);
+
+  // Fetch available trips when modal opens
+  useEffect(() => {
+    if (tripSelectionModalOpen) {
+      fetchAvailableTrips();
+    }
+  }, [tripSelectionModalOpen, fetchAvailableTrips]);
 
   // Fetch driver's location from users collection
   useEffect(() => {
@@ -407,6 +503,17 @@ export default function DriverMapPage() {
     try {
       console.log('[handleStartTracking] Starting location tracking...');
       console.log('[handleStartTracking] Current permission state:', geolocation.state.permission);
+      console.log('[handleStartTracking] Selected task:', selectedTask);
+
+      // Check if a task is selected
+      if (!selectedTask) {
+        toast({
+          title: 'No Task Selected',
+          description: 'Please select a task from the dropdown before starting tracking.',
+          variant: 'destructive',
+        });
+        return;
+      }
 
       // Always request permission first to ensure we have the latest state
       const permission = await geolocation.requestPermission();
@@ -423,9 +530,23 @@ export default function DriverMapPage() {
         throw new Error(errorMessage);
       }
 
-      // Start geolocation watching
-      console.log('[handleStartTracking] Starting geolocation watching...');
-      geolocation.startWatching();
+      // Create navigation line from current position to destination
+      if (geolocation.state.position && selectedTask) {
+        const startPoint: [number, number] = [
+          geolocation.state.position.coords.latitude,
+          geolocation.state.position.coords.longitude
+        ];
+        const endPoint: [number, number] = [
+          selectedTask.location.latitude,
+          selectedTask.location.longitude
+        ];
+        setNavigationLine([startPoint, endPoint]);
+        console.log('[handleStartTracking] Navigation line created:', [startPoint, endPoint]);
+      }
+
+      // Start tracking with 30-second coordinate storage
+      console.log('[handleStartTracking] Starting geolocation tracking...');
+      geolocation.startTracking({ trackingInterval: 30000 }); // 30 seconds
 
       // Initialize tracking
       setIsTracking(true);
@@ -443,7 +564,7 @@ export default function DriverMapPage() {
 
       toast({
         title: 'Live Tracking Started',
-        description: 'Your location is now being tracked in real-time.',
+        description: 'Your location is now being tracked in real-time with navigation guidance.',
       });
 
       console.log('[handleStartTracking] Live tracking started successfully');
@@ -455,21 +576,60 @@ export default function DriverMapPage() {
         variant: 'destructive',
       });
     }
-  }, [geolocation, toast]);
+  }, [geolocation, selectedTask, toast]);
 
-  const handleStopTracking = useCallback(() => {
-    geolocation.stopWatching();
+  const saveTrackingDataToFirestore = useCallback(async (taskId: string, coordinates: Array<{lat: number, lng: number, timestamp: number}>) => {
+    if (coordinates.length === 0) return;
+
+    try {
+      const trackingData = {
+        taskId,
+        driverId: userId,
+        coordinates,
+        startTime: trackingStats.startTime?.toISOString(),
+        endTime: new Date().toISOString(),
+        totalDistance: trackingStats.distanceTraveled,
+        averageSpeed: trackingStats.speed,
+        createdAt: serverTimestamp(),
+      };
+
+      // Save to sosAlerts collection under the specific task document
+      await updateDoc(doc(db, 'sosAlerts', taskId), {
+        trackingData,
+        lastUpdated: serverTimestamp(),
+      });
+
+      console.log('[saveTrackingDataToFirestore] Tracking data saved:', trackingData);
+    } catch (error) {
+      console.error('Error saving tracking data:', error);
+      toast({
+        title: 'Data Save Error',
+        description: 'Failed to save tracking data. Please check your connection.',
+        variant: 'destructive',
+      });
+    }
+  }, [userId, trackingStats, toast]);
+
+  const handleStopTracking = useCallback(async () => {
+    // Save tracking data to Firestore before stopping
+    if (selectedTask && geolocation.state.trackingCoordinates.length > 0) {
+      await saveTrackingDataToFirestore(selectedTask.id, geolocation.state.trackingCoordinates);
+    }
+
+    geolocation.stopTracking();
     setIsTracking(false);
     setFollowDriver(false);
+    setNavigationLine([]); // Clear navigation line
     setTrackingStats(prev => ({
       ...prev,
       startTime: null,
     }));
+
     toast({
       title: 'Live Tracking Stopped',
-      description: 'Location tracking has been stopped.',
+      description: 'Location tracking has been stopped and data saved.',
     });
-  }, [geolocation]);
+  }, [geolocation, selectedTask, saveTrackingDataToFirestore, toast]);
 
   const handleLocationError = useCallback((error: string) => {
     console.error('Location error:', error);
@@ -478,6 +638,255 @@ export default function DriverMapPage() {
       description: error,
       variant: 'destructive',
     });
+  }, [toast]);
+
+  const startEnhancedReplay = useCallback(async (task: MapTask) => {
+    try {
+      const taskDoc = await getDoc(doc(db, 'sosAlerts', task.id));
+      if (taskDoc.exists()) {
+        const taskData = taskDoc.data();
+        const trackingData = taskData.trackingData;
+
+        if (trackingData && trackingData.coordinates && trackingData.coordinates.length > 0) {
+          setSelectedTripForReplay(task);
+          setTripSelectionModalOpen(false);
+          setIsReplaying(true);
+          setIsPlaying(true);
+          setReplayIndex(0);
+          setCurrentPlaybackTime(0);
+
+          const coordinates = trackingData.coordinates;
+          const duration = coordinates.length * 1000; // Assume 1 second per coordinate initially
+          setPlaybackDuration(duration);
+
+          // Calculate enhanced trip statistics
+          let totalDistance = 0;
+          let speeds: number[] = [];
+          for (let i = 1; i < coordinates.length; i++) {
+            const dist = calculateDistance(
+              coordinates[i-1].lat, coordinates[i-1].lng,
+              coordinates[i].lat, coordinates[i].lng
+            );
+            totalDistance += dist;
+
+            const timeDiff = (coordinates[i].timestamp - coordinates[i-1].timestamp) / 1000;
+            if (timeDiff > 0) {
+              speeds.push((dist / timeDiff) * 3.6); // km/h
+            }
+          }
+
+          const avgSpeed = speeds.length > 0 ? speeds.reduce((a, b) => a + b, 0) / speeds.length : 0;
+          const maxSpeed = speeds.length > 0 ? Math.max(...speeds) : 0;
+          const minSpeed = speeds.length > 0 ? Math.min(...speeds) : 0;
+
+          setTripStats({
+            totalDistance,
+            averageSpeed: avgSpeed,
+            duration: coordinates.length,
+            maxSpeed,
+            minSpeed,
+          });
+
+          // Start playback
+          startPlayback(coordinates);
+
+          toast({
+            title: 'Enhanced Trip Replay Started',
+            description: `Replaying ${task.emergencyType} trip with advanced analytics`,
+          });
+        } else {
+          toast({
+            title: 'No Tracking Data',
+            description: 'No tracking data available for this trip.',
+            variant: 'destructive',
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error starting enhanced replay:', error);
+      toast({
+        title: 'Replay Error',
+        description: 'Failed to load tracking data for replay.',
+        variant: 'destructive',
+      });
+    }
+  }, [calculateDistance, toast]);
+
+  const startPlayback = useCallback((coordinates: any[]) => {
+    if (replayIntervalRef.current) {
+      clearInterval(replayIntervalRef.current);
+    }
+
+    const interval = 1000 / playbackSpeed; // milliseconds per coordinate
+    setPlaybackDuration(coordinates.length * interval);
+
+    replayIntervalRef.current = setInterval(() => {
+      setReplayIndex(prev => {
+        if (prev >= coordinates.length - 1) {
+          stopPlayback();
+          toast({
+            title: 'Replay Complete',
+            description: 'Trip replay has finished.',
+          });
+          return prev;
+        }
+
+        const nextIndex = prev + 1;
+        setCurrentPlaybackTime(nextIndex * interval);
+
+        // Calculate speed between current and next point using timestamps
+        if (nextIndex < coordinates.length - 1) {
+          const currentCoord = coordinates[nextIndex];
+          const nextCoord = coordinates[nextIndex + 1];
+          const distance = calculateDistance(
+            currentCoord.lat, currentCoord.lng,
+            nextCoord.lat, nextCoord.lng
+          );
+          const timeDiff = (nextCoord.timestamp - currentCoord.timestamp) / 1000;
+          const speed = timeDiff > 0 ? (distance / timeDiff) * 3.6 : 0; // km/h
+          setCurrentSpeed(speed);
+        }
+
+        return nextIndex;
+      });
+    }, interval);
+  }, [playbackSpeed, calculateDistance, toast]);
+
+  const stopPlayback = useCallback(() => {
+    if (replayIntervalRef.current) {
+      clearInterval(replayIntervalRef.current);
+      replayIntervalRef.current = null;
+    }
+    setIsPlaying(false);
+  }, []);
+
+  const pausePlayback = useCallback(() => {
+    if (replayIntervalRef.current) {
+      clearInterval(replayIntervalRef.current);
+      replayIntervalRef.current = null;
+    }
+    setIsPlaying(false);
+  }, []);
+
+  const resumePlayback = useCallback(() => {
+    if (selectedTripForReplay) {
+      // Fetch coordinates again and resume from current index
+      getDoc(doc(db, 'sosAlerts', selectedTripForReplay.id)).then((taskDoc) => {
+        if (taskDoc.exists()) {
+          const taskData = taskDoc.data();
+          const trackingData = taskData.trackingData;
+          if (trackingData && trackingData.coordinates) {
+            setIsPlaying(true);
+            startPlayback(trackingData.coordinates.slice(replayIndex));
+          }
+        }
+      });
+    }
+  }, [selectedTripForReplay, replayIndex, startPlayback]);
+
+  const seekToPosition = useCallback((position: number) => {
+    if (selectedTripForReplay) {
+      getDoc(doc(db, 'sosAlerts', selectedTripForReplay.id)).then((taskDoc) => {
+        if (taskDoc.exists()) {
+          const taskData = taskDoc.data();
+          const trackingData = taskData.trackingData;
+          if (trackingData && trackingData.coordinates) {
+            const totalCoordinates = trackingData.coordinates.length;
+            const newIndex = Math.floor((position / playbackDuration) * totalCoordinates);
+            setReplayIndex(newIndex);
+            setCurrentPlaybackTime(position);
+
+            // Update speed display using timestamps
+            if (newIndex < totalCoordinates - 1) {
+              const currentCoord = trackingData.coordinates[newIndex];
+              const nextCoord = trackingData.coordinates[newIndex + 1];
+              const distance = calculateDistance(
+                currentCoord.lat, currentCoord.lng,
+                nextCoord.lat, nextCoord.lng
+              );
+              const timeDiff = (nextCoord.timestamp - currentCoord.timestamp) / 1000;
+              const speed = timeDiff > 0 ? (distance / timeDiff) * 3.6 : 0;
+              setCurrentSpeed(speed);
+            }
+          }
+        }
+      });
+    }
+  }, [selectedTripForReplay, playbackDuration, calculateDistance]);
+
+  const changePlaybackSpeed = useCallback((speed: number) => {
+    setPlaybackSpeed(speed);
+    if (isPlaying && selectedTripForReplay) {
+      // Restart playback with new speed
+      pausePlayback();
+      resumePlayback();
+    }
+  }, [isPlaying, selectedTripForReplay, pausePlayback, resumePlayback]);
+
+  const resetPlayback = useCallback(() => {
+    stopPlayback();
+    setReplayIndex(0);
+    setCurrentPlaybackTime(0);
+    setCurrentSpeed(0);
+    setTripStats({
+      totalDistance: 0,
+      averageSpeed: 0,
+      duration: 0,
+      maxSpeed: 0,
+      minSpeed: 0,
+    });
+    setIsReplaying(false);
+    setSelectedTripForReplay(null);
+  }, [stopPlayback]);
+
+  const startReplay = useCallback(async (taskId: string) => {
+    try {
+      // Fetch tracking data from Firestore
+      const taskDoc = await getDoc(doc(db, 'sosAlerts', taskId));
+      if (taskDoc.exists()) {
+        const taskData = taskDoc.data();
+        const trackingData = taskData.trackingData;
+
+        if (trackingData && trackingData.coordinates && trackingData.coordinates.length > 0) {
+          setIsReplaying(true);
+          setReplayIndex(0);
+
+          // Animate through coordinates
+          const replayInterval = setInterval(() => {
+            setReplayIndex(prev => {
+              if (prev >= trackingData.coordinates.length - 1) {
+                clearInterval(replayInterval);
+                setIsReplaying(false);
+                toast({
+                  title: 'Replay Complete',
+                  description: 'Trip replay has finished.',
+                });
+                return prev;
+              }
+              return prev + 1;
+            });
+          }, 1000); // 1 second per coordinate for replay
+
+          toast({
+            title: 'Replay Started',
+            description: 'Visualizing the trip path...',
+          });
+        } else {
+          toast({
+            title: 'No Tracking Data',
+            description: 'No tracking data available for this trip.',
+            variant: 'destructive',
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error starting replay:', error);
+      toast({
+        title: 'Replay Error',
+        description: 'Failed to load tracking data for replay.',
+        variant: 'destructive',
+      });
+    }
   }, [toast]);
 
   if (loading) {
@@ -491,7 +900,7 @@ export default function DriverMapPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Pilot's Task</h1>
+        <h1 className="text-3xl font-bold">Driver's Task</h1>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Select value={mapView} onValueChange={(value: 'all' | 'active' | 'resolved') => setMapView(value)}>
@@ -564,6 +973,9 @@ export default function DriverMapPage() {
                 // Live tracking props
                 isTracking={isTracking}
                 trackingPath={trackingPath}
+                navigationLine={navigationLine}
+                isReplaying={isReplaying}
+                replayPath={isReplaying && selectedTripForReplay ? replayCoordinates.slice(0, replayIndex + 1).map(coord => [coord.lat, coord.lng] as [number, number]) : undefined}
                 followDriver={followDriver}
                 onLocationError={handleLocationError}
                 onRoutingError={(error) => {
@@ -600,10 +1012,10 @@ export default function DriverMapPage() {
                   <Button
                     onClick={handleStartTracking}
                     className="flex-1"
-                    disabled={!geolocation.state.isSupported || geolocation.state.permission === 'denied'}
+                    disabled={!geolocation.state.isSupported || geolocation.state.permission === 'denied' || !selectedTask}
                   >
                     <Play className="h-4 w-4 mr-2" />
-                    {geolocation.state.permission === 'denied' ? 'Location Blocked' : 'Start Live Tracking'}
+                    {!selectedTask ? 'Select Task First' : geolocation.state.permission === 'denied' ? 'Location Blocked' : 'Start Live Tracking'}
                   </Button>
                 ) : (
                   <Button
@@ -727,6 +1139,174 @@ export default function DriverMapPage() {
             </Card>
           )}
 
+          {/* Enhanced Trip Playback Controls */}
+          {isReplaying && selectedTripForReplay && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Play className="h-5 w-5" />
+                  Trip Playback
+                  <Badge variant="default" className="ml-auto">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse mr-1"></div>
+                    Replaying
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="text-sm">
+                  <p className="font-medium">{selectedTripForReplay.emergencyType}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {selectedTripForReplay.location.address || `${selectedTripForReplay.location.latitude.toFixed(4)}, ${selectedTripForReplay.location.longitude.toFixed(4)}`}
+                  </p>
+                </div>
+
+                {/* Playback Controls */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={resetPlayback}
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => seekToPosition(Math.max(0, currentPlaybackTime - 5000))}
+                    disabled={currentPlaybackTime === 0}
+                  >
+                    <SkipBack className="h-4 w-4" />
+                  </Button>
+                  {isPlaying ? (
+                    <Button
+                      size="sm"
+                      onClick={pausePlayback}
+                    >
+                      <Pause className="h-4 w-4 mr-1" />
+                      Pause
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={resumePlayback}
+                    >
+                      <Play className="h-4 w-4 mr-1" />
+                      Play
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => seekToPosition(Math.min(playbackDuration, currentPlaybackTime + 5000))}
+                    disabled={currentPlaybackTime >= playbackDuration}
+                  >
+                    <SkipForward className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="space-y-2">
+                  <Slider
+                    value={[currentPlaybackTime]}
+                    max={playbackDuration}
+                    step={100}
+                    onValueChange={(value) => seekToPosition(value[0])}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{formatTime(currentPlaybackTime)}</span>
+                    <span>{formatTime(playbackDuration)}</span>
+                  </div>
+                </div>
+
+                {/* Speed Control */}
+                <div className="space-y-2">
+                  <Label className="text-sm">Playback Speed: {playbackSpeed}x</Label>
+                  <Slider
+                    value={[playbackSpeed]}
+                    min={0.25}
+                    max={4}
+                    step={0.25}
+                    onValueChange={(value) => changePlaybackSpeed(value[0])}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>0.25x</span>
+                    <span>4x</span>
+                  </div>
+                </div>
+
+                {/* Timestamp and Speed Indicators */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm flex items-center gap-1">
+                      <Clock className="h-4 w-4" />
+                      Time
+                    </span>
+                    <span className="font-semibold text-sm">
+                      {getCurrentTimestamp()}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm flex items-center gap-1">
+                      <Activity className="h-4 w-4" />
+                      Speed
+                    </span>
+                    <span className="font-semibold text-sm">{currentSpeed.toFixed(1)} km/h</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-sm">
+                  <span>Progress</span>
+                  <span>{Math.round((currentPlaybackTime / playbackDuration) * 100)}%</span>
+                </div>
+                <Progress value={(currentPlaybackTime / playbackDuration) * 100} className="h-2" />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Enhanced Trip Statistics */}
+          {isReplaying && selectedTripForReplay && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  Trip Analytics
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm flex items-center gap-1">
+                    <Route className="h-4 w-4" />
+                    Total Distance
+                  </span>
+                  <span className="font-semibold">{(tripStats.totalDistance / 1000).toFixed(2)} km</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm flex items-center gap-1">
+                    <Activity className="h-4 w-4" />
+                    Avg Speed
+                  </span>
+                  <span className="font-semibold">{tripStats.averageSpeed.toFixed(1)} km/h</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm flex items-center gap-1">
+                    <Activity className="h-4 w-4" />
+                    Max Speed
+                  </span>
+                  <span className="font-semibold">{tripStats.maxSpeed.toFixed(1)} km/h</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm flex items-center gap-1">
+                    <Clock className="h-4 w-4" />
+                    Data Points
+                  </span>
+                  <span className="font-semibold">{tripStats.duration}</span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Task Selection */}
           {filteredTasks.length > 0 && (
             <Card>
@@ -819,22 +1399,36 @@ export default function DriverMapPage() {
                   )} */}
 
                   <div className="flex flex-col gap-2 pt-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        // TODO: Implement navigation
-                        if (navigator.geolocation) {
-                          navigator.geolocation.getCurrentPosition((position) => {
-                            const url = `https://www.google.com/maps/dir/${position.coords.latitude},${position.coords.longitude}/${selectedTask.location.latitude},${selectedTask.location.longitude}`;
-                            window.open(url, '_blank');
-                          });
-                        }
-                      }}
-                    >
-                      <Navigation className="h-4 w-4 mr-1" />
-                      Navigate
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          // TODO: Implement navigation
+                          if (navigator.geolocation) {
+                            navigator.geolocation.getCurrentPosition((position) => {
+                              const url = `https://www.google.com/maps/dir/${position.coords.latitude},${position.coords.longitude}/${selectedTask.location.latitude},${selectedTask.location.longitude}`;
+                              window.open(url, '_blank');
+                            });
+                          }
+                        }}
+                      >
+                        <Navigation className="h-4 w-4 mr-1" />
+                        Navigate
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          console.log('Playback button clicked, opening modal');
+                          setTripSelectionModalOpen(true);
+                        }}
+                        disabled={isReplaying}
+                      >
+                        <Route className="h-4 w-4 mr-1" />
+                        Playback
+                      </Button>
+                    </div>
 
                     {selectedTask.status === 'Active' && (
                       <Button

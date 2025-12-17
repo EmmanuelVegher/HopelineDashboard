@@ -84,7 +84,7 @@ function DriverSidebar({ activeAlertsCount = 0, driverProfile }: { activeAlertsC
       <SidebarHeader>
         <div className="flex items-center gap-2">
             <img src="/shelter_logo.png" alt="Hopeline Logo" width={40} height={40} />
-            {state === 'expanded' && <h1 className="text-xl font-bold">Pilot Panel</h1>}
+            {state === 'expanded' && <h1 className="text-xl font-bold">Driver Panel</h1>}
         </div>
       </SidebarHeader>
       <SidebarContent className="p-2">
@@ -272,8 +272,8 @@ export default function DriverLayout() {
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
           <div className="flex items-center gap-2">
-            <img src="/shelter_logo.png" alt="Pilot Panel Logo" width={32} height={32} />
-            <h1 className="text-lg font-semibold">Pilot Panel</h1>
+            <img src="/shelter_logo.png" alt="Driver Panel Logo" width={32} height={32} />
+            <h1 className="text-lg font-semibold">Driver Panel</h1>
           </div>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 sm:px-8 sm:py-6 bg-gray-50/50 dark:bg-gray-900/50 min-h-screen">

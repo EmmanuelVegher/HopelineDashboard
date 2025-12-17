@@ -14,6 +14,8 @@ export interface GeolocationState {
   signalStrength: number; // 0-100, where 100 is excellent
   isOffline: boolean;
   lastSignalCheck: Date | null;
+  trackingCoordinates: Array<{lat: number, lng: number, timestamp: number}>; // Stored coordinates during tracking
+  isTracking: boolean; // Separate from isWatching for navigation tracking
 }
 
 export interface UseGeolocationOptions {
@@ -24,6 +26,7 @@ export interface UseGeolocationOptions {
   weakSignalThreshold?: number; // accuracy in meters considered weak
   lostSignalThreshold?: number; // accuracy in meters considered lost
   offlineTimeout?: number; // milliseconds without position update to consider offline
+  trackingInterval?: number; // milliseconds between coordinate storage during tracking
 }
 
 export interface UseGeolocationReturn {
@@ -32,6 +35,9 @@ export interface UseGeolocationReturn {
   getCurrentPosition: (options?: UseGeolocationOptions) => Promise<GeolocationPosition>;
   startWatching: (options?: UseGeolocationOptions) => void;
   stopWatching: () => void;
+  startTracking: (options?: UseGeolocationOptions) => void;
+  stopTracking: () => void;
+  clearTrackingData: () => void;
   clearError: () => void;
 }
 
@@ -115,6 +121,8 @@ export function useGeolocation(initialOptions?: UseGeolocationOptions): UseGeolo
     signalStrength: 0,
     isOffline: false,
     lastSignalCheck: null,
+    trackingCoordinates: [],
+    isTracking: false,
   });
 
   const updatePermission = useCallback(async (): Promise<PermissionState> => {
@@ -306,9 +314,73 @@ export function useGeolocation(initialOptions?: UseGeolocationOptions): UseGeolo
     setState(prev => ({ ...prev, error: null }));
   }, []);
 
-  // Initialize permission check and GPS status on mount - only when explicitly requested
-  // Removed automatic initialization to prevent blocking page loads
+  const startTracking = useCallback((overrideOptions?: UseGeolocationOptions) => {
+    const opts = { ...options, ...overrideOptions };
+    const trackingInterval = opts.trackingInterval || 30000; // Default 30 seconds
+
+    console.log('[useGeolocation] startTracking called with interval:', trackingInterval);
+
+    if (!state.isSupported) {
+      console.log('[useGeolocation] Geolocation not supported');
+      setState(prev => ({
+        ...prev,
+        error: { code: 0, message: 'Geolocation is not supported', PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 }
+      }));
+      return;
+    }
+
+    // Start watching for position updates
+    startWatching(opts);
+
+    // Clear existing tracking data
+    setState(prev => ({ ...prev, trackingCoordinates: [], isTracking: true }));
+
+    // Set up periodic coordinate storage
+    const trackingIntervalId = setInterval(() => {
+      if (state.position) {
+        const coord = {
+          lat: state.position.coords.latitude,
+          lng: state.position.coords.longitude,
+          timestamp: Date.now()
+        };
+
+        setState(prev => ({
+          ...prev,
+          trackingCoordinates: [...prev.trackingCoordinates, coord]
+        }));
+
+        console.log('[useGeolocation] Stored tracking coordinate:', coord);
+      }
+    }, trackingInterval);
+
+    // Store the interval ID for cleanup
+    (window as any).__trackingIntervalId = trackingIntervalId;
+
+  }, [state.isSupported, state.position, options, startWatching]);
+
+  const stopTracking = useCallback(() => {
+    console.log('[useGeolocation] stopTracking called');
+
+    // Clear the tracking interval
+    if ((window as any).__trackingIntervalId) {
+      clearInterval((window as any).__trackingIntervalId);
+      delete (window as any).__trackingIntervalId;
+    }
+
+    // Stop watching
+    stopWatching();
+
+    // Mark tracking as stopped
+    setState(prev => ({ ...prev, isTracking: false }));
+
+  }, [stopWatching]);
+
+  const clearTrackingData = useCallback(() => {
+    setState(prev => ({ ...prev, trackingCoordinates: [] }));
+  }, []);
+
   // Permission will be checked when startWatching() or requestPermission() is called
+  // Or can be checked manually by calling updatePermission()
 
   // Cleanup on unmount
   useEffect(() => {
@@ -319,6 +391,10 @@ export function useGeolocation(initialOptions?: UseGeolocationOptions): UseGeolo
       if (signalCheckIntervalRef.current) {
         clearInterval(signalCheckIntervalRef.current);
       }
+      // Clear tracking interval
+      if ((window as any).__trackingIntervalId) {
+        clearInterval((window as any).__trackingIntervalId);
+      }
     };
   }, []);
 
@@ -328,6 +404,9 @@ export function useGeolocation(initialOptions?: UseGeolocationOptions): UseGeolo
     getCurrentPosition,
     startWatching,
     stopWatching,
+    startTracking,
+    stopTracking,
+    clearTrackingData,
     clearError,
   };
 }

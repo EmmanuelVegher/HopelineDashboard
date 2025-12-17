@@ -28,6 +28,9 @@ interface GoogleMapProps {
   // Live tracking props
   isTracking?: boolean;
   trackingPath?: [number, number][];
+  navigationLine?: [number, number][];
+  isReplaying?: boolean;
+  replayPath?: [number, number][];
   followDriver?: boolean;
   onLocationError?: (error: string) => void;
   className?: string;
@@ -46,6 +49,9 @@ export default function GoogleMap({
   // Live tracking props
   isTracking = false,
   trackingPath = [],
+  navigationLine = [],
+  isReplaying = false,
+  replayPath = [],
   followDriver = false,
   onLocationError,
   className = 'h-96 w-full',
@@ -57,6 +63,9 @@ export default function GoogleMap({
   const directionsServiceRef = useRef<google.maps.DirectionsService | null>(null);
   const trackingMarkerRef = useRef<google.maps.Marker | null>(null);
   const trackingPathRef = useRef<google.maps.Polyline | null>(null);
+  const navigationLineRef = useRef<google.maps.Polyline | null>(null);
+  const replayPathRef = useRef<google.maps.Polyline | null>(null);
+  const replayMarkerRef = useRef<google.maps.Marker | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [billingError, setBillingError] = useState<string | null>(null);
@@ -392,7 +401,15 @@ export default function GoogleMap({
               strokeColor: '#6b7280', // Gray fallback line
               strokeOpacity: 0.6,
               strokeWeight: 3,
-              strokeDashArray: [10, 5], // Dashed line to indicate it's not a real route
+              icons: [{
+                icon: {
+                  path: 'M 0,-1 0,1',
+                  strokeOpacity: 0.6,
+                  scale: 4
+                },
+                offset: '0',
+                repeat: '20px'
+              }],
               map: googleMapRef.current,
             });
 
@@ -502,6 +519,143 @@ export default function GoogleMap({
       }
     }
   }, [isLoaded, isTracking, trackingPath]);
+
+  // Handle navigation line visualization
+  useEffect(() => {
+    if (!isLoaded || !googleMapRef.current) return;
+
+    if (navigationLine.length === 2) {
+      // Create navigation line from current position to destination
+      const lineCoordinates = navigationLine.map(([lat, lng]) => ({ lat, lng }));
+
+      if (!navigationLineRef.current) {
+        navigationLineRef.current = new google.maps.Polyline({
+          path: lineCoordinates,
+          geodesic: true,
+          strokeColor: '#10b981', // Green navigation line
+          strokeOpacity: 0.8,
+          strokeWeight: 3,
+          icons: [{
+            icon: {
+              path: 'M 0,-1 0,1',
+              strokeOpacity: 0.8,
+              scale: 2
+            },
+            offset: '0',
+            repeat: '15px'
+          }],
+          map: googleMapRef.current,
+        });
+      } else {
+        navigationLineRef.current.setPath(lineCoordinates);
+      }
+    } else {
+      // Remove navigation line when not needed
+      if (navigationLineRef.current) {
+        navigationLineRef.current.setMap(null);
+        navigationLineRef.current = null;
+      }
+    }
+  }, [isLoaded, navigationLine]);
+
+  // Handle replay path visualization and car animation
+  useEffect(() => {
+    if (!isLoaded || !googleMapRef.current) return;
+
+    if (isReplaying && replayPath.length > 0) {
+      // Create or update replay path
+      const pathCoordinates = replayPath.map(([lat, lng]) => ({ lat, lng }));
+
+      if (!replayPathRef.current) {
+        replayPathRef.current = new google.maps.Polyline({
+          path: pathCoordinates,
+          geodesic: true,
+          strokeColor: '#8b5cf6', // Purple replay path
+          strokeOpacity: 0.9,
+          strokeWeight: 5,
+          map: googleMapRef.current,
+        });
+      } else {
+        replayPathRef.current.setPath(pathCoordinates);
+      }
+
+      // Animate car marker along the path with smooth transitions
+      const currentPoint = pathCoordinates[pathCoordinates.length - 1];
+
+      if (!replayMarkerRef.current) {
+        replayMarkerRef.current = new google.maps.Marker({
+          position: currentPoint,
+          map: googleMapRef.current,
+          icon: createCarIcon('#8b5cf6'), // Purple for replay
+          title: 'Trip Replay Car',
+          zIndex: 1000,
+        });
+
+        // Add info window for replay marker
+        const replayInfoWindow = new google.maps.InfoWindow({
+          content: `<div style="padding: 8px; min-width: 200px;">
+              <h3 style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">🚗 Trip Replay</h3>
+              <div style="font-size: 14px; line-height: 1.4;">
+                <p><strong>Coordinates:</strong> ${currentPoint.lat.toFixed(6)}, ${currentPoint.lng.toFixed(6)}</p>
+                <p><strong>Status:</strong> <span style="margin-left: 4px; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; background-color: #e9d5ff; color: #6b21a8;">Replaying Trip</span></p>
+                <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">🎬 Animated trip playback</p>
+              </div>
+            </div>`,
+        });
+
+        replayMarkerRef.current.addListener('click', () => {
+          replayInfoWindow.open(googleMapRef.current, replayMarkerRef.current);
+        });
+      } else {
+        // Smooth animation: calculate bearing for car rotation
+        const prevPoint = pathCoordinates.length > 1 ? pathCoordinates[pathCoordinates.length - 2] : currentPoint;
+
+        // Calculate bearing (direction) for car rotation
+        const bearing = google.maps.geometry.spherical.computeHeading(
+          new google.maps.LatLng(prevPoint.lat, prevPoint.lng),
+          new google.maps.LatLng(currentPoint.lat, currentPoint.lng)
+        );
+
+        // Create rotated car icon
+        const rotatedIcon = {
+          ...createCarIcon('#8b5cf6'),
+          rotation: bearing,
+        };
+
+        // Update marker position and rotation
+        replayMarkerRef.current.setPosition(currentPoint);
+        replayMarkerRef.current.setIcon(rotatedIcon);
+
+        // Update info window content
+        const infoWindow = replayMarkerRef.current.get('infoWindow');
+        if (infoWindow) {
+          infoWindow.setContent(`<div style="padding: 8px; min-width: 200px;">
+              <h3 style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">🚗 Trip Replay</h3>
+              <div style="font-size: 14px; line-height: 1.4;">
+                <p><strong>Coordinates:</strong> ${currentPoint.lat.toFixed(6)}, ${currentPoint.lng.toFixed(6)}</p>
+                <p><strong>Status:</strong> <span style="margin-left: 4px; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; background-color: #e9d5ff; color: #6b21a8;">Replaying Trip</span></p>
+                <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">🎬 Animated trip playback</p>
+              </div>
+            </div>`);
+        }
+      }
+
+      // Auto-follow the car during replay with smooth camera movement
+      if (googleMapRef.current && currentPoint) {
+        googleMapRef.current.panTo(currentPoint);
+      }
+    } else {
+      // Remove replay path and marker when not replaying
+      if (replayPathRef.current) {
+        replayPathRef.current.setMap(null);
+        replayPathRef.current = null;
+      }
+      if (replayMarkerRef.current) {
+        replayMarkerRef.current.setMap(null);
+        replayMarkerRef.current = null;
+      }
+    }
+  }, [isLoaded, isReplaying, replayPath, createCarIcon]);
 
   // Center map on selected task or driver location
   useEffect(() => {
