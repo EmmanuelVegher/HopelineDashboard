@@ -133,17 +133,17 @@ export default function ContactManagementPage() {
         </DialogContent>
     </Dialog>
 
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+    <Card className="max-w-full overflow-hidden">
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
             <CardTitle>Contact Numbers Management</CardTitle>
             <CardDescription>
             Add, edit, or delete USSD codes and emergency numbers that are displayed on user-facing pages.
             </CardDescription>
         </div>
-        <Button onClick={handleAddNew}><Plus className="mr-2 h-4 w-4"/> Add New Number</Button>
+        <Button onClick={handleAddNew} className="self-start sm:self-auto"><Plus className="mr-2 h-4 w-4"/> Add New Number</Button>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-2 sm:p-6">
          {permissionError && (
             <Alert variant="destructive" className="mb-4">
                 <AlertTriangle className="h-4 w-4" />
@@ -153,62 +153,104 @@ export default function ContactManagementPage() {
                 </AlertDescription>
             </Alert>
         )}
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Service Name</TableHead>
-              <TableHead>Number / Code</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+
+        {/* Mobile Card Layout */}
+        <div className="block md:hidden">
+          <div className="grid grid-cols-1 gap-4">
             {loading || !ussdCodes ? (
               Array.from({ length: 3 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                </TableRow>
+                <Card key={i} className="p-4">
+                  <Skeleton className="h-6 w-3/4 mb-2" />
+                  <Skeleton className="h-4 w-1/2 mb-2" />
+                  <Skeleton className="h-8 w-24" />
+                </Card>
               ))
             ) : ussdCodes.length > 0 ? (
               ussdCodes.map((code) => (
-                <TableRow key={code.id}>
-                  <TableCell className="font-medium">{code.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{code.code}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0" disabled={actionLoading}>
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => handleEdit(code)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(code.id)}>
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
+                <Card key={code.id} className="p-4">
+                  <div className="space-y-3">
+                    <div>
+                      <h3 className="font-medium text-base">{code.name}</h3>
+                      <Badge variant="outline" className="mt-1">{code.code}</Badge>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => handleEdit(code)} className="flex-1">
+                        <Edit className="mr-2 h-4 w-4" /> Edit
+                      </Button>
+                      <Button variant="outline" size="sm" className="text-red-600 flex-1" onClick={() => handleDelete(code.id)}>
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
               ))
             ) : !permissionError ? (
-              <TableRow>
-                <TableCell colSpan={3} className="h-24 text-center">
-                  No contact numbers found.
-                </TableCell>
-              </TableRow>
+              <p className="text-center text-muted-foreground py-8">No contact numbers found.</p>
             ) : null}
-          </TableBody>
-        </Table>
+          </div>
+        </div>
+
+        {/* Desktop Table Layout */}
+        <div className="hidden md:block">
+          <div className="w-full overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="min-w-[150px]">Service Name</TableHead>
+                  <TableHead className="min-w-[120px]">Number / Code</TableHead>
+                  <TableHead className="text-right min-w-[100px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading || !ussdCodes ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                      <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : ussdCodes.length > 0 ? (
+                  ussdCodes.map((code) => (
+                    <TableRow key={code.id}>
+                      <TableCell className="font-medium">{code.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{code.code}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0" disabled={actionLoading}>
+                              <span className="sr-only">Open menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => handleEdit(code)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(code.id)}>
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : !permissionError ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="h-24 text-center">
+                      No contact numbers found.
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
       </CardContent>
     </Card>
     </>

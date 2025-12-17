@@ -149,42 +149,42 @@ function PersonForm({ person, onSave, onCancel }: { person?: DisplacedPerson | n
     }
 
     return (
-         <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
-            <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <Label htmlFor="name">Full Name</Label>
-                    <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="details">Identifying Details</Label>
-                    <Input id="details" name="details" value={formData.details} onChange={handleChange} placeholder="e.g., Age 45, Male" />
-                </div>
-            </div>
-             <div className="grid grid-cols-2 gap-4">
+         <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 max-h-[70vh] overflow-y-auto pr-2 sm:pr-4">
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                  <div className="space-y-2">
-                    <Label htmlFor="status">Current Status</Label>
-                    <Select value={formData.status} onValueChange={(value) => handleSelectChange('status', value)}>
-                        <SelectTrigger id="status"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Needs Assistance">Needs Assistance</SelectItem>
-                            <SelectItem value="Moving to Shelter">Moving to Shelter</SelectItem>
-                            <SelectItem value="Emergency">Emergency</SelectItem>
-                            <SelectItem value="Safe">Safe</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
+                     <Label htmlFor="name">Full Name</Label>
+                     <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
+                 </div>
                  <div className="space-y-2">
-                    <Label htmlFor="priority">Priority Level</Label>
-                    <Select value={formData.priority} onValueChange={(value) => handleSelectChange('priority', value)}>
-                        <SelectTrigger id="priority"><SelectValue/></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Low Priority">Low Priority</SelectItem>
-                            <SelectItem value="Medium Priority">Medium Priority</SelectItem>
-                            <SelectItem value="High Priority">High Priority</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-            </div>
+                     <Label htmlFor="details">Identifying Details</Label>
+                     <Input id="details" name="details" value={formData.details} onChange={handleChange} placeholder="e.g., Age 45, Male" />
+                 </div>
+             </div>
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                   <div className="space-y-2">
+                      <Label htmlFor="status">Current Status</Label>
+                      <Select value={formData.status} onValueChange={(value) => handleSelectChange('status', value)}>
+                          <SelectTrigger id="status"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="Needs Assistance">Needs Assistance</SelectItem>
+                              <SelectItem value="Moving to Shelter">Moving to Shelter</SelectItem>
+                              <SelectItem value="Emergency">Emergency</SelectItem>
+                              <SelectItem value="Safe">Safe</SelectItem>
+                          </SelectContent>
+                      </Select>
+                  </div>
+                   <div className="space-y-2">
+                      <Label htmlFor="priority">Priority Level</Label>
+                      <Select value={formData.priority} onValueChange={(value) => handleSelectChange('priority', value)}>
+                          <SelectTrigger id="priority"><SelectValue/></SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="Low Priority">Low Priority</SelectItem>
+                              <SelectItem value="Medium Priority">Medium Priority</SelectItem>
+                              <SelectItem value="High Priority">High Priority</SelectItem>
+                          </SelectContent>
+                      </Select>
+                  </div>
+              </div>
 
             <div className="space-y-2">
                 <Label htmlFor="currentLocation">Current Location</Label>
@@ -209,9 +209,9 @@ function PersonForm({ person, onSave, onCancel }: { person?: DisplacedPerson | n
                 <Textarea id="assistanceRequested" name="assistanceRequested" value={formData.assistanceRequested} onChange={handleChange} placeholder="Describe the specific help needed..."/>
             </div>
 
-            <DialogFooter>
-                <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-                <Button type="submit" disabled={loading}>{loading ? 'Saving...' : 'Save Record'}</Button>
+            <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0">
+                <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">Cancel</Button>
+                <Button type="submit" disabled={loading} className="w-full sm:w-auto">{loading ? 'Saving...' : 'Save Record'}</Button>
             </DialogFooter>
         </form>
     );
@@ -366,9 +366,9 @@ function AssignShelterDialog({ person, allShelters, isOpen, onOpenChange, onAssi
                         </>
                     )}
                 </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button onClick={handleSubmit} disabled={submitting || !selectedShelter}>
+                <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0">
+                    <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">Cancel</Button>
+                    <Button onClick={handleSubmit} disabled={submitting || !selectedShelter} className="w-full sm:w-auto">
                         {submitting ? 'Assigning...' : 'Confirm Assignment'}
                     </Button>
                 </DialogFooter>
@@ -735,13 +735,14 @@ export default function DisplacedPersonsPage() {
                         </Table>
                     </ScrollArea>
 
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsExcelPreviewOpen(false)}>
+                    <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setIsExcelPreviewOpen(false)} className="w-full sm:w-auto">
                             Cancel
                         </Button>
                         <Button
                             onClick={handleConfirmExcelImport}
                             disabled={excelImportData.length === 0 || importingExcel}
+                            className="w-full sm:w-auto"
                         >
                             {importingExcel ? (
                                 <>
@@ -759,98 +760,98 @@ export default function DisplacedPersonsPage() {
                 </DialogContent>
             </Dialog>
 
-            <div className="flex justify-between items-center">
-                 <div>
-                    <h1 className="text-3xl font-bold">Displaced Persons Monitoring</h1>
-                    <p className="text-muted-foreground">Real-time tracking and assistance coordination for displaced individuals</p>
-                </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={fetchData} disabled={loading}><RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")}/>Refresh</Button>
-                    <Button onClick={handleAddNew}><Plus className="mr-2 h-4 w-4"/>Add Person</Button>
-                    <Button onClick={handleOpenBeneficiaryForm} variant="default" className="bg-green-600 hover:bg-green-700">
-                        <Plus className="mr-2 h-4 w-4"/>Beneficiary Registration Form
-                    </Button>
-                    <div className="relative">
-                        <Input
-                            id="excel-import-main"
-                            type="file"
-                            accept=".xlsx,.xls"
-                            onChange={handleExcelImport}
-                            disabled={importingExcel}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        />
-                        <Button variant="outline" disabled={importingExcel} className="pointer-events-none">
-                            {importingExcel ? (
-                                <>
-                                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                                    Importing...
-                                </>
-                            ) : (
-                                <>
-                                    <Send className="mr-2 h-4 w-4" />
-                                    Import Excel Data
-                                </>
-                            )}
-                        </Button>
-                    </div>
-                </div>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                  <div>
+                     <h1 className="text-2xl sm:text-3xl font-bold">Displaced Persons Monitoring</h1>
+                     <p className="text-muted-foreground text-sm sm:text-base">Real-time tracking and assistance coordination for displaced individuals</p>
+                 </div>
+                 <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
+                     <Button variant="outline" onClick={fetchData} disabled={loading} className="w-full sm:w-auto"><RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")}/>Refresh</Button>
+                     <Button onClick={handleAddNew} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4"/>Add Person</Button>
+                     <Button onClick={handleOpenBeneficiaryForm} variant="default" className="bg-green-600 hover:bg-green-700 w-full sm:w-auto">
+                         <Plus className="mr-2 h-4 w-4"/>Beneficiary Registration Form
+                     </Button>
+                     <div className="relative">
+                         <Input
+                             id="excel-import-main"
+                             type="file"
+                             accept=".xlsx,.xls"
+                             onChange={handleExcelImport}
+                             disabled={importingExcel}
+                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                         />
+                         <Button variant="outline" disabled={importingExcel} className="pointer-events-none w-full sm:w-auto">
+                             {importingExcel ? (
+                                 <>
+                                     <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                     Importing...
+                                 </>
+                             ) : (
+                                 <>
+                                     <Send className="mr-2 h-4 w-4" />
+                                     Import Excel Data
+                                 </>
+                             )}
+                         </Button>
+                     </div>
+                 </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <Card>
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <Users className="h-6 w-6 text-muted-foreground" />
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-1 sm:gap-4">
+                <Card className="max-w-[90vw] sm:max-w-full">
+                    <CardContent className="p-2 sm:p-4 flex items-center gap-2 sm:gap-4">
+                        <Users className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
                         <div>
-                            <p className="text-sm text-muted-foreground">Total Tracked</p>
-                            {loading ? <Skeleton className="h-7 w-10 mt-1" /> : <p className="text-2xl font-bold">{totalTracked}</p>}
+                            <p className="text-xs sm:text-sm text-muted-foreground">Total Tracked</p>
+                            {loading ? <Skeleton className="h-6 sm:h-7 w-8 sm:w-10 mt-1" /> : <p className="text-xl sm:text-2xl font-bold">{totalTracked}</p>}
                         </div>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <CheckCircle className="h-6 w-6 text-green-500" />
+                <Card className="max-w-[90vw] sm:max-w-full">
+                    <CardContent className="p-2 sm:p-4 flex items-center gap-2 sm:gap-4">
+                        <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-green-500" />
                         <div>
-                            <p className="text-sm text-muted-foreground">Safe</p>
-                              {loading ? <Skeleton className="h-7 w-10 mt-1" /> : <p className="text-2xl font-bold">{safeCount}</p>}
+                            <p className="text-xs sm:text-sm text-muted-foreground">Safe</p>
+                              {loading ? <Skeleton className="h-6 sm:h-7 w-8 sm:w-10 mt-1" /> : <p className="text-xl sm:text-2xl font-bold">{safeCount}</p>}
                         </div>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <BedDouble className="h-6 w-6 text-blue-500" />
+                <Card className="max-w-[90vw] sm:max-w-full">
+                    <CardContent className="p-2 sm:p-4 flex items-center gap-2 sm:gap-4">
+                        <BedDouble className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500" />
                         <div>
-                            <p className="text-sm text-muted-foreground">Eligible for Shelter</p>
-                            {loading ? <Skeleton className="h-7 w-10 mt-1" /> : <p className="text-2xl font-bold">{eligibleCount}</p>}
+                            <p className="text-xs sm:text-sm text-muted-foreground">Eligible for Shelter</p>
+                            {loading ? <Skeleton className="h-6 sm:h-7 w-8 sm:w-10 mt-1" /> : <p className="text-xl sm:text-2xl font-bold">{eligibleCount}</p>}
                         </div>
                     </CardContent>
                 </Card>
-                  <Card>
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <Heart className="h-6 w-6 text-orange-500" />
+                  <Card className="max-w-[90vw] sm:max-w-full">
+                    <CardContent className="p-2 sm:p-4 flex items-center gap-2 sm:gap-4">
+                        <Heart className="h-5 w-5 sm:h-6 sm:w-6 text-orange-500" />
                         <div>
-                            <p className="text-sm text-muted-foreground">Need Assistance</p>
-                            {loading ? <Skeleton className="h-7 w-10 mt-1" /> : <p className="text-2xl font-bold">{assistanceCount}</p>}
+                            <p className="text-xs sm:text-sm text-muted-foreground">Need Assistance</p>
+                            {loading ? <Skeleton className="h-6 sm:h-7 w-8 sm:w-10 mt-1" /> : <p className="text-xl sm:text-2xl font-bold">{assistanceCount}</p>}
                         </div>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <AlertTriangle className="h-6 w-6 text-red-500" />
+                <Card className="max-w-[90vw] sm:max-w-full">
+                    <CardContent className="p-2 sm:p-4 flex items-center gap-2 sm:gap-4">
+                        <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-red-500" />
                         <div>
-                            <p className="text-sm text-muted-foreground">Emergency</p>
-                            {loading ? <Skeleton className="h-7 w-10 mt-1" /> : <p className="text-2xl font-bold">{emergencyCount}</p>}
+                            <p className="text-xs sm:text-sm text-muted-foreground">Emergency</p>
+                            {loading ? <Skeleton className="h-6 sm:h-7 w-8 sm:w-10 mt-1" /> : <p className="text-xl sm:text-2xl font-bold">{emergencyCount}</p>}
                         </div>
                     </CardContent>
                 </Card>
             </div>
 
-             <div className="flex gap-4">
+             <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
                 <div className="relative flex-grow">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input placeholder="Search by name or ID..." className="pl-10 h-10" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+                    <Input placeholder="Search by name or ID..." className="pl-10 h-9 sm:h-10" />
                 </div>
                 <Select>
-                    <SelectTrigger className="w-[180px] h-10">
+                    <SelectTrigger className="w-full sm:w-[180px] h-9 sm:h-10">
                         <SelectValue placeholder="All Statuses" />
                     </SelectTrigger>
                     <SelectContent>
@@ -862,7 +863,7 @@ export default function DisplacedPersonsPage() {
                         <SelectItem value="emergency">Emergency</SelectItem>
                     </SelectContent>
                 </Select>
-                <Button variant="outline" className="h-10"><Filter className="mr-2 h-4 w-4" />More Filters</Button>
+                <Button variant="outline" className="h-9 sm:h-10 w-full sm:w-auto"><Filter className="mr-2 h-4 w-4" />More Filters</Button>
             </div>
 
              {permissionError && (
@@ -875,17 +876,17 @@ export default function DisplacedPersonsPage() {
                 </Alert>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 {loading || !displacedPersons ? (
-                    Array.from({ length: 4 }).map((_, i) => (
-                        <Card key={i}><CardContent className="p-4"><Skeleton className="h-80 w-full" /></CardContent></Card>
-                    ))
-                ) : displacedPersons.length > 0 ? (
-                    displacedPersons.map(person => {
-                        const statusInfo = getStatusInfo(person.status);
-                        return (
-                            <Card key={person.id} className={cn("transition-shadow hover:shadow-lg", statusInfo.cardClass)}>
-                                <CardContent className="p-4 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                  {loading || !displacedPersons ? (
+                     Array.from({ length: 4 }).map((_, i) => (
+                         <Card key={i} className="max-w-[90vw] sm:max-w-full"><CardContent className="p-2 sm:p-4"><Skeleton className="h-64 sm:h-80 w-full" /></CardContent></Card>
+                     ))
+                 ) : displacedPersons.length > 0 ? (
+                     displacedPersons.map(person => {
+                         const statusInfo = getStatusInfo(person.status);
+                         return (
+                             <Card key={person.id} className={cn("transition-shadow hover:shadow-lg max-w-[90vw] sm:max-w-full", statusInfo.cardClass)}>
+                                 <CardContent className="p-2 sm:p-4 space-y-2 sm:space-y-4">
                                     <div className="flex justify-between items-start">
                                         <div>
                                             <p className="font-bold">{person.name}</p>
@@ -895,69 +896,69 @@ export default function DisplacedPersonsPage() {
                                             {statusInfo.icon} {person.status}
                                         </Badge>
                                     </div>
-                                    <div className="space-y-3 text-sm pl-2 border-l-2 ml-2">
-                                        <div className="flex items-start gap-3">
-                                            <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                                    <div className="space-y-2 sm:space-y-3 text-xs sm:text-sm pl-2 border-l-2 ml-2">
+                                        <div className="flex items-start gap-2 sm:gap-3">
+                                            <MapPin className="h-3 w-3 sm:h-4 sm:w-4 mt-0.5 text-muted-foreground" />
                                             <div>
                                                 <p className="font-medium text-xs text-muted-foreground">Current Location</p>
                                                 <p>{person.currentLocation}</p>
                                             </div>
                                         </div>
                                         {person.destination && (
-                                            <div className="flex items-start gap-3">
-                                                <Send className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                                            <div className="flex items-start gap-2 sm:gap-3">
+                                                <Send className="h-3 w-3 sm:h-4 sm:w-4 mt-0.5 text-muted-foreground" />
                                                 <div>
                                                     <p className="font-medium text-xs text-muted-foreground">Destination</p>
                                                     <p>{person.destination}</p>
                                                 </div>
                                             </div>
                                         )}
-                                        <div className="flex items-start gap-3">
-                                            <Info className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                                        <div className="flex items-start gap-2 sm:gap-3">
+                                            <Info className="h-3 w-3 sm:h-4 sm:w-4 mt-0.5 text-muted-foreground" />
                                             <div>
                                                 <p className="font-medium text-xs text-muted-foreground">Vulnerabilities</p>
                                                 <div className="flex flex-wrap gap-1 mt-1">
-                                                    {person.vulnerabilities.map(v => <Badge key={v} variant="secondary" className="font-normal">{v}</Badge>)}
+                                                    {person.vulnerabilities.map(v => <Badge key={v} variant="secondary" className="font-normal text-xs">{v}</Badge>)}
                                                 </div>
                                             </div>
                                         </div>
                                         {person.medicalNeeds && person.medicalNeeds.length > 0 && (
-                                            <div className="flex items-start gap-3">
-                                                <Heart className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                                            <div className="flex items-start gap-2 sm:gap-3">
+                                                <Heart className="h-3 w-3 sm:h-4 sm:w-4 mt-0.5 text-muted-foreground" />
                                                 <div>
                                                     <p className="font-medium text-xs text-muted-foreground">Medical Needs</p>
                                                     <div className="flex flex-wrap gap-1 mt-1">
-                                                        {person.medicalNeeds.map(m => <Badge key={m} variant="destructive" className="bg-red-50 text-red-700 font-normal">{m}</Badge>)}
+                                                        {person.medicalNeeds.map(m => <Badge key={m} variant="destructive" className="bg-red-50 text-red-700 font-normal text-xs">{m}</Badge>)}
                                                     </div>
                                                 </div>
                                             </div>
                                         )}
-                                         <div className="flex items-start gap-3">
-                                            <AlertTriangle className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                                         <div className="flex items-start gap-2 sm:gap-3">
+                                            <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 mt-0.5 text-muted-foreground" />
                                             <div>
                                                 <p className="font-medium text-xs text-muted-foreground">Assistance Requested</p>
-                                                <div className="p-2 bg-yellow-100/50 rounded-md text-yellow-800 mt-1">{person.assistanceRequested}</div>
+                                                <div className="p-2 bg-yellow-100/50 rounded-md text-yellow-800 mt-1 text-xs">{person.assistanceRequested}</div>
                                             </div>
                                         </div>
-                                        <div className="flex items-start gap-3">
-                                            <Clock className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                                        <div className="flex items-start gap-2 sm:gap-3">
+                                            <Clock className="h-3 w-3 sm:h-4 sm:w-4 mt-0.5 text-muted-foreground" />
                                             <div>
                                                 <p className="font-medium text-xs text-muted-foreground">Last update</p>
                                                 <p>{person.lastUpdate}</p>
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center justify-between pt-4 border-t">
-                                         <div className="flex gap-2">
-                                            <Button size="sm" onClick={() => handleTrack(person.currentLocation)}>Track</Button>
-                                            <Button size="sm" variant="outline" onClick={() => handleContact(person)}>Contact</Button>
-                                            <Button size="sm" variant="outline" onClick={() => handleEdit(person)}><Edit className="mr-2 h-4 w-4" /> Edit</Button>
-                                            <Button size="sm" variant="default" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleOpenAssignDialog(person)} disabled={person.status === 'Safe'}>
-                                                <BedDouble className="mr-2 h-4 w-4"/>
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-2 sm:pt-4 border-t gap-2">
+                                         <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
+                                            <Button size="sm" onClick={() => handleTrack(person.currentLocation)} className="w-full sm:w-auto">Track</Button>
+                                            <Button size="sm" variant="outline" onClick={() => handleContact(person)} className="w-full sm:w-auto">Contact</Button>
+                                            <Button size="sm" variant="outline" onClick={() => handleEdit(person)} className="w-full sm:w-auto"><Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Edit</Button>
+                                            <Button size="sm" variant="default" className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto" onClick={() => handleOpenAssignDialog(person)} disabled={person.status === 'Safe'}>
+                                                <BedDouble className="mr-2 h-3 w-3 sm:h-4 sm:w-4"/>
                                                 Assign Shelter
                                             </Button>
                                          </div>
-                                         <Badge className={cn(getPriorityColor(person.priority), "font-semibold")}>{person.priority}</Badge>
+                                         <Badge className={cn(getPriorityColor(person.priority), "font-semibold text-xs sm:text-sm w-full sm:w-auto text-center")}>{person.priority}</Badge>
                                     </div>
                                 </CardContent>
                             </Card>

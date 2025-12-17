@@ -109,8 +109,8 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
     }
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
-            <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 max-h-[70vh] overflow-y-auto pr-2 sm:pr-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
                     <Label htmlFor="name">Shelter Name</Label>
                     <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
@@ -120,35 +120,35 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
                     <Input id="organization" name="organization" value={formData.organization} onChange={handleChange} />
                 </div>
             </div>
-             <div className="space-y-2">
-                <Label htmlFor="location">Location</Label>
-                <Input id="location" name="location" value={formData.location} onChange={handleChange} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <Label htmlFor="capacity">Total Capacity</Label>
-                    <Input id="capacity" name="capacity" type="number" value={formData.capacity} onChange={handleChange} />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="availableCapacity">Available Capacity</Label>
-                    <Input id="availableCapacity" name="availableCapacity" type="number" value={formData.availableCapacity} onChange={handleChange} />
-                </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <Label htmlFor="requests">Emergency Requests</Label>
-                    <Input id="requests" name="requests" type="number" value={formData.requests} onChange={handleChange} />
-                </div>
-            </div>
+              <div className="space-y-2">
+                 <Label htmlFor="location">Location</Label>
+                 <Input id="location" name="location" value={formData.location} onChange={handleChange} />
+             </div>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                 <div className="space-y-2">
+                     <Label htmlFor="capacity">Total Capacity</Label>
+                     <Input id="capacity" name="capacity" type="number" value={formData.capacity} onChange={handleChange} />
+                 </div>
+                 <div className="space-y-2">
+                     <Label htmlFor="availableCapacity">Available Capacity</Label>
+                     <Input id="availableCapacity" name="availableCapacity" type="number" value={formData.availableCapacity} onChange={handleChange} />
+                 </div>
+             </div>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                 <div className="space-y-2">
+                     <Label htmlFor="requests">Emergency Requests</Label>
+                     <Input id="requests" name="requests" type="number" value={formData.requests} onChange={handleChange} />
+                 </div>
+             </div>
              <div className="space-y-2">
                 <Label htmlFor="facilities">Facilities (comma-separated)</Label>
                 <Input id="facilities" name="facilities" value={formData.facilities?.join(', ')} onChange={handleFacilitiesChange} placeholder="e.g. Medical, Food, Water" />
             </div>
              <div className="space-y-2">
                 <Label htmlFor="security">Security Details</Label>
-                <Textarea id="security" name="security" value={formData.security} onChange={handleChange} placeholder="Describe security measures..."/>
+                <Textarea id="security" name="security" value={formData.security} onChange={handleChange} placeholder="Describe security measures..." className="min-h-[80px] sm:min-h-[100px]"/>
             </div>
-             <div className="grid grid-cols-2 gap-4">
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                  <div className="space-y-2">
                     <Label htmlFor="managerName">Manager Name</Label>
                     <Input id="managerName" name="managerName" value={formData.managerName} onChange={handleChange} />
@@ -158,9 +158,9 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
                     <Input id="phone" name="phone" type="tel" value={formData.phone} onChange={handleChange} />
                 </div>
             </div>
-            <DialogFooter>
-                <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-                <Button type="submit" disabled={loading}>{loading ? 'Saving...' : 'Save Shelter'}</Button>
+            <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0">
+                <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">Cancel</Button>
+                <Button type="submit" disabled={loading} className="w-full sm:w-auto">{loading ? 'Saving...' : 'Save Shelter'}</Button>
             </DialogFooter>
         </form>
     );
@@ -210,7 +210,7 @@ export default function TrackShelterPage() {
     const emergencyRequests = shelters?.reduce((acc, s) => acc + (s.requests || 0), 0) || 0;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 overflow-x-hidden">
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
@@ -253,14 +253,14 @@ export default function TrackShelterPage() {
                                     </div>
                                 </div>
                             </div>
-                            <div className="flex gap-2">
-                                <Button asChild className="flex-1">
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <Button asChild className="w-full sm:flex-1">
                                     <a href={`tel:${contactShelter.phone}`}>
                                         <Phone className="mr-2 h-4 w-4" />
                                         Call Now
                                     </a>
                                 </Button>
-                                <Button variant="outline" onClick={() => setContactDialogOpen(false)}>
+                                <Button variant="outline" onClick={() => setContactDialogOpen(false)} className="w-full sm:w-auto">
                                     Close
                                 </Button>
                             </div>
@@ -269,56 +269,56 @@ export default function TrackShelterPage() {
                 </DialogContent>
             </Dialog>
 
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                 <div>
-                    <h1 className="text-3xl font-bold">Shelter Management</h1>
-                    <p className="text-muted-foreground">Monitor and manage shelter capacity, operations, and resources</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold">Shelter Management</h1>
+                    <p className="text-muted-foreground text-sm sm:text-base">Monitor and manage shelter capacity, operations, and resources</p>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={fetchData} disabled={loading}><RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />Refresh Data</Button>
-                    <Button onClick={handleAddNew}><Plus className="mr-2 h-4 w-4" />Add New Shelter</Button>
+                <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
+                    <Button variant="outline" onClick={fetchData} disabled={loading} className="w-full sm:w-auto"><RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />Refresh Data</Button>
+                    <Button onClick={handleAddNew} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" />Add New Shelter</Button>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <Card>
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-1 sm:gap-6">
+                <Card className="max-w-[50vw] sm:max-w-full overflow-hidden">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Total Capacity</CardTitle>
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <CardTitle className="text-xs sm:text-sm font-medium">Total Capacity</CardTitle>
+                        <Building2 className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                     </CardHeader>
-                    <CardContent>
-                        {loading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-3xl font-bold">{totalCapacity}</div> }
-                        {loading ? <Skeleton className="h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">{totalOccupied} occupied</p> }
+                    <CardContent className="p-2 sm:p-6">
+                        {loading ? <Skeleton className="h-6 sm:h-8 w-1/2" /> : <div className="text-xl sm:text-3xl font-bold">{totalCapacity}</div> }
+                        {loading ? <Skeleton className="h-3 sm:h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">{totalOccupied} occupied</p> }
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="max-w-[50vw] sm:max-w-full overflow-hidden">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Available Spaces</CardTitle>
-                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <CardTitle className="text-xs sm:text-sm font-medium">Available Spaces</CardTitle>
+                        <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
                     </CardHeader>
-                    <CardContent>
-                        {loading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-3xl font-bold">{availableSpaces}</div>}
-                        {loading ? <Skeleton className="h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">{totalCapacity > 0 ? `${Math.round((availableSpaces / totalCapacity) * 100)}%` : '0%'} available</p>}
+                    <CardContent className="p-2 sm:p-6">
+                        {loading ? <Skeleton className="h-6 sm:h-8 w-1/2" /> : <div className="text-xl sm:text-3xl font-bold">{availableSpaces}</div>}
+                        {loading ? <Skeleton className="h-3 sm:h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">{totalCapacity > 0 ? `${Math.round((availableSpaces / totalCapacity) * 100)}%` : '0%'} available</p>}
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="max-w-[50vw] sm:max-w-full overflow-hidden">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Active Shelters</CardTitle>
-                        <Shield className="h-4 w-4 text-blue-500" />
+                        <CardTitle className="text-xs sm:text-sm font-medium">Active Shelters</CardTitle>
+                        <Shield className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500" />
                     </CardHeader>
-                    <CardContent>
-                        {loading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-3xl font-bold">{activeShelters}</div>}
-                        {loading ? <Skeleton className="h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">of {shelters?.length || 0} total</p>}
+                    <CardContent className="p-2 sm:p-6">
+                        {loading ? <Skeleton className="h-6 sm:h-8 w-1/2" /> : <div className="text-xl sm:text-3xl font-bold">{activeShelters}</div>}
+                        {loading ? <Skeleton className="h-3 sm:h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">of {shelters?.length || 0} total</p>}
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="max-w-[50vw] sm:max-w-full overflow-hidden">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Emergency Requests</CardTitle>
-                        <AlertTriangle className="h-4 w-4 text-red-500" />
+                        <CardTitle className="text-xs sm:text-sm font-medium">Emergency Requests</CardTitle>
+                        <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 text-red-500" />
                     </CardHeader>
-                    <CardContent>
-                        {loading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-3xl font-bold">{emergencyRequests}</div>}
-                        {loading ? <Skeleton className="h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">pending response</p>}
+                    <CardContent className="p-2 sm:p-6">
+                        {loading ? <Skeleton className="h-6 sm:h-8 w-1/2" /> : <div className="text-xl sm:text-3xl font-bold">{emergencyRequests}</div>}
+                        {loading ? <Skeleton className="h-3 sm:h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">pending response</p>}
                     </CardContent>
                 </Card>
             </div>
@@ -339,10 +339,10 @@ export default function TrackShelterPage() {
                             </AlertDesc>
                         </Alert>
                     )}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4">
                         {loading || !shelters ? (
                              Array.from({ length: 4 }).map((_, i) => (
-                                <Card key={i}><CardContent className="p-6"><Skeleton className="h-64 w-full" /></CardContent></Card>
+                                <Card key={i} className="max-w-[90vw] sm:max-w-full"><CardContent className="p-2 sm:p-6"><Skeleton className="h-48 sm:h-64 w-full" /></CardContent></Card>
                             ))
                         ) : shelters.length > 0 ? (
                             shelters.map(shelter => {
@@ -350,49 +350,49 @@ export default function TrackShelterPage() {
                                 const capacityPercentage = shelter.capacity > 0 ? Math.round((currentOccupancy / shelter.capacity) * 100) : 0;
                                 const trendInfo = getTrendInfo(shelter.trend);
                                 return (
-                                    <Card key={shelter.id} className={cn("shadow-sm hover:shadow-md transition-shadow", getCardBorderColor(shelter.status))}>
-                                        <CardHeader>
-                                            <div className="flex justify-between items-start">
+                                    <Card key={shelter.id} className={cn("shadow-sm hover:shadow-md transition-shadow max-w-[50vw] sm:max-w-full overflow-hidden", getCardBorderColor(shelter.status))}>
+                                        <CardHeader className="p-2 sm:p-6">
+                                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                                                 <div>
-                                                    <CardTitle className="text-lg">{shelter.name}</CardTitle>
-                                                    <p className="text-sm text-muted-foreground">{shelter.organization}</p>
+                                                    <CardTitle className="text-base sm:text-lg">{shelter.name}</CardTitle>
+                                                    <p className="text-xs sm:text-sm text-muted-foreground">{shelter.organization}</p>
                                                 </div>
-                                                <div className="flex gap-2">
-                                                    <Badge variant={getStatusBadgeVariant(shelter.status)}>{shelter.status}</Badge>
-                                                    <Badge variant="secondary">{shelter.requests} Requests</Badge>
+                                                <div className="flex flex-wrap gap-1 sm:gap-2">
+                                                    <Badge variant={getStatusBadgeVariant(shelter.status)} className="text-xs">{shelter.status}</Badge>
+                                                    <Badge variant="secondary" className="text-xs">{shelter.requests} Requests</Badge>
                                                 </div>
                                             </div>
                                         </CardHeader>
-                                        <CardContent className="space-y-4">
+                                        <CardContent className="p-2 sm:p-6 space-y-2 sm:space-y-4">
                                             <div className="text-center space-y-1">
-                                                <p className="text-sm text-muted-foreground">Total Capacity</p>
-                                                <p className="text-2xl font-bold">{shelter.capacity}</p>
+                                                <p className="text-xs sm:text-sm text-muted-foreground">Total Capacity</p>
+                                                <p className="text-xl sm:text-2xl font-bold">{shelter.capacity}</p>
                                             </div>
                                             <div className="space-y-2">
-                                                <Progress value={capacityPercentage} className="h-2" />
-                                                <div className="flex justify-between text-sm font-medium">
+                                                <Progress value={capacityPercentage} className="h-1 sm:h-2" />
+                                                <div className="flex justify-between text-xs sm:text-sm font-medium">
                                                     <p>{currentOccupancy} Occupied</p>
                                                     <p className="text-green-600">{shelter.availableCapacity} Available</p>
                                                 </div>
                                             </div>
-                                            <div className="text-sm text-muted-foreground space-y-2 pt-4 border-t">
-                                                <div className="flex items-center gap-2"><MapPin className="h-4 w-4" /> {shelter.location}</div>
-                                                <div className="flex items-center gap-2"><User className="h-4 w-4" /> Manager: {shelter.managerName}</div>
+                                            <div className="text-xs sm:text-sm text-muted-foreground space-y-1 sm:space-y-2 pt-2 sm:pt-4 border-t">
+                                                <div className="flex items-center gap-1 sm:gap-2"><MapPin className="h-3 w-3 sm:h-4 sm:w-4" /> {shelter.location}</div>
+                                                <div className="flex items-center gap-1 sm:gap-2"><User className="h-3 w-3 sm:h-4 sm:w-4" /> Manager: {shelter.managerName}</div>
                                             </div>
-                                            <div className="flex justify-between items-center text-sm text-muted-foreground pt-4 border-t">
+                                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-xs sm:text-sm text-muted-foreground pt-2 sm:pt-4 border-t gap-1">
                                                 <div className="flex items-center gap-1">
                                                     {trendInfo.icon}
                                                     <span>{trendInfo.text}</span>
                                                 </div>
-                                                <div className="flex items-center gap-2">
-                                                    <Clock className="h-4 w-4" />
+                                                <div className="flex items-center gap-1 sm:gap-2">
+                                                    <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
                                                     <span>{shelter.lastUpdate} ago</span>
                                                 </div>
                                             </div>
-                                            <div className="flex gap-2 pt-4 border-t">
-                                                <Button size="sm" className="flex-1" onClick={() => handleViewDetails(shelter)}>View Details</Button>
-                                                <Button size="sm" variant="outline" className="flex-1" onClick={() => handleContact(shelter)}><Phone className="mr-2 h-4 w-4"/>Contact</Button>
-                                                <Button size="sm" variant="outline" className="flex-1" onClick={() => handleManage(shelter)}><Edit className="mr-2 h-4 w-4"/>Manage</Button>
+                                            <div className="flex flex-col sm:flex-row gap-1 sm:gap-2 pt-2 sm:pt-4 border-t">
+                                                <Button size="sm" className="w-full sm:flex-1" onClick={() => handleViewDetails(shelter)}>View Details</Button>
+                                                <Button size="sm" variant="outline" className="w-full sm:flex-1" onClick={() => handleContact(shelter)}><Phone className="mr-2 h-3 w-3 sm:h-4 sm:w-4"/>Contact</Button>
+                                                <Button size="sm" variant="outline" className="w-full sm:flex-1" onClick={() => handleManage(shelter)}><Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4"/>Manage</Button>
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -404,133 +404,262 @@ export default function TrackShelterPage() {
                     </div>
                 </TabsContent>
                 <TabsContent value="capacity" className="mt-6">
-                    <Card>
+                    <Card className="max-w-6xl overflow-hidden">
                         <CardHeader>
                             <CardTitle>Capacity Management</CardTitle>
                             <CardDescription>View detailed capacity information and manage shelter spaces.</CardDescription>
                         </CardHeader>
-                        <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Shelter</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead className="text-right">Occupied</TableHead>
-                                        <TableHead className="text-right">Available</TableHead>
-                                        <TableHead className="text-right">Total</TableHead>
-                                        <TableHead>Occupancy</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
+                        <CardContent className="p-2 sm:p-6">
+                            {/* Mobile Card Layout */}
+                            <div className="block md:hidden">
+                                <div className="grid grid-cols-1 gap-4">
                                     {loading || !shelters ? (
                                         Array.from({ length: 3 }).map((_, i) => (
-                                            <TableRow key={i}>
-                                                <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                                                <TableCell><Skeleton className="h-6 w-20" /></TableCell>
-                                                <TableCell className="text-right"><Skeleton className="h-4 w-10 ml-auto" /></TableCell>
-                                                <TableCell className="text-right"><Skeleton className="h-4 w-10 ml-auto" /></TableCell>
-                                                <TableCell className="text-right"><Skeleton className="h-4 w-10 ml-auto" /></TableCell>
-                                                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                                <TableCell className="text-right"><Skeleton className="h-8 w-20 ml-auto" /></TableCell>
-                                            </TableRow>
+                                            <Card key={i} className="p-4">
+                                                <Skeleton className="h-6 w-3/4 mb-2" />
+                                                <Skeleton className="h-4 w-1/2 mb-2" />
+                                                <Skeleton className="h-4 w-full mb-2" />
+                                                <Skeleton className="h-8 w-24" />
+                                            </Card>
                                         ))
                                     ) : shelters.map(shelter => {
                                         const occupied = shelter.capacity - shelter.availableCapacity;
                                         const percentage = shelter.capacity > 0 ? Math.round((occupied / shelter.capacity) * 100) : 0;
                                         return (
-                                            <TableRow key={shelter.id}>
-                                                <TableCell>
-                                                    <div className="font-medium">{shelter.name}</div>
-                                                    <div className="text-xs text-muted-foreground">{shelter.location}</div>
-                                                </TableCell>
-                                                <TableCell><Badge variant={getStatusBadgeVariant(shelter.status)}>{shelter.status}</Badge></TableCell>
-                                                <TableCell className="text-right font-medium">{occupied}</TableCell>
-                                                <TableCell className="text-right font-medium text-green-600">{shelter.availableCapacity}</TableCell>
-                                                <TableCell className="text-right font-medium">{shelter.capacity}</TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-2">
-                                                        <Progress value={percentage} className="h-2 w-20"/>
-                                                        <span className="text-xs text-muted-foreground">{percentage}%</span>
+                                            <Card key={shelter.id} className="p-4">
+                                                <div className="space-y-3">
+                                                    <div className="flex justify-between items-start">
+                                                        <div>
+                                                            <h3 className="font-medium text-base">{shelter.name}</h3>
+                                                            <p className="text-sm text-muted-foreground">{shelter.location}</p>
+                                                        </div>
+                                                        <Badge variant={getStatusBadgeVariant(shelter.status)}>{shelter.status}</Badge>
                                                     </div>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <Button variant="outline" size="sm" onClick={() => handleManage(shelter)}>
+                                                    <div className="grid grid-cols-3 gap-3 text-sm">
+                                                        <div>
+                                                            <p className="text-muted-foreground">Occupied</p>
+                                                            <p className="font-medium">{occupied}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-muted-foreground">Available</p>
+                                                            <p className="font-medium text-green-600">{shelter.availableCapacity}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-muted-foreground">Total</p>
+                                                            <p className="font-medium">{shelter.capacity}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm text-muted-foreground mb-2">Occupancy</p>
+                                                        <div className="flex items-center gap-2">
+                                                            <Progress value={percentage} className="h-2 flex-1"/>
+                                                            <span className="text-xs text-muted-foreground">{percentage}%</span>
+                                                        </div>
+                                                    </div>
+                                                    <Button variant="outline" size="sm" onClick={() => handleManage(shelter)} className="w-full">
                                                         <Edit className="mr-2 h-4 w-4" /> Manage
                                                     </Button>
-                                                </TableCell>
-                                            </TableRow>
+                                                </div>
+                                            </Card>
                                         )
                                     })}
-                                </TableBody>
-                            </Table>
+                                </div>
+                            </div>
+
+                            {/* Desktop Table Layout */}
+                            <div className="hidden md:block">
+                                <div className="w-full overflow-x-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead className="min-w-[100px]">Shelter</TableHead>
+                                                <TableHead className="min-w-[80px]">Status</TableHead>
+                                                <TableHead className="text-right min-w-[60px]">Occupied</TableHead>
+                                                <TableHead className="text-right min-w-[60px]">Available</TableHead>
+                                                <TableHead className="text-right min-w-[60px]">Total</TableHead>
+                                                <TableHead className="min-w-[100px]">Occupancy</TableHead>
+                                                <TableHead className="text-right min-w-[80px]">Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {loading || !shelters ? (
+                                                Array.from({ length: 3 }).map((_, i) => (
+                                                    <TableRow key={i}>
+                                                        <TableCell><Skeleton className="h-4 w-32 sm:w-40" /></TableCell>
+                                                        <TableCell><Skeleton className="h-6 w-16 sm:w-20" /></TableCell>
+                                                        <TableCell className="text-right"><Skeleton className="h-4 w-8 sm:w-10 ml-auto" /></TableCell>
+                                                        <TableCell className="text-right"><Skeleton className="h-4 w-8 sm:w-10 ml-auto" /></TableCell>
+                                                        <TableCell className="text-right"><Skeleton className="h-4 w-8 sm:w-10 ml-auto" /></TableCell>
+                                                        <TableCell><Skeleton className="h-4 w-20 sm:w-24" /></TableCell>
+                                                        <TableCell className="text-right"><Skeleton className="h-8 w-16 sm:w-20 ml-auto" /></TableCell>
+                                                    </TableRow>
+                                                ))
+                                            ) : shelters.map(shelter => {
+                                                const occupied = shelter.capacity - shelter.availableCapacity;
+                                                const percentage = shelter.capacity > 0 ? Math.round((occupied / shelter.capacity) * 100) : 0;
+                                                return (
+                                                    <TableRow key={shelter.id}>
+                                                        <TableCell>
+                                                            <div className="font-medium text-sm sm:text-base">{shelter.name}</div>
+                                                            <div className="text-xs text-muted-foreground">{shelter.location}</div>
+                                                        </TableCell>
+                                                        <TableCell><Badge variant={getStatusBadgeVariant(shelter.status)} className="text-xs">{shelter.status}</Badge></TableCell>
+                                                        <TableCell className="text-right font-medium text-sm sm:text-base">{occupied}</TableCell>
+                                                        <TableCell className="text-right font-medium text-green-600 text-sm sm:text-base">{shelter.availableCapacity}</TableCell>
+                                                        <TableCell className="text-right font-medium text-sm sm:text-base">{shelter.capacity}</TableCell>
+                                                        <TableCell>
+                                                            <div className="flex items-center gap-2">
+                                                                <Progress value={percentage} className="h-2 w-16 sm:w-20"/>
+                                                                <span className="text-xs text-muted-foreground">{percentage}%</span>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <Button variant="outline" size="sm" onClick={() => handleManage(shelter)} className="text-xs sm:text-sm">
+                                                                <Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Manage
+                                                            </Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )
+                                            })}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
                 </TabsContent>
                  <TabsContent value="operations" className="mt-6">
-                    <Card>
+                    <Card className="max-w-full overflow-hidden">
                         <CardHeader>
                             <CardTitle>Shelter Operations</CardTitle>
                             <CardDescription>
                                 Monitor operational status, requests, and contact managers.
                             </CardDescription>
                         </CardHeader>
-                        <CardContent>
-                             <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Shelter</TableHead>
-                                        <TableHead>Manager</TableHead>
-                                        <TableHead>Contact</TableHead>
-                                        <TableHead className="text-center">Emergency Requests</TableHead>
-                                        <TableHead>Occupancy Trend</TableHead>
-                                        <TableHead>Last Update</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
+                        <CardContent className="p-2 sm:p-6">
+                            {/* Mobile Card Layout */}
+                            <div className="block md:hidden">
+                                <div className="grid grid-cols-1 gap-4">
                                     {loading || !shelters ? (
                                         Array.from({ length: 3 }).map((_, i) => (
-                                            <TableRow key={i}>
-                                                <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                                <TableCell><Skeleton className="h-4 w-12 mx-auto" /></TableCell>
-                                                <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                                                <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                                                <TableCell className="text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
-                                            </TableRow>
+                                            <Card key={i} className="p-4">
+                                                <Skeleton className="h-6 w-3/4 mb-2" />
+                                                <Skeleton className="h-4 w-1/2 mb-2" />
+                                                <Skeleton className="h-4 w-full mb-2" />
+                                                <Skeleton className="h-8 w-24" />
+                                            </Card>
                                         ))
                                     ) : shelters.map(shelter => {
                                         const trendInfo = getTrendInfo(shelter.trend);
                                         return (
-                                            <TableRow key={shelter.id}>
-                                                <TableCell className="font-medium">{shelter.name}</TableCell>
-                                                <TableCell>{shelter.managerName}</TableCell>
-                                                <TableCell>{shelter.phone}</TableCell>
-                                                <TableCell className="text-center font-bold">{shelter.requests}</TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-2">
-                                                        {trendInfo.icon}
-                                                        <span>{trendInfo.text}</span>
+                                            <Card key={shelter.id} className="p-4">
+                                                <div className="space-y-3">
+                                                    <div>
+                                                        <h3 className="font-medium text-base">{shelter.name}</h3>
+                                                        <p className="text-sm text-muted-foreground">{shelter.location}</p>
                                                     </div>
-                                                </TableCell>
-                                                <TableCell>{shelter.lastUpdate}</TableCell>
-                                                <TableCell className="text-right">
-                                                    <div className="flex gap-2 justify-end">
-                                                        <Button variant="outline" size="sm" asChild>
-                                                            <a href={`tel:${shelter.phone}`}><Phone className="mr-2 h-3 w-3" /> Call</a>
+                                                    <div className="grid grid-cols-2 gap-3 text-sm">
+                                                        <div>
+                                                            <p className="text-muted-foreground">Manager</p>
+                                                            <p className="font-medium">{shelter.managerName}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-muted-foreground">Contact</p>
+                                                            <p className="font-medium">{shelter.phone}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-3 text-sm">
+                                                        <div>
+                                                            <p className="text-muted-foreground">Emergency Requests</p>
+                                                            <p className="font-bold">{shelter.requests}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-muted-foreground">Occupancy Trend</p>
+                                                            <div className="flex items-center gap-1">
+                                                                {trendInfo.icon}
+                                                                <span>{trendInfo.text}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm text-muted-foreground">Last Update</p>
+                                                        <p className="text-sm">{shelter.lastUpdate}</p>
+                                                    </div>
+                                                    <div className="flex flex-col gap-2">
+                                                        <Button variant="outline" size="sm" asChild className="w-full">
+                                                            <a href={`tel:${shelter.phone}`}><Phone className="mr-2 h-4 w-4" /> Call</a>
                                                         </Button>
-                                                        <Button variant="outline" size="sm" onClick={() => handleManage(shelter)}>
-                                                            <Edit className="mr-2 h-3 w-3" /> Manage
+                                                        <Button variant="outline" size="sm" onClick={() => handleManage(shelter)} className="w-full">
+                                                            <Edit className="mr-2 h-4 w-4" /> Manage
                                                         </Button>
                                                     </div>
-                                                </TableCell>
-                                            </TableRow>
+                                                </div>
+                                            </Card>
                                         )
                                     })}
-                                </TableBody>
-                            </Table>
+                                </div>
+                            </div>
+
+                            {/* Desktop Table Layout */}
+                            <div className="hidden md:block">
+                                <div className="w-full overflow-x-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead className="min-w-[100px]">Shelter</TableHead>
+                                                <TableHead className="min-w-[80px]">Manager</TableHead>
+                                                <TableHead className="min-w-[80px]">Contact</TableHead>
+                                                <TableHead className="text-center min-w-[100px]">Emergency Requests</TableHead>
+                                                <TableHead className="min-w-[100px]">Occupancy Trend</TableHead>
+                                                <TableHead className="min-w-[80px]">Last Update</TableHead>
+                                                <TableHead className="text-right min-w-[120px]">Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {loading || !shelters ? (
+                                                Array.from({ length: 3 }).map((_, i) => (
+                                                    <TableRow key={i}>
+                                                        <TableCell><Skeleton className="h-4 w-24 sm:w-32" /></TableCell>
+                                                        <TableCell><Skeleton className="h-4 w-20 sm:w-24" /></TableCell>
+                                                        <TableCell><Skeleton className="h-4 w-20 sm:w-24" /></TableCell>
+                                                        <TableCell><Skeleton className="h-4 w-10 sm:w-12 mx-auto" /></TableCell>
+                                                        <TableCell><Skeleton className="h-4 w-16 sm:w-20" /></TableCell>
+                                                        <TableCell><Skeleton className="h-4 w-16 sm:w-20" /></TableCell>
+                                                        <TableCell className="text-right"><Skeleton className="h-8 w-20 sm:w-24 ml-auto" /></TableCell>
+                                                    </TableRow>
+                                                ))
+                                            ) : shelters.map(shelter => {
+                                                const trendInfo = getTrendInfo(shelter.trend);
+                                                return (
+                                                    <TableRow key={shelter.id}>
+                                                        <TableCell className="font-medium text-sm sm:text-base">{shelter.name}</TableCell>
+                                                        <TableCell className="text-sm sm:text-base">{shelter.managerName}</TableCell>
+                                                        <TableCell className="text-sm sm:text-base">{shelter.phone}</TableCell>
+                                                        <TableCell className="text-center font-bold text-sm sm:text-base">{shelter.requests}</TableCell>
+                                                        <TableCell>
+                                                            <div className="flex items-center gap-2">
+                                                                {trendInfo.icon}
+                                                                <span className="text-sm sm:text-base">{trendInfo.text}</span>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-sm sm:text-base">{shelter.lastUpdate}</TableCell>
+                                                        <TableCell className="text-right">
+                                                            <div className="flex flex-col sm:flex-row gap-1 sm:gap-2 justify-end">
+                                                                <Button variant="outline" size="sm" asChild className="w-full sm:w-auto">
+                                                                    <a href={`tel:${shelter.phone}`}><Phone className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Call</a>
+                                                                </Button>
+                                                                <Button variant="outline" size="sm" onClick={() => handleManage(shelter)} className="w-full sm:w-auto">
+                                                                    <Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Manage
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )
+                                            })}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
                 </TabsContent>

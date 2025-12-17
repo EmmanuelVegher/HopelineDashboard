@@ -127,7 +127,7 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
     const handleImageRemove = () => {
         setImageFile(null);
         setImagePreview(null);
-        setFormData(prev => ({ ...prev, imageUrl: null, thumbnailUrl: null }));
+        setFormData(prev => ({ ...prev, imageUrl: undefined, thumbnailUrl: undefined }));
     };
 
     const uploadImage = async (file: File): Promise<string> => {
@@ -197,8 +197,8 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
-            <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 max-h-[70vh] overflow-y-auto pr-2 sm:pr-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
                     <Label htmlFor="make">Make</Label>
                     <Input id="make" name="make" value={formData.make} onChange={handleChange} required />
@@ -208,7 +208,7 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
                     <Input id="model" name="model" value={formData.model} onChange={handleChange} required />
                 </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
                     <Label htmlFor="year">Year</Label>
                     <Input id="year" name="year" type="number" value={formData.year} onChange={handleChange} required />
@@ -218,7 +218,7 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
                     <Input id="licensePlate" name="licensePlate" value={formData.licensePlate} onChange={handleChange} required />
                 </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
                     <Label htmlFor="status">Status</Label>
                     <Select value={formData.status} onValueChange={(value) => handleSelectChange('status', value)}>
@@ -246,7 +246,7 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
                     </Select>
                 </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
                     <Label htmlFor="capacity">Capacity</Label>
                     <Input id="capacity" name="capacity" type="number" value={formData.capacity} onChange={handleChange} required />
@@ -264,7 +264,7 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
                     </Select>
                 </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
                     <Label htmlFor="color">Color</Label>
                     <Input id="color" name="color" value={formData.color} onChange={handleChange} />
@@ -296,11 +296,11 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
                         </div>
                     ) : (
                         <div
-                            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors cursor-pointer"
+                            className="border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-8 text-center hover:border-gray-400 transition-colors cursor-pointer"
                             onClick={() => document.getElementById('image-upload')?.click()}
                         >
-                            <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                            <p className="mt-2 text-sm text-gray-600">
+                            <Upload className="mx-auto h-8 w-8 sm:h-12 sm:w-12 text-gray-400" />
+                            <p className="mt-2 text-xs sm:text-sm text-gray-600">
                                 Click to upload or drag and drop
                             </p>
                             <p className="text-xs text-gray-500">PNG, JPG up to 5MB</p>
@@ -335,9 +335,9 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
                 <Textarea id="notes" name="notes" value={formData.notes} onChange={handleChange} placeholder="Additional notes..."/>
             </div>
 
-            <DialogFooter>
-                <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-                <Button type="submit" disabled={loading}>{loading ? 'Saving...' : 'Save Vehicle'}</Button>
+            <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0">
+                <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">Cancel</Button>
+                <Button type="submit" disabled={loading} className="w-full sm:w-auto">{loading ? 'Saving...' : 'Save Vehicle'}</Button>
             </DialogFooter>
         </form>
     );
@@ -479,69 +479,69 @@ export default function VehicleManagementPage() {
                 </DialogContent>
             </Dialog>
 
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                 <div>
-                    <h1 className="text-3xl font-bold">Vehicle Management</h1>
-                    <p className="text-muted-foreground">Manage and track all vehicles in the fleet</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold">Vehicle Management</h1>
+                    <p className="text-muted-foreground text-sm sm:text-base">Manage and track all vehicles in the fleet</p>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={fetchData} disabled={loading}><RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")}/>Refresh</Button>
-                    <Button variant="outline" onClick={() => exportData('vehicles')}><Download className="mr-2 h-4 w-4"/>Export CSV</Button>
-                    <Button onClick={handleAddNew}><Plus className="mr-2 h-4 w-4"/>Add Vehicle</Button>
+                <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
+                    <Button variant="outline" onClick={fetchData} disabled={loading} className="w-full sm:w-auto"><RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")}/>Refresh</Button>
+                    <Button variant="outline" onClick={() => exportData('vehicles')} className="w-full sm:w-auto"><Download className="mr-2 h-4 w-4"/>Export CSV</Button>
+                    <Button onClick={handleAddNew} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4"/>Add Vehicle</Button>
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Card>
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <Truck className="h-6 w-6 text-muted-foreground" />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-1 sm:gap-4">
+                <Card className="max-w-[90vw] sm:max-w-full">
+                    <CardContent className="p-2 sm:p-4 flex items-center gap-2 sm:gap-4">
+                        <Truck className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
                         <div>
-                            <p className="text-sm text-muted-foreground">Total Vehicles</p>
-                            {loading ? <Skeleton className="h-7 w-10 mt-1" /> : <p className="text-2xl font-bold">{totalVehicles}</p>}
+                            <p className="text-xs sm:text-sm text-muted-foreground">Total Vehicles</p>
+                            {loading ? <Skeleton className="h-6 sm:h-7 w-8 sm:w-10 mt-1" /> : <p className="text-xl sm:text-2xl font-bold">{totalVehicles}</p>}
                         </div>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <CheckCircle className="h-6 w-6 text-green-500" />
+                <Card className="max-w-[90vw] sm:max-w-full">
+                    <CardContent className="p-2 sm:p-4 flex items-center gap-2 sm:gap-4">
+                        <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-green-500" />
                         <div>
-                            <p className="text-sm text-muted-foreground">Available</p>
-                            {loading ? <Skeleton className="h-7 w-10 mt-1" /> : <p className="text-2xl font-bold">{availableCount}</p>}
+                            <p className="text-xs sm:text-sm text-muted-foreground">Available</p>
+                            {loading ? <Skeleton className="h-6 sm:h-7 w-8 sm:w-10 mt-1" /> : <p className="text-xl sm:text-2xl font-bold">{availableCount}</p>}
                         </div>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <Car className="h-6 w-6 text-blue-500" />
+                <Card className="max-w-[90vw] sm:max-w-full">
+                    <CardContent className="p-2 sm:p-4 flex items-center gap-2 sm:gap-4">
+                        <Car className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500" />
                         <div>
-                            <p className="text-sm text-muted-foreground">In Use</p>
-                            {loading ? <Skeleton className="h-7 w-10 mt-1" /> : <p className="text-2xl font-bold">{inUseCount}</p>}
+                            <p className="text-xs sm:text-sm text-muted-foreground">In Use</p>
+                            {loading ? <Skeleton className="h-6 sm:h-7 w-8 sm:w-10 mt-1" /> : <p className="text-xl sm:text-2xl font-bold">{inUseCount}</p>}
                         </div>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <Wrench className="h-6 w-6 text-yellow-500" />
+                <Card className="max-w-[90vw] sm:max-w-full">
+                    <CardContent className="p-2 sm:p-4 flex items-center gap-2 sm:gap-4">
+                        <Wrench className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-500" />
                         <div>
-                            <p className="text-sm text-muted-foreground">Maintenance</p>
-                            {loading ? <Skeleton className="h-7 w-10 mt-1" /> : <p className="text-2xl font-bold">{maintenanceCount}</p>}
+                            <p className="text-xs sm:text-sm text-muted-foreground">Maintenance</p>
+                            {loading ? <Skeleton className="h-6 sm:h-7 w-8 sm:w-10 mt-1" /> : <p className="text-xl sm:text-2xl font-bold">{maintenanceCount}</p>}
                         </div>
                     </CardContent>
                 </Card>
             </div>
 
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
                 <div className="relative flex-grow">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                     <Input
                         placeholder="Search by make, model, or license plate..."
-                        className="pl-10 h-10"
+                        className="pl-10 h-9 sm:h-10"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[150px] h-10">
+                    <SelectTrigger className="w-full sm:w-[150px] h-9 sm:h-10">
                         <SelectValue placeholder="All Statuses" />
                     </SelectTrigger>
                     <SelectContent>
@@ -553,7 +553,7 @@ export default function VehicleManagementPage() {
                     </SelectContent>
                 </Select>
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
-                    <SelectTrigger className="w-[150px] h-10">
+                    <SelectTrigger className="w-full sm:w-[150px] h-9 sm:h-10">
                         <SelectValue placeholder="All Types" />
                     </SelectTrigger>
                     <SelectContent>
@@ -567,7 +567,7 @@ export default function VehicleManagementPage() {
                     </SelectContent>
                 </Select>
                 {selectedVehicles.size > 0 && (
-                    <Button variant="destructive" onClick={handleBulkDelete}>
+                    <Button variant="destructive" onClick={handleBulkDelete} className="w-full sm:w-auto">
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete ({selectedVehicles.size})
                     </Button>
@@ -584,17 +584,17 @@ export default function VehicleManagementPage() {
                 </Alert>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {loading || !vehicles ? (
                     Array.from({ length: 6 }).map((_, i) => (
-                        <Card key={i}><CardContent className="p-4"><Skeleton className="h-64 w-full" /></CardContent></Card>
+                        <Card key={i} className="max-w-[90vw] sm:max-w-full"><CardContent className="p-2 sm:p-4"><Skeleton className="h-48 sm:h-64 w-full" /></CardContent></Card>
                     ))
                 ) : paginatedVehicles.length > 0 ? (
                     paginatedVehicles.map(vehicle => {
                         const statusInfo = getStatusInfo(vehicle.status);
                         return (
-                            <Card key={vehicle.id} className={cn("transition-shadow hover:shadow-lg", statusInfo.cardClass)}>
-                                <CardContent className="p-4 space-y-4">
+                            <Card key={vehicle.id} className={cn("transition-shadow hover:shadow-lg max-w-[90vw] sm:max-w-full", statusInfo.cardClass)}>
+                                <CardContent className="p-2 sm:p-4 space-y-2 sm:space-y-4">
                                     {vehicle.imageUrl && (
                                         <div className="relative">
                                             <img
@@ -619,11 +619,11 @@ export default function VehicleManagementPage() {
                                             {statusInfo.icon} {vehicle.status}
                                         </Badge>
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1 sm:gap-2">
                                         {getVehicleIcon(vehicle.type)}
-                                        <span className="text-sm">{vehicle.type}</span>
+                                        <span className="text-xs sm:text-sm">{vehicle.type}</span>
                                     </div>
-                                    <div className="space-y-2 text-sm">
+                                    <div className="space-y-1 sm:space-y-2 text-xs sm:text-sm">
                                         <div className="flex justify-between">
                                             <span className="text-muted-foreground">Capacity:</span>
                                             <span>{vehicle.capacity} passengers</span>
@@ -645,10 +645,10 @@ export default function VehicleManagementPage() {
                                             </div>
                                         )}
                                     </div>
-                                    <div className="flex items-center justify-between pt-4 border-t">
-                                        <div className="flex gap-2">
-                                            <Button size="sm" onClick={() => handleEdit(vehicle)}><Edit className="mr-2 h-4 w-4" /> Edit</Button>
-                                            <Button size="sm" variant="destructive" onClick={() => handleDelete(vehicle)}><Trash2 className="mr-2 h-4 w-4" /> Delete</Button>
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-2 sm:pt-4 border-t gap-2">
+                                        <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
+                                            <Button size="sm" onClick={() => handleEdit(vehicle)} className="w-full sm:w-auto"><Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Edit</Button>
+                                            <Button size="sm" variant="destructive" onClick={() => handleDelete(vehicle)} className="w-full sm:w-auto"><Trash2 className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Delete</Button>
                                         </div>
                                     </div>
                                 </CardContent>

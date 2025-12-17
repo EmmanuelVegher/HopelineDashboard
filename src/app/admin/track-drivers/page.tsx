@@ -737,10 +737,7 @@ export default function TrackDriversPage() {
                         </CardContent>
                     </Card>
                 </div>
-                 <div className="flex gap-2">
-                    <Button variant="outline" disabled><RefreshCw className="mr-2 h-4 w-4"/>Real-time</Button>
-                    {/* <Button onClick={handleAddNew}><Plus className="mr-2 h-4 w-4"/>Add New Team Member</Button> */}
-                </div>
+                
             </div>
 
             <div className="flex gap-4">

@@ -86,7 +86,7 @@ export default function UserManagementPage() {
   };
 
   return (
-    <Card>
+    <Card className="max-w-full overflow-hidden">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <UserCog className="h-5 w-5" />
@@ -96,7 +96,7 @@ export default function UserManagementPage() {
           View and manage all registered users in the system.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-2 sm:p-6">
         {permissionError && (
           <Alert variant="destructive" className="mb-4">
             <AlertTriangle className="h-4 w-4" />
@@ -106,77 +106,151 @@ export default function UserManagementPage() {
             </AlertDescription>
           </Alert>
         )}
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Profile Completion</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+
+        {/* Mobile Card Layout */}
+        <div className="block md:hidden">
+          <div className="grid grid-cols-1 gap-4">
             {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                  <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-6 w-20" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                </TableRow>
+              Array.from({ length: 3 }).map((_, i) => (
+                <Card key={i} className="p-4">
+                  <Skeleton className="h-6 w-3/4 mb-2" />
+                  <Skeleton className="h-4 w-1/2 mb-2" />
+                  <Skeleton className="h-4 w-full mb-2" />
+                  <Skeleton className="h-8 w-24" />
+                </Card>
               ))
             ) : displayUsers && displayUsers.length > 0 ? (
               displayUsers.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">
-                    {user.firstName} {user.lastName}
-                  </TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>
-                    <Badge variant={getRoleBadgeVariant(user.role)} className="gap-1.5">
-                      {getRoleIcon(user.role)}
-                      {user.role}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusBadgeVariant(user.accountStatus)}>
-                      {user.accountStatus}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="flex items-center gap-2">
-                    <Phone className="h-3 w-3 text-muted-foreground" />
-                    {user.mobile}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 bg-gray-200 rounded-full h-2">
-                        <div
-                          className={cn(
-                            "h-2 rounded-full",
-                            user.profileCompleted >= 80 ? "bg-green-500" :
-                            user.profileCompleted >= 50 ? "bg-yellow-500" : "bg-red-500"
-                          )}
-                          style={{ width: `${user.profileCompleted}%` }}
-                        />
+                <Card key={user.id} className="p-4">
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-medium text-base">{user.firstName} {user.lastName}</h3>
+                        <p className="text-sm text-muted-foreground">{user.email}</p>
                       </div>
-                      <span className="text-sm text-muted-foreground">{user.profileCompleted}%</span>
+                      <div className="flex gap-2">
+                        <Badge variant={getRoleBadgeVariant(user.role)} className="gap-1.5">
+                          {getRoleIcon(user.role)}
+                          {user.role}
+                        </Badge>
+                      </div>
                     </div>
-                  </TableCell>
-                </TableRow>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-muted-foreground">Status</p>
+                        <Badge variant={getStatusBadgeVariant(user.accountStatus)} className="mt-1">
+                          {user.accountStatus}
+                        </Badge>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Phone</p>
+                        <p className="font-medium flex items-center gap-1 mt-1">
+                          <Phone className="h-3 w-3 text-muted-foreground" />
+                          {user.mobile}
+                        </p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-2">Profile Completion</p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-gray-200 rounded-full h-2">
+                          <div
+                            className={cn(
+                              "h-2 rounded-full",
+                              user.profileCompleted >= 80 ? "bg-green-500" :
+                              user.profileCompleted >= 50 ? "bg-yellow-500" : "bg-red-500"
+                            )}
+                            style={{ width: `${user.profileCompleted}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-muted-foreground">{user.profileCompleted}%</span>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
               ))
             ) : !permissionError ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
-                  No users found.
-                </TableCell>
-              </TableRow>
+              <p className="text-center text-muted-foreground py-8">No users found.</p>
             ) : null}
-          </TableBody>
-        </Table>
+          </div>
+        </div>
+
+        {/* Desktop Table Layout */}
+        <div className="hidden md:block">
+          <div className="w-full overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="min-w-[120px]">Name</TableHead>
+                  <TableHead className="min-w-[150px]">Email</TableHead>
+                  <TableHead className="min-w-[100px]">Role</TableHead>
+                  <TableHead className="min-w-[80px]">Status</TableHead>
+                  <TableHead className="min-w-[120px]">Phone</TableHead>
+                  <TableHead className="min-w-[150px]">Profile Completion</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-20" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : displayUsers && displayUsers.length > 0 ? (
+                  displayUsers.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">
+                        {user.firstName} {user.lastName}
+                      </TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>
+                        <Badge variant={getRoleBadgeVariant(user.role)} className="gap-1.5">
+                          {getRoleIcon(user.role)}
+                          {user.role}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusBadgeVariant(user.accountStatus)}>
+                          {user.accountStatus}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="flex items-center gap-2">
+                        <Phone className="h-3 w-3 text-muted-foreground" />
+                        {user.mobile}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 bg-gray-200 rounded-full h-2">
+                            <div
+                              className={cn(
+                                "h-2 rounded-full",
+                                user.profileCompleted >= 80 ? "bg-green-500" :
+                                user.profileCompleted >= 50 ? "bg-yellow-500" : "bg-red-500"
+                              )}
+                              style={{ width: `${user.profileCompleted}%` }}
+                            />
+                          </div>
+                          <span className="text-sm text-muted-foreground">{user.profileCompleted}%</span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : !permissionError ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      No users found.
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
