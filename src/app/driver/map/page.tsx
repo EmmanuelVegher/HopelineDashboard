@@ -24,6 +24,13 @@ import { useGeolocation } from '@/hooks/useGeolocation';
 
 interface MapTask extends SosAlert {
   assignedAt: Date;
+  trackingData?: {
+    coordinates: Array<{lat: number, lng: number, timestamp: number}>;
+    startTime: string;
+    endTime: string;
+    totalDistance: number;
+    averageSpeed: number;
+  };
 }
 
 interface TrackingStats {
@@ -1010,7 +1017,17 @@ export default function DriverMapPage() {
               <div className="flex gap-2">
                 {!isTracking ? (
                   <Button
-                    onClick={handleStartTracking}
+                    onClick={() => {
+                      if (!selectedTask) {
+                        toast({
+                          title: 'Task Selection Required',
+                          description: 'Please select a task from the dropdown above before starting live tracking.',
+                          variant: 'destructive',
+                        });
+                        return;
+                      }
+                      handleStartTracking();
+                    }}
                     className="flex-1"
                     disabled={!geolocation.state.isSupported || geolocation.state.permission === 'denied' || !selectedTask}
                   >
