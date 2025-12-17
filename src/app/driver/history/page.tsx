@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { db, auth } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -10,20 +11,32 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MapPin, Clock, CheckCircle, Search, Filter } from 'lucide-react';
+import { MapPin, Clock, CheckCircle, Search, Filter, Route, Activity, Navigation } from 'lucide-react';
 import { LoadingSpinner } from '@/components/loading-spinner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
 
 interface CompletedTask extends SosAlert {
   completedAt: Date;
+  trackingData?: {
+    coordinates: Array<{lat: number, lng: number, timestamp: number}>;
+    startTime: string;
+    endTime: string;
+    totalDistance: number;
+    averageSpeed: number;
+  };
 }
 
 export default function DriverHistoryPage() {
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState<CompletedTask[]>([]);
   const [filteredTasks, setFilteredTasks] = useState<CompletedTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [userId, setUserId] = useState<string | null>(null);
+  const [selectedTask, setSelectedTask] = useState<CompletedTask | null>(null);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -198,8 +211,8 @@ export default function DriverHistoryPage() {
                   variant="outline"
                   className="w-full"
                   onClick={() => {
-                    // TODO: Implement view details functionality
-                    console.log('View task details:', task.id);
+                    setSelectedTask(task);
+                    setDetailsModalOpen(true);
                   }}
                 >
                   View Details
@@ -226,6 +239,175 @@ export default function DriverHistoryPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Task Details Modal */}
+      <Dialog open={detailsModalOpen} onOpenChange={setDetailsModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              Task Details
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedTask && (
+            <div className="space-y-6">
+              {/* Basic Information */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">{selectedTask.emergencyType}</h3>
+                  <Badge className={getStatusColor(selectedTask.status)}>
+                    {selectedTask.status}
+                  </Badge>
+                </div>
+
+                <Separator />
+
+                {/* Location */}
+                <div className="flex items-start gap-3">
+                  <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="font-medium">Location</p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedTask.location.address ||
+                       `${selectedTask.location.latitude.toFixed(6)}, ${selectedTask.location.longitude.toFixed(6)}`}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Additional Info */}
+                {selectedTask.additionalInfo && (
+                  <div className="flex items-start gap-3">
+                    <div className="h-5 w-5 text-muted-foreground mt-0.5">📝</div>
+                    <div>
+                      <p className="font-medium">Additional Information</p>
+                      <p className="text-sm text-muted-foreground">{selectedTask.additionalInfo}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Timestamps */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center gap-3">
+                    <Clock className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium">Created</p>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedTask.timestamp?.toDate().toLocaleString() || 'Unknown'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                    <div>
+                      <p className="font-medium">Completed</p>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedTask.completedAt.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tracking Data Section */}
+              {selectedTask.trackingData && (
+                <>
+                  <Separator />
+                  <div className="space-y-4">
+                    <h4 className="text-md font-semibold flex items-center gap-2">
+                      <Route className="h-4 w-4" />
+                      Trip Analytics
+                    </h4>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex items-center gap-3">
+                        <Route className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">Distance Traveled</p>
+                          <p className="text-sm text-muted-foreground">
+                            {(selectedTask.trackingData.totalDistance / 1000).toFixed(2)} km
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <Activity className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">Average Speed</p>
+                          <p className="text-sm text-muted-foreground">
+                            {selectedTask.trackingData.averageSpeed.toFixed(1)} km/h
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <Clock className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">Trip Duration</p>
+                          <p className="text-sm text-muted-foreground">
+                            {selectedTask.trackingData.coordinates?.length || 0} data points
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <Navigation className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">Data Points</p>
+                          <p className="text-sm text-muted-foreground">
+                            {selectedTask.trackingData.coordinates?.length || 0} coordinates
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Trip Timeline */}
+                    {selectedTask.trackingData.coordinates && selectedTask.trackingData.coordinates.length > 0 && (
+                      <div className="mt-4">
+                        <p className="font-medium mb-2">Trip Timeline</p>
+                        <div className="bg-muted p-3 rounded-lg text-sm">
+                          <div className="flex justify-between items-center mb-2">
+                            <span>Started: {new Date(selectedTask.trackingData.startTime).toLocaleString()}</span>
+                            <span>Ended: {new Date(selectedTask.trackingData.endTime).toLocaleString()}</span>
+                          </div>
+                          <p className="text-muted-foreground">
+                            Trip recorded with {selectedTask.trackingData.coordinates.length} location points
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setDetailsModalOpen(false)}
+                  className="flex-1"
+                >
+                  Close
+                </Button>
+                {selectedTask.trackingData?.coordinates && selectedTask.trackingData.coordinates.length > 0 && (
+                  <Button
+                    variant="default"
+                    onClick={() => {
+                      // Navigate to driver map page with replay parameter
+                      setDetailsModalOpen(false);
+                      navigate(`/driver/map?replay=${selectedTask.id}`);
+                    }}
+                    className="flex-1"
+                  >
+                    <Route className="h-4 w-4 mr-2" />
+                    View on Map
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

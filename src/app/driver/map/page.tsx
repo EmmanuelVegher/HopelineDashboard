@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { db, auth } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -48,6 +49,7 @@ interface DriverLocation {
 }
 
 export default function DriverMapPage() {
+  const [searchParams] = useSearchParams();
   const [tasks, setTasks] = useState<MapTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
@@ -336,6 +338,7 @@ export default function DriverMapPage() {
       fetchAvailableTrips();
     }
   }, [tripSelectionModalOpen, fetchAvailableTrips]);
+
 
   // Fetch driver's location from users collection
   useEffect(() => {
@@ -718,6 +721,18 @@ export default function DriverMapPage() {
       });
     }
   }, [calculateDistance, toast]);
+
+  // Handle replay parameter from URL
+  useEffect(() => {
+    const replayTaskId = searchParams.get('replay');
+    if (replayTaskId && tasks.length > 0 && !isReplaying) {
+      const taskToReplay = tasks.find(task => task.id === replayTaskId);
+      if (taskToReplay) {
+        console.log('Auto-starting replay for task:', replayTaskId);
+        startEnhancedReplay(taskToReplay);
+      }
+    }
+  }, [searchParams, tasks, isReplaying, startEnhancedReplay]);
 
   const startPlayback = useCallback((coordinates: any[]) => {
     if (replayIntervalRef.current) {
