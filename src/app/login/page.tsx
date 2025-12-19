@@ -268,9 +268,9 @@ export default function LoginPage() {
             />
           </div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-slate-800 via-blue-700 to-emerald-700 bg-clip-text text-transparent mb-1 tracking-tight">
-            HopeLine
+            Caritas Hopeline
           </h1>
-          <p className="text-muted-foreground text-sm sm:text-base font-medium mb-1">Shelter Management System</p>
+          <p className="text-muted-foreground text-sm sm:text-base font-medium mb-1">Integrated Solution For Humanitarian Housing Aid Initiative</p>
           <p className="text-xs text-muted-foreground font-medium">Empowering Communities • Saving Lives</p>
         </div>
 

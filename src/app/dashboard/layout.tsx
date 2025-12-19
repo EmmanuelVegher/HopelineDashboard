@@ -69,7 +69,7 @@ function DashboardContent({ userProfile }: { userProfile?: {firstName: string; l
       <SidebarHeader>
         <div className="flex items-center gap-2">
             <img src="/hopeline_red.png" alt="HopeLine Logo" width={40} height={40} />
-            {state === 'expanded' && <h1 className="text-xl font-bold">HopeLine</h1>}
+            {state === 'expanded' && <h1 className="text-xl font-bold">CARITAS HopeLine</h1>}
         </div>
       </SidebarHeader>
       <SidebarContent className="p-2">

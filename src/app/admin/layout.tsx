@@ -73,7 +73,7 @@ function AdminSidebar({ adminProfile }: { adminProfile?: {firstName: string; las
       <SidebarHeader>
         <div className="flex items-center gap-2">
             <img src="/shelter_logo.png" alt="Caritas Nigeria Logo" width={40} height={40} />
-            {state === 'expanded' && <h1 className="text-xl font-bold">Hopeline Admin</h1>}
+            {state === 'expanded' && <h1 className="text-xl font-bold">CARITAS Hopeline Admin</h1>}
         </div>
       </SidebarHeader>
       <SidebarContent className="p-2">
