@@ -57,9 +57,10 @@ export default function AssistancePage() {
     const [messages, setMessages] = useState<Message[]>([])
     const [inputValue, setInputValue] = useState('')
     const [chatId, setChatId] = useState<string | null>(null);
-    const [chatLoading, setChatLoading] = useState(true);
     const [sending, setSending] = useState(false);
     const [supportAgent, setSupportAgent] = useState<UserProfile | null>(null);
+    const [availableAgents, setAvailableAgents] = useState<UserProfile[]>([]);
+    const [agentsLoading, setAgentsLoading] = useState(true);
     const [attachments, setAttachments] = useState<File[]>([]);
     const [isRecording, setIsRecording] = useState(false);
     const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
@@ -90,55 +91,56 @@ export default function AssistancePage() {
     }, [user]);
 
     useEffect(() => {
-        const findSupportAgentAndExistingChat = async () => {
-            if (user) {
-                setChatLoading(true);
+        const fetchAvailableAgents = async () => {
+            if (user && userProfile) {
                 try {
-                    // Try to find an existing chat by checking with available agents
-                    let existingChatFound = false;
-
-                    // First, find available agents
+                    setAgentsLoading(true);
+                    const supportAgentsFilters = {
+                        role: 'support agent',
+                        state: userProfile.state,
+                        accountStatus: 'active',
+                        isOnline: true,
+                        availability: 'online',
+                    };
+                    console.log('[SupportAgentsQuery] Filters:', supportAgentsFilters);
                     const usersRef = collection(db, 'users');
-                    const agentQuery = query(usersRef, where('role', '==', 'support agent'), limit(5)); // Get a few agents
+                    const agentQuery = query(usersRef, where('role', '==', 'support agent'), where('state', '==', userProfile.state), where('accountStatus', '==', 'active'), where('isOnline', '==', true), where('availability', '==', 'online'), limit(10));
                     const agentSnapshot = await getDocs(agentQuery);
-
-                    if (!agentSnapshot.empty) {
-                        // Try to get chat with each agent
-                        for (const agentDoc of agentSnapshot.docs) {
-                            const agentData = { ...agentDoc.data(), uid: agentDoc.id } as UserProfile;
-                            const chatIdToCheck = `${user.uid}_${agentData.uid}`;
-                            const chatDoc = await getDoc(doc(db, 'chats', chatIdToCheck));
-
-                            if (chatDoc.exists()) {
-                                // Found existing chat
-                                setChatId(chatIdToCheck);
-                                setSupportAgent(agentData);
-                                existingChatFound = true;
-                                break;
-                            }
-                        }
-
-                        if (!existingChatFound) {
-                            // No existing chat, use the first agent
-                            const agentDoc = agentSnapshot.docs[0];
-                            const agentData = { ...agentDoc.data(), uid: agentDoc.id } as UserProfile;
-                            setSupportAgent(agentData);
-                        }
-                    } else {
-                        console.log("No support agents available.");
-                    }
+                    const agents = agentSnapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as UserProfile));
+                    setAvailableAgents(agents);
                 } catch (error) {
-                    console.error("Error finding support agent or chat:", error);
+                    console.error('[SupportAgentsQuery] Error fetching support agents (Firestore index may be missing):', error);
+                    // Print the raw message to preserve Firestore's clickable index-build URL in the console.
+                    const message = (error as any)?.message;
+                    if (message) console.error(message);
                 } finally {
-                    setChatLoading(false);
+                    setAgentsLoading(false);
                 }
-            } else if (!authLoading) {
-                setChatLoading(false);
             }
         };
 
-        findSupportAgentAndExistingChat();
-    }, [user, authLoading]);
+        fetchAvailableAgents();
+    }, [user, userProfile]);
+
+    useEffect(() => {
+        const checkExistingChat = async () => {
+            if (user && supportAgent) {
+                try {
+                    const chatIdToCheck = `${user.uid}_${supportAgent.uid}`;
+                    const chatDoc = await getDoc(doc(db, 'chats', chatIdToCheck));
+                    if (chatDoc.exists()) {
+                        setChatId(chatIdToCheck);
+                    } else {
+                        setChatId(null); // Will create on send
+                    }
+                } catch (error) {
+                    console.error("Error checking existing chat:", error);
+                }
+            }
+        };
+
+        checkExistingChat();
+    }, [user, supportAgent]);
 
     useEffect(() => {
         if (!chatId || !user) return;
@@ -298,10 +300,13 @@ export default function AssistancePage() {
                     },
                     createdAt: serverTimestamp(),
                     lastMessage: "",
+                    lastMessageTimestamp: serverTimestamp(),
                     status: "active",
                     userId: user.uid,
                     agentId: supportAgent.uid,
-                    userLanguage: userProfile?.language || 'English'
+                    userLanguage: userProfile?.language || 'English',
+                    unreadCount: 0,
+                    closedAt: null
                 });
                 setChatId(currentChatId);
             }
@@ -406,19 +411,51 @@ export default function AssistancePage() {
     
     
     const renderChat = () => {
-        if (authLoading || chatLoading) {
+        if (authLoading) {
             return <div className="flex flex-col justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin"/><p className="mt-2 text-muted-foreground">Connecting to support...</p></div>
         }
         if (!user) {
             return <div className="flex justify-center items-center h-full"><p>Please log in to use the chat.</p></div>
         }
+        if (agentsLoading) {
+            return <div className="flex flex-col justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin"/><p className="mt-2 text-muted-foreground">Finding support agents...</p></div>
+        }
         if (!supportAgent) {
-            return <div className="flex flex-col justify-center items-center h-full text-center"><p className="font-semibold">No Support Agents Available</p><p className="text-muted-foreground">We're sorry, but no support agents are currently online. Please try again later or use our other contact methods.</p></div>
+            return <div className="flex flex-col justify-center items-center h-full text-center">
+                <h3 className="text-lg font-semibold mb-4">Select a Support Agent</h3>
+                {availableAgents.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {availableAgents.map((agent) => (
+                            <Card key={agent.uid} className="p-4 cursor-pointer hover:bg-gray-50" onClick={() => setSupportAgent(agent)}>
+                                <div className="flex items-center gap-3">
+                                    <Avatar className="h-10 w-10">
+                                        <AvatarImage src={agent.image} alt={agent.displayName || agent.email} />
+                                        <AvatarFallback>
+                                            {agent.displayName?.[0] || agent.firstName?.[0] || agent.email?.[0] || 'S'}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <p className="font-semibold">
+                                            {agent.displayName || `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.email}
+                                        </p>
+                                        <p className="text-sm text-muted-foreground">Online - Support Agent</p>
+                                    </div>
+                                </div>
+                            </Card>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center">
+                        <p className="font-semibold">No Support Agents Available</p>
+                        <p className="text-muted-foreground">We're sorry, but no support agents are currently online. Please try again later or use our other contact methods.</p>
+                    </div>
+                )}
+            </div>
         }
          return (
             <>
             <CardContent className="flex-1 overflow-y-auto p-4 space-y-6">
-                {messages.length === 0 && !chatLoading && (
+                {messages.length === 0 && (
                     <div className="text-center text-muted-foreground">
                         <p>No messages yet.</p>
                         <p>Say hello to start the conversation with {supportAgent.displayName || `${supportAgent.firstName || ''} ${supportAgent.lastName || ''}`.trim() || supportAgent.email || 'Support Agent'}!</p>
@@ -683,10 +720,10 @@ export default function AssistancePage() {
                 </TabsList>
                 <TabsContent value="chat">
                     <Card className="h-[80vh] flex flex-col shadow-lg">
-                        <CardHeader className="flex-row items-center justify-between border-b p-4">
-                            <div className="flex items-center gap-3">
-                                {supportAgent ? (
-                                    <>
+                        {supportAgent ? (
+                            <>
+                                <CardHeader className="flex-row items-center justify-between border-b p-4">
+                                    <div className="flex items-center gap-3">
                                         <div className="relative">
                                             <Avatar className="h-10 w-10 border">
                                                 {supportAgent.image ? (
@@ -726,23 +763,15 @@ export default function AssistancePage() {
                                                 {(supportAgent as any).settings?.showOnlineStatus !== false ? 'Online - Support Agent' : 'Support Agent'}
                                             </p>
                                         </div>
-                                    </>
-                                ) : (
-                                    <div className="flex items-center gap-3">
-                                        <Skeleton className="h-10 w-10 rounded-full" />
-                                        <div className="space-y-2">
-                                            <Skeleton className="h-4 w-[150px]" />
-                                            <Skeleton className="h-3 w-[100px]" />
-                                        </div>
                                     </div>
-                                )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Button variant="ghost" size="icon"><Video className="h-5 w-5"/></Button>
-                                <Button variant="ghost" size="icon"><Mic className="h-5 w-5"/></Button>
-                            </div>
-                        </CardHeader>
-                        {renderChat()}
+                                    <div className="flex items-center gap-2">
+                                        <Button variant="ghost" size="icon"><Video className="h-5 w-5"/></Button>
+                                        <Button variant="ghost" size="icon"><Mic className="h-5 w-5"/></Button>
+                                    </div>
+                                </CardHeader>
+                                {renderChat()}
+                            </>
+                        )}
                     </Card>
                 </TabsContent>
                 <TabsContent value="call">

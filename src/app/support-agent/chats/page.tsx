@@ -77,6 +77,12 @@ interface SupportAgentSettings {
   autoTranslate: boolean;
 }
 
+interface PendingAttachment {
+  file: File;
+  type: 'image' | 'video' | 'audio' | 'document';
+  preview?: string;
+}
+
 export default function SupportAgentChatsPage() {
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
@@ -88,7 +94,10 @@ export default function SupportAgentChatsPage() {
   const [fetchedUsers, setFetchedUsers] = useState<Set<string>>(new Set());
   const [recentMessages, setRecentMessages] = useState<Record<string, Message[]>>({});
   const [settings, setSettings] = useState<SupportAgentSettings | null>(null);
+  const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const scrollToBottom = () => {

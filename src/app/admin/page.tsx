@@ -1,11 +1,12 @@
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, ArrowDown, ArrowUp, Clock, Users, Shield, RefreshCw, MapPin, User, Calendar, Car, Edit, FileText, BarChart3, Activity, AlertCircle, CheckCircle, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, Clock, Users, Shield, RefreshCw, MapPin, User, Calendar, Car, Edit, FileText, BarChart3, Activity, AlertCircle, CheckCircle, Siren, HomeIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { doc, updateDoc, writeBatch, query, collection, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { type SosAlert } from "@/ai/schemas/sos";
@@ -23,6 +24,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useAdminData } from "@/contexts/AdminDataProvider";
 import { formatTimestamp } from "@/lib/utils";
 import DriverMap from "@/components/driver-map";
+import { useSituationData, type StateData } from "@/hooks/useSituationData";
+import { DisplacementMap } from "@/components/situation-room/displacement-map";
+import { ActivityItem } from "@/hooks/useSituationData";
 
 
 const getStatusBadgeVariant = (status: string) => {
@@ -69,6 +73,49 @@ function PageSkeleton() {
     )
 }
 
+const ActivityFeedItem = ({ item }: { item: ActivityItem }) => (
+    <div className="p-4 hover:bg-slate-50 transition-colors cursor-pointer border-l-4 border-transparent hover:border-blue-600 group">
+        <div className="flex gap-4">
+            <div className="mt-1 shrink-0">
+                {item.severity === 'critical' ? (
+                    <div className="p-2 bg-red-50 text-red-600 rounded-full group-hover:bg-red-100 transition-colors">
+                        <Siren className="h-4 w-4" />
+                    </div>
+                ) : item.type === 'displacement' ? (
+                    <div className="p-2 bg-blue-50 text-blue-600 rounded-full group-hover:bg-blue-100 transition-colors">
+                        <Users className="h-4 w-4" />
+                    </div>
+                ) : (
+                    <div className="p-2 bg-emerald-50 text-emerald-600 rounded-full group-hover:bg-emerald-100 transition-colors">
+                        <HomeIcon className="h-4 w-4" />
+                    </div>
+                )}
+            </div>
+            <div className="space-y-1 min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-3">
+                    <h4 className={cn("text-xs font-bold truncate tracking-tight uppercase",
+                        item.severity === 'critical' ? "text-red-700" : "text-slate-900"
+                    )}>
+                        {item.title}
+                    </h4>
+                    <span className="text-[9px] text-slate-400 font-bold whitespace-nowrap bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-full">
+                        {item.time}
+                    </span>
+                </div>
+                <p className="text-xs text-slate-500 leading-tight font-medium line-clamp-2">
+                    {item.description}
+                </p>
+                <div className="flex items-center gap-1.5 pt-1">
+                    <MapPin className="h-3 w-3 text-slate-400" />
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider truncate">
+                        {item.location}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+);
+
 export default function AdminDashboardPage() {
     const { alerts, persons, shelters, drivers, loading, permissionError, fetchData } = useAdminData();
     const { toast } = useToast();
@@ -77,8 +124,17 @@ export default function AdminDashboardPage() {
     const [availableDrivers, setAvailableDrivers] = useState<Driver[]>([]);
     const [driversLoading, setDriversLoading] = useState(false);
     const [assigningDriver, setAssigningDriver] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState('active-alerts');
+    const [activeTab, setActiveTab] = useState('situation-map');
     const [selectedDriver, setSelectedDriver] = useState<Driver | undefined>(undefined);
+    const { stateData, recentActivity } = useSituationData();
+    const [selectedState, setSelectedState] = useState<StateData | null>(null);
+    const [currentTime, setCurrentTime] = useState<Date | null>(null);
+
+    useEffect(() => {
+        setCurrentTime(new Date());
+        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+        return () => clearInterval(timer);
+    }, []);
 
     if (loading || !alerts || !persons || !shelters || !drivers) {
         return <PageSkeleton />;
@@ -93,7 +149,7 @@ export default function AdminDashboardPage() {
         const totalCapacity = shelters.reduce((acc, s) => acc + s.capacity, 0);
         const totalOccupied = shelters.reduce((acc, s) => acc + (s.capacity - s.availableCapacity), 0);
         const occupancyPercentage = totalCapacity > 0 ? Math.round((totalOccupied / totalCapacity) * 100) : 0;
-        
+
         return {
             totalOccupied,
             totalCapacity,
@@ -134,6 +190,7 @@ export default function AdminDashboardPage() {
                     latitude: data.latitude || 0,
                     longitude: data.longitude || 0,
                     role: data.role,
+                    email: data.email || 'driver@hopeline.org' // Placeholder for type safety
                 } as Driver;
             });
             setAvailableDrivers(drivers);
@@ -148,11 +205,11 @@ export default function AdminDashboardPage() {
     const handleAssignDriver = async (driver: Driver) => {
         if (!assignAlert) return;
         setAssigningDriver(driver.id);
-        
+
         const batch = writeBatch(db);
 
         const alertRef = doc(db, "sosAlerts", assignAlert.id);
-        batch.update(alertRef, { 
+        batch.update(alertRef, {
             status: "Responding",
             assignedTeam: {
                 driverId: driver.id,
@@ -160,7 +217,7 @@ export default function AdminDashboardPage() {
                 vehicle: driver.vehicle,
             }
         });
-        
+
         const driverRef = doc(db, "users", driver.id);
         batch.update(driverRef, {
             status: "En Route",
@@ -169,7 +226,7 @@ export default function AdminDashboardPage() {
 
         try {
             await batch.commit();
-            toast({ title: "Success", description: `${driver.name} has been dispatched.`});
+            toast({ title: "Success", description: `${driver.name} has been dispatched.` });
             fetchData(); // Refresh all data
             setAssignAlert(null);
         } catch (error) {
@@ -186,71 +243,71 @@ export default function AdminDashboardPage() {
                 <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
                     {selectedAlert && (
                         <>
-                        <DialogHeader>
-                            <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                                <AlertTriangle className="text-red-500 h-5 w-5 sm:h-6 sm:w-6" />
-                                SOS Alert Details
-                            </DialogTitle>
-                            <DialogDescription className="text-sm sm:text-base">
-                                ID: {selectedAlert.id}
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4 text-sm sm:text-base">
-                            <div className="flex flex-wrap gap-2">
-                                <Badge variant="secondary" className="font-medium">{selectedAlert.emergencyType}</Badge>
-                                <Badge variant={getPriorityBadgeVariant("High Priority")}>High Priority</Badge>
-                                <Badge variant={getStatusBadgeVariant(selectedAlert.status)}>{selectedAlert.status}</Badge>
-                            </div>
-                            <div className="grid gap-4">
-                                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
-                                    <User className="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 text-slate-500 flex-shrink-0" />
-                                    <div>
-                                        <p className="font-medium text-slate-800">User</p>
-                                        <p className="text-slate-600">{selectedAlert.userEmail || 'Anonymous'}</p>
-                                    </div>
+                            <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                                    <AlertTriangle className="text-red-500 h-5 w-5 sm:h-6 sm:w-6" />
+                                    SOS Alert Details
+                                </DialogTitle>
+                                <DialogDescription className="text-sm sm:text-base">
+                                    ID: {selectedAlert.id}
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4 text-sm sm:text-base">
+                                <div className="flex flex-wrap gap-2">
+                                    <Badge variant="secondary" className="font-medium">{selectedAlert.emergencyType}</Badge>
+                                    <Badge variant={getPriorityBadgeVariant("High Priority")}>High Priority</Badge>
+                                    <Badge variant={getStatusBadgeVariant(selectedAlert.status)}>{selectedAlert.status}</Badge>
                                 </div>
-                                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
-                                    <MapPin className="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 text-slate-500 flex-shrink-0" />
-                                    <div className="flex-1">
-                                        <p className="font-medium text-slate-800">Location</p>
-                                        <p className="text-slate-600">{selectedAlert.location.address || 'Address not specified'}</p>
-                                        <a 
-                                            href={`https://www.google.com/maps/search/?api=1&query=${selectedAlert.location.latitude},${selectedAlert.location.longitude}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-blue-500 hover:underline text-xs sm:text-sm inline-block mt-1"
-                                        >
-                                            View on Google Maps →
-                                        </a>
-                                    </div>
-                                </div>
-                                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
-                                    <Calendar className="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 text-slate-500 flex-shrink-0" />
-                                    <div>
-                                        <p className="font-medium text-slate-800">Time</p>
-                                        <p className="text-slate-600">{formatTimestamp(selectedAlert.timestamp)}</p>
-                                    </div>
-                                </div>
-                                 {selectedAlert.additionalInfo && (
-                                    <div className="flex items-start gap-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                                        <FileText className="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 text-yellow-600 flex-shrink-0" />
+                                <div className="grid gap-4">
+                                    <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                                        <User className="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 text-slate-500 flex-shrink-0" />
                                         <div>
-                                            <p className="font-medium text-yellow-800">Additional Info</p>
-                                            <p className="text-yellow-700 p-2 bg-yellow-100 rounded-md mt-1 text-sm sm:text-base">{selectedAlert.additionalInfo}</p>
+                                            <p className="font-medium text-slate-800">User</p>
+                                            <p className="text-slate-600">{selectedAlert.userEmail || 'Anonymous'}</p>
                                         </div>
                                     </div>
-                                 )}
-                                {selectedAlert.assignedTeam && (
-                                     <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                                        <Car className="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 text-blue-600 flex-shrink-0" />
-                                        <div>
-                                            <p className="font-medium text-blue-800">Assigned Team</p>
-                                            <p className="text-blue-700">{selectedAlert.assignedTeam.driverName} ({selectedAlert.assignedTeam.vehicle})</p>
+                                    <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                                        <MapPin className="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 text-slate-500 flex-shrink-0" />
+                                        <div className="flex-1">
+                                            <p className="font-medium text-slate-800">Location</p>
+                                            <p className="text-slate-600">{selectedAlert.location.address || 'Address not specified'}</p>
+                                            <a
+                                                href={`https://www.google.com/maps/search/?api=1&query=${selectedAlert.location.latitude},${selectedAlert.location.longitude}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-blue-500 hover:underline text-xs sm:text-sm inline-block mt-1"
+                                            >
+                                                View on Google Maps →
+                                            </a>
                                         </div>
                                     </div>
-                                )}
+                                    <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                                        <Calendar className="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 text-slate-500 flex-shrink-0" />
+                                        <div>
+                                            <p className="font-medium text-slate-800">Time</p>
+                                            <p className="text-slate-600">{formatTimestamp(selectedAlert.timestamp)}</p>
+                                        </div>
+                                    </div>
+                                    {selectedAlert.additionalInfo && (
+                                        <div className="flex items-start gap-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                                            <FileText className="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 text-yellow-600 flex-shrink-0" />
+                                            <div>
+                                                <p className="font-medium text-yellow-800">Additional Info</p>
+                                                <p className="text-yellow-700 p-2 bg-yellow-100 rounded-md mt-1 text-sm sm:text-base">{selectedAlert.additionalInfo}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {selectedAlert.assignedTeam && (
+                                        <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                            <Car className="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 text-blue-600 flex-shrink-0" />
+                                            <div>
+                                                <p className="font-medium text-blue-800">Assigned Team</p>
+                                                <p className="text-blue-700">{selectedAlert.assignedTeam.driverName} ({selectedAlert.assignedTeam.vehicle})</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
                         </>
                     )}
                 </DialogContent>
@@ -307,23 +364,49 @@ export default function AdminDashboardPage() {
             <div className="space-y-6">
                 {/* Header Section */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div>
-                        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-slate-800 via-blue-700 to-emerald-700 bg-clip-text text-transparent">
-                            Emergency Response Dashboard
-                        </h1>
-                        <p className="text-sm sm:text-base text-slate-600 flex items-center gap-2 mt-2">
-                            <Shield className="h-4 w-4 text-blue-500" />
-                            CARITAS Nigeria | CITI Foundation Project
-                        </p>
+                    <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+                        <div>
+                            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-slate-800 via-blue-700 to-emerald-700 bg-clip-text text-transparent">
+                                Emergency Response Dashboard
+                            </h1>
+                            <p className="text-sm sm:text-base text-slate-600 flex items-center gap-2 mt-2">
+                                <Shield className="h-4 w-4 text-blue-500" />
+                                CARITAS Nigeria | CITI Foundation Project
+                            </p>
+                        </div>
+                        {/* Tactical Digital Clock Segment */}
+                        <div className="hidden lg:flex items-center gap-4 pl-6 border-l border-slate-200">
+                            <div className="flex flex-col items-end">
+                                <span className="text-2xl font-mono font-black text-slate-800 tracking-tighter tabular-nums">
+                                    {currentTime ? currentTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : "00:00:00"}
+                                </span>
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">UTC+1</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest leading-none">
+                                    {currentTime ? currentTime.toLocaleDateString('en-GB', { weekday: 'long' }) : "---"}
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase">
+                                    {currentTime ? currentTime.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : "-- --- ----"}
+                                </span>
+                            </div>
+                        </div>
                     </div>
-                    <Button 
-                        onClick={fetchData} 
-                        disabled={loading} 
-                        className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
-                    >
-                        <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-                        Refresh Data
-                    </Button>
+
+                    <div className="flex items-center gap-4">
+                        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-full animate-pulse">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                            <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Live System Active</span>
+                        </div>
+                        <Button
+                            onClick={fetchData}
+                            disabled={loading}
+                            className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+                        >
+                            <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
+                            Refresh Data
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Stats Grid */}
@@ -338,12 +421,12 @@ export default function AdminDashboardPage() {
                         <CardContent>
                             <div className="text-2xl sm:text-3xl font-bold text-red-800">{alerts.filter(a => a.status === 'Active').length}</div>
                             <p className="text-xs text-red-600 flex items-center mt-1">
-                                <ArrowUp className="h-3 w-3 mr-1"/>
+                                <ArrowUp className="h-3 w-3 mr-1" />
                                 from last hour
                             </p>
                         </CardContent>
                     </Card>
-                    
+
                     <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200/50 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                         <CardHeader className="flex flex-row items-center justify-between pb-3">
                             <CardTitle className="text-sm font-semibold text-blue-800">People Assisted</CardTitle>
@@ -354,11 +437,11 @@ export default function AdminDashboardPage() {
                         <CardContent>
                             <div className="text-2xl sm:text-3xl font-bold text-blue-800">{dashboardStats.totalOccupied.toLocaleString()}</div>
                             <p className="text-xs text-blue-600 mt-1">
-                               Total individuals in shelters
+                                Total individuals in shelters
                             </p>
                         </CardContent>
                     </Card>
-                    
+
                     <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200/50 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                         <CardHeader className="flex flex-row items-center justify-between pb-3">
                             <CardTitle className="text-sm font-semibold text-green-800">Shelter Occupancy</CardTitle>
@@ -371,7 +454,7 @@ export default function AdminDashboardPage() {
                             <p className="text-xs text-green-600 mt-1">{dashboardStats.totalOccupied.toLocaleString()}/{dashboardStats.totalCapacity.toLocaleString()} capacity</p>
                         </CardContent>
                     </Card>
-                    
+
                     <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200/50 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                         <CardHeader className="flex flex-row items-center justify-between pb-3">
                             <CardTitle className="text-sm font-semibold text-purple-800">Avg Response Time</CardTitle>
@@ -381,8 +464,8 @@ export default function AdminDashboardPage() {
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl sm:text-3xl font-bold text-purple-800">12.5 min</div>
-                             <p className="text-xs text-purple-600 flex items-center mt-1">
-                                <ArrowDown className="h-3 w-3 mr-1"/>
+                            <p className="text-xs text-purple-600 flex items-center mt-1">
+                                <ArrowDown className="h-3 w-3 mr-1" />
                                 -1.2 min from yesterday
                             </p>
                         </CardContent>
@@ -391,7 +474,11 @@ export default function AdminDashboardPage() {
 
                 {/* Main Content Tabs */}
                 <Tabs defaultValue="active-alerts" value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="grid w-full grid-cols-4 h-12 bg-slate-100 p-1 rounded-lg">
+                    <TabsList className="grid w-full grid-cols-5 h-12 bg-slate-100 p-1 rounded-lg">
+                        <TabsTrigger value="situation-map" className="text-sm sm:text-base font-medium transition-all duration-200 data-[state=active]:bg-white data-[state=active]:shadow-md">
+                            <MapPin className="h-4 w-4 mr-2" />
+                            Situation Map
+                        </TabsTrigger>
                         <TabsTrigger value="active-alerts" className="text-sm sm:text-base font-medium transition-all duration-200 data-[state=active]:bg-white data-[state=active]:shadow-md">
                             <AlertTriangle className="h-4 w-4 mr-2" />
                             Active Alerts
@@ -409,7 +496,126 @@ export default function AdminDashboardPage() {
                             Analytics
                         </TabsTrigger>
                     </TabsList>
-                    
+
+                    <TabsContent value="situation-map" className="mt-6">
+                        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                            {/* Central Interactive Map */}
+                            <div className="xl:col-span-2 space-y-4">
+                                <Card className="border-0 shadow-lg bg-white overflow-hidden flex flex-col rounded-xl">
+                                    <CardHeader className="bg-white border-b border-slate-100 pb-4">
+                                        <div className="flex justify-between items-center">
+                                            <div className="space-y-1">
+                                                <div className="flex items-center gap-2">
+                                                    <MapPin className="h-5 w-5 text-blue-600" />
+                                                    <CardTitle className="text-lg text-slate-900 font-bold">Regional Impact Assessment</CardTitle>
+                                                </div>
+                                                <CardDescription className="text-slate-500 text-xs">Real-time heat coverage of all 37 states</CardDescription>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-100 font-semibold px-3">Critical</Badge>
+                                                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-100 font-semibold px-3">Warning</Badge>
+                                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 font-semibold px-3">Stable</Badge>
+                                            </div>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="p-0 flex-1 relative min-h-[600px] bg-white">
+                                        <DisplacementMap data={stateData} onStateSelect={setSelectedState} />
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            {/* Sidebar Detail */}
+                            <div className="xl:col-span-1">
+                                <Card className="h-full flex flex-col border-0 shadow-lg bg-white rounded-xl">
+                                    <CardHeader className={cn("border-b border-slate-100 pb-4", selectedState ? "bg-slate-50/50" : "bg-white")}>
+                                        <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-900 uppercase tracking-tight">
+                                            {selectedState ? (
+                                                <>
+                                                    <button onClick={() => setSelectedState(null)} className="hover:bg-slate-200 rounded-full p-1 mr-1 transition-colors">
+                                                        ←
+                                                    </button>
+                                                    {selectedState.name} Details
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Activity className="h-4 w-4 text-blue-600" />
+                                                    <span>Regional SOS Feed</span>
+                                                </>
+                                            )}
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="flex-1 p-0 overflow-hidden relative">
+                                        <ScrollArea className="h-[600px]">
+                                            {selectedState ? (
+                                                <div className="p-6 space-y-8 animate-in slide-in-from-right duration-300">
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="bg-slate-50 p-5 rounded-xl border border-slate-100 shadow-sm">
+                                                            <div className="text-3xl font-bold text-slate-900">{selectedState.shelterCount}</div>
+                                                            <div className="text-xs text-slate-500 font-medium mt-1 uppercase tracking-wider text-[10px]">Active Shelters</div>
+                                                        </div>
+                                                        <div className="bg-slate-50 p-5 rounded-xl border border-slate-100 shadow-sm">
+                                                            <div className="text-3xl font-bold text-slate-900">{selectedState.displacedCount.toLocaleString()}</div>
+                                                            <div className="text-xs text-slate-500 font-medium mt-1 uppercase tracking-wider text-[10px]">Displaced Persons</div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="space-y-4">
+                                                        <div className="flex justify-between text-sm items-end font-bold text-slate-900">
+                                                            <span className="text-slate-500 uppercase text-[10px] tracking-widest font-bold">Resource Usage</span>
+                                                            <span className={cn("font-bold text-sm",
+                                                                selectedState.occupiedCapacity / selectedState.totalCapacity > 0.8 ? "text-red-600" : "text-emerald-600"
+                                                            )}>
+                                                                {selectedState.totalCapacity > 0
+                                                                    ? Math.round((selectedState.occupiedCapacity / selectedState.totalCapacity) * 100)
+                                                                    : 0}%
+                                                            </span>
+                                                        </div>
+                                                        <Progress
+                                                            value={(selectedState.occupiedCapacity / selectedState.totalCapacity) * 100}
+                                                            className={cn("h-2 bg-slate-100 rounded-full", selectedState.riskLevel === 'high' ? "[&>div]:bg-red-500" : "[&>div]:bg-emerald-500")}
+                                                        />
+                                                        <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                                            <span>{selectedState.occupiedCapacity.toLocaleString()} Occupied</span>
+                                                            <span>{selectedState.totalCapacity.toLocaleString()} Total</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="space-y-4">
+                                                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Recent Regional Events</h4>
+                                                        {recentActivity.filter(a => a.location.includes(selectedState.name)).length > 0 ? (
+                                                            <div className="space-y-4 pt-2">
+                                                                {recentActivity.filter(a => a.location.includes(selectedState.name)).map(item => (
+                                                                    <ActivityFeedItem key={item.id} item={item} />
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-center py-12 text-slate-400 italic text-sm">No recent activity logs for this region.</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="divide-y divide-slate-100">
+                                                    {recentActivity.length > 0 ? (
+                                                        recentActivity.map((item) => (
+                                                            <ActivityFeedItem key={item.id} item={item} />
+                                                        ))
+                                                    ) : (
+                                                        <div className="p-12 text-center space-y-4">
+                                                            <div className="inline-block p-4 rounded-full bg-slate-50 text-slate-300">
+                                                                <CheckCircle className="h-8 w-8" />
+                                                            </div>
+                                                            <p className="text-slate-500 text-sm font-medium">All national sectors reporting stable.</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </ScrollArea>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </div>
+                    </TabsContent>
+
                     <TabsContent value="active-alerts" className="mt-6">
                         <Card className="border-0 shadow-lg">
                             <CardHeader className="flex flex-row items-center justify-between pb-4">
@@ -423,7 +629,7 @@ export default function AdminDashboardPage() {
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 {permissionError && (
-                                     <Alert variant="destructive" className="border-red-200 bg-red-50">
+                                    <Alert variant="destructive" className="border-red-200 bg-red-50">
                                         <AlertTriangle className="h-4 w-4" />
                                         <AlertTitle className="text-red-800">Permission Denied</AlertTitle>
                                         <AlertDescription className="text-red-700">
@@ -431,7 +637,7 @@ export default function AdminDashboardPage() {
                                         </AlertDescription>
                                     </Alert>
                                 )}
-                                 {recentAlerts.length > 0 ? (
+                                {recentAlerts.length > 0 ? (
                                     recentAlerts.map((alert) => (
                                         <Card key={alert.id} className="border-0 shadow-md hover:shadow-lg transition-all duration-300">
                                             <CardContent className="p-4 sm:p-6">
@@ -447,12 +653,12 @@ export default function AdminDashboardPage() {
                                                             <p className="text-sm text-slate-600 mb-2">
                                                                 User: {alert.userEmail || 'Anonymous'}
                                                             </p>
-                                                             {alert.additionalInfo && (
+                                                            {alert.additionalInfo && (
                                                                 <p className="text-sm bg-yellow-50 border border-yellow-200 p-3 rounded-md mb-2 text-yellow-800">Note: {alert.additionalInfo}</p>
-                                                             )}
-                                                              {alert.assignedTeam && (
+                                                            )}
+                                                            {alert.assignedTeam && (
                                                                 <p className="text-sm bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md">Assigned to: {alert.assignedTeam.driverName} ({alert.assignedTeam.vehicle})</p>
-                                                              )}
+                                                            )}
                                                         </div>
                                                         <div className="flex flex-wrap gap-2 mt-4">
                                                             <Button size="sm" onClick={() => setSelectedAlert(alert)} className="bg-blue-600 hover:bg-blue-700 text-white">
@@ -461,16 +667,16 @@ export default function AdminDashboardPage() {
                                                             <Button size="sm" variant="outline" onClick={() => handleOpenAssignDialog(alert)} disabled={alert.status === 'Resolved'}>
                                                                 Assign Team
                                                             </Button>
-                                                             {alert.status === 'Active' && (
+                                                            {alert.status === 'Active' && (
                                                                 <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(alert.id, 'Responding')}>
                                                                     Mark Responding
                                                                 </Button>
-                                                             )}
-                                                             {alert.status === 'Responding' && (
+                                                            )}
+                                                            {alert.status === 'Responding' && (
                                                                 <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(alert.id, 'Resolved')}>
                                                                     Mark Resolved
                                                                 </Button>
-                                                             )}
+                                                            )}
                                                         </div>
                                                     </div>
                                                     <div className="text-right flex-shrink-0">
@@ -492,8 +698,8 @@ export default function AdminDashboardPage() {
                             </CardContent>
                         </Card>
                     </TabsContent>
-                     <TabsContent value="shelter-status" className="mt-6">
-                         <Card className="border-0 shadow-lg">
+                    <TabsContent value="shelter-status" className="mt-6">
+                        <Card className="border-0 shadow-lg">
                             <CardHeader>
                                 <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
                                     <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
@@ -551,14 +757,14 @@ export default function AdminDashboardPage() {
                             </CardContent>
                         </Card>
                     </TabsContent>
-                     <TabsContent value="driver-tracking" className="mt-6">
+                    <TabsContent value="driver-tracking" className="mt-6">
                         <Card className="border-0 shadow-lg">
                             <CardHeader>
                                 <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
                                     <Car className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
                                     Driver Tracking
                                 </CardTitle>
-                                 <CardDescription className="text-sm sm:text-base">
+                                <CardDescription className="text-sm sm:text-base">
                                     Real-time driver locations and status monitoring. For full management features, visit the <Link to="/admin/track-drivers" className="text-blue-600 hover:text-blue-800 underline font-medium">Driver Tracking page</Link>.
                                 </CardDescription>
                             </CardHeader>
@@ -589,8 +795,8 @@ export default function AdminDashboardPage() {
                                 />
                             </CardContent>
                         </Card>
-                     </TabsContent>
-                     <TabsContent value="analytics" className="mt-6">
+                    </TabsContent>
+                    <TabsContent value="analytics" className="mt-6">
                         <Card className="border-0 shadow-lg">
                             <CardHeader>
                                 <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
@@ -603,10 +809,10 @@ export default function AdminDashboardPage() {
                             </CardHeader>
                             <CardContent className="space-y-6">
                                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                                   <AlertsOverTimeChart alerts={alerts || []} />
-                                   <ShelterOccupancyChart shelters={shelters || []} />
-                                   <EmergencyTypesChart alerts={alerts || []} />
-                                   <DisplacedPersonsStatusChart persons={persons || []} />
+                                    <AlertsOverTimeChart alerts={alerts || []} />
+                                    <ShelterOccupancyChart shelters={shelters || []} />
+                                    <EmergencyTypesChart alerts={alerts || []} />
+                                    <DisplacedPersonsStatusChart persons={persons || []} />
                                 </div>
                             </CardContent>
                         </Card>

@@ -32,6 +32,7 @@ import TrackShelterPage from './app/admin/track-shelter/page';
 import UserManagementPage from './app/admin/user-management/page';
 import AdminProfilePage from './app/admin/profile/page';
 import VehicleManagementPage from './app/admin/vehicle-management/page';
+import SituationRoomPage from './app/admin/situation-room/page';
 import DriverLayout from './app/driver/layout';
 import DriverProfilePage from './app/driver/profile/page';
 import DriverSettingsPage from './app/driver/settings/page';
@@ -111,6 +112,7 @@ function App() {
             <Route path="shelter/:id" element={<ShelterPage />} />
             <Route path="admin" element={<AdminLayout />}>
               <Route index element={<AdminPage />} />
+              <Route path="situation-room" element={<SituationRoomPage />} />
               <Route path="profile" element={<AdminProfilePage />} />
               <Route path="contact-management" element={<ContactManagementPage />} />
               <Route path="displaced-persons" element={<DisplacedPersonsPage />} />

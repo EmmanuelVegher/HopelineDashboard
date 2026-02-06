@@ -4,10 +4,20 @@
 import { functions } from '@/lib/firebase';
 import { httpsCallable } from 'firebase/functions';
 
-export async function sendSos(input: any) {
-  console.log('Mock sendSos called with:', input);
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  return { success: true, alertId: 'mock-' + Date.now() };
+export async function sendSos(input: any): Promise<{ success: boolean; alertId: string }> {
+  console.log('Calling sendSos Firebase Function with:', input);
+
+  try {
+    // Call Firebase Function instead of mock
+    const sendSosFunction = httpsCallable(functions, 'sendSos');
+    const result = await sendSosFunction(input);
+
+    return result.data as { success: boolean; alertId: string };
+  } catch (error) {
+    console.error('Firebase Function error:', error);
+    // Fallback to mock data if Firebase Function fails
+    return { success: false, alertId: '' };
+  }
 }
 
 export async function getWeather(input: any) {
@@ -51,5 +61,20 @@ export async function getWeather(input: any) {
       shelterImpact: 'Current weather conditions are favorable for shelter operations. No significant impacts expected.',
       lastUpdated: new Date().toLocaleTimeString()
     };
+  }
+}
+
+export async function generateAgoraToken(input: { channelName: string; uid: string; role?: string }): Promise<{ token: string }> {
+  console.log('Generating Agora token via Firebase Function:', input);
+
+  try {
+    // Call Firebase Function
+    const generateAgoraTokenFunction = httpsCallable(functions, 'generateAgoraToken');
+    const result = await generateAgoraTokenFunction(input);
+
+    return result.data as { token: string };
+  } catch (error) {
+    console.error('Firebase Function error:', error);
+    throw new Error('Failed to generate Agora token');
   }
 }

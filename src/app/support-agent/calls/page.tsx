@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,11 +19,15 @@ import {
   Globe,
   User,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Video,
+  VideoOff
 } from "lucide-react";
 import { collection, query, where, onSnapshot, orderBy, updateDoc, doc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
+import { agoraManager } from "@/utils/agora";
+import { generateAgoraToken } from "@/ai/client";
 
 interface CallSession {
   id: string;
@@ -48,6 +52,10 @@ export default function SupportAgentCallsPage() {
   const [callDuration, setCallDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isOnHold, setIsOnHold] = useState(false);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(false);
+  const [isAgoraConnected, setIsAgoraConnected] = useState(false);
+  const localVideoRef = useRef<HTMLDivElement>(null);
+  const remoteVideoRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -129,22 +137,71 @@ export default function SupportAgentCallsPage() {
     return () => clearInterval(interval);
   }, [isInCall, selectedCall]);
 
-  const handleAcceptCall = async (call: CallSession) => {
-    try {
-      await updateDoc(doc(db, 'calls', call.id), {
-        status: 'active',
-        agentId: auth.currentUser?.uid,
-        acceptedAt: new Date()
-      });
-      setSelectedCall(call);
-      setIsInCall(true);
-      setCallDuration(0);
-      toast({ title: "Call Connected", description: `Connected to ${call.userName}` });
-    } catch (error) {
-      console.error("Error accepting call:", error);
-      toast({ title: "Error", description: "Failed to accept call", variant: "destructive" });
+  // Handle remote video
+  useEffect(() => {
+    if (isVideoEnabled && remoteVideoRef.current) {
+      const remoteTrack = agoraManager.getRemoteVideoTrack();
+      if (remoteTrack) {
+        remoteTrack.play(remoteVideoRef.current);
+      }
     }
-  };
+  }, [isVideoEnabled, isAgoraConnected]);
+
+// In handleAcceptCall, before joining the channel:
+const handleAcceptCall = async (call: CallSession) => {
+  try {
+    // Generate Agora token via Firebase Function
+    const channelName = `call_${call.id}`;
+    const uid = auth.currentUser?.uid || '0'; // Use user ID as UID
+
+    const { token } = await generateAgoraToken({
+      channelName,
+      uid,
+      role: 'publisher'
+    });
+
+    // Update Firestore
+    await updateDoc(doc(db, 'calls', call.id), {
+      status: 'active',
+      agentId: auth.currentUser?.uid,
+      acceptedAt: new Date()
+    });
+
+    // Initialize Agora
+    await agoraManager.initializeClient();
+    await agoraManager.setupRemoteTracks();
+
+    // Create tracks based on call type
+    const hasVideo = call.callType === 'video';
+    await agoraManager.createLocalTracks(true, hasVideo);
+
+    // Join channel with token
+    await agoraManager.joinChannel(channelName, token);
+
+    // Publish tracks
+    await agoraManager.publishTracks();
+
+    // Set video enabled if video call
+    setIsVideoEnabled(hasVideo);
+
+    // Play local video if video call
+    if (hasVideo && localVideoRef.current) {
+      const localTrack = agoraManager.getLocalVideoTrack();
+      if (localTrack) {
+        localTrack.play(localVideoRef.current);
+      }
+    }
+
+    setSelectedCall(call);
+    setIsInCall(true);
+    setIsAgoraConnected(true);
+    setCallDuration(0);
+    toast({ title: "Call Connected", description: `Connected to ${call.userName}` });
+  } catch (error) {
+    console.error("Error accepting call:", error);
+    toast({ title: "Error", description: "Failed to accept call", variant: "destructive" });
+  }
+};
 
   const handleEndCall = async () => {
     if (!selectedCall) return;
@@ -156,8 +213,14 @@ export default function SupportAgentCallsPage() {
         endTime: new Date(),
         duration: duration
       });
+
+      // Leave Agora channel
+      await agoraManager.leaveChannel();
+
       setIsInCall(false);
       setSelectedCall(null);
+      setIsAgoraConnected(false);
+      setIsVideoEnabled(false);
       setCallDuration(0);
       toast({ title: "Call Ended", description: `Call with ${selectedCall.userName} ended` });
     } catch (error) {
@@ -170,6 +233,19 @@ export default function SupportAgentCallsPage() {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const toggleMute = () => {
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+    agoraManager.muteAudio(newMuted);
+  };
+
+  const toggleVideo = () => {
+    if (!isVideoEnabled) return; // Only allow if video was enabled for this call
+    const newVideoMuted = !isVideoEnabled;
+    setIsVideoEnabled(!newVideoMuted);
+    agoraManager.muteVideo(newVideoMuted);
   };
 
   const getPriorityColor = (priority: string) => {
@@ -284,16 +360,49 @@ export default function SupportAgentCallsPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col items-center justify-center p-8 space-y-6">
+                  {/* Video Elements */}
+                  {isVideoEnabled && (
+                    <div className="flex gap-4 w-full max-w-4xl">
+                      <div className="flex-1">
+                        <div className="bg-black rounded-lg overflow-hidden aspect-video">
+                          <div ref={remoteVideoRef} className="w-full h-full bg-gray-900 flex items-center justify-center">
+                            <User className="h-12 w-12 text-gray-400" />
+                          </div>
+                        </div>
+                        <p className="text-sm text-center mt-2 text-muted-foreground">Remote Video</p>
+                      </div>
+                      <div className="w-48">
+                        <div className="bg-black rounded-lg overflow-hidden aspect-video">
+                          <div ref={localVideoRef} className="w-full h-full bg-gray-900 flex items-center justify-center">
+                            <User className="h-8 w-8 text-gray-400" />
+                          </div>
+                        </div>
+                        <p className="text-sm text-center mt-2 text-muted-foreground">Your Video</p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Call Controls */}
                   <div className="flex items-center gap-4">
                     <Button
                       variant={isMuted ? "destructive" : "outline"}
                       size="lg"
                       className="w-16 h-16 rounded-full"
-                      onClick={() => setIsMuted(!isMuted)}
+                      onClick={toggleMute}
                     >
                       {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
                     </Button>
+
+                    {isVideoEnabled && (
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="w-16 h-16 rounded-full"
+                        onClick={toggleVideo}
+                      >
+                        <VideoOff className="h-6 w-6" />
+                      </Button>
+                    )}
 
                     <Button
                       variant={isOnHold ? "secondary" : "outline"}

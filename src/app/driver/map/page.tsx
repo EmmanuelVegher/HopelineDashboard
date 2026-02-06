@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { db, auth } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -11,15 +11,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { MapPin, Navigation, Play, Square, Activity, Clock, Route, Target, AlertTriangle, CheckCircle, XCircle, Pause, SkipBack, SkipForward, RotateCcw } from 'lucide-react';
-import GoogleMap from '@/components/google-map';
 import { LoadingSpinner } from '@/components/loading-spinner';
-import { TripSelectionModal } from '@/components/trip-selection-modal';
 import { useToast } from '@/hooks/use-toast';
 import { useGeolocation } from '@/hooks/useGeolocation';
+import InteractiveGoogleMap from '@/components/interactive-google-map';
 // Location streaming removed to prevent browser crashes
 // import { useLocationStreaming } from '@/hooks/useLocationStreaming';
 
@@ -55,8 +54,11 @@ export default function DriverMapPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<MapTask | null>(null);
   console.log("DriverMapPage: selectedTask:", selectedTask);
+  const selectedTaskId = selectedTask?.id;
   const [mapView, setMapView] = useState<'all' | 'active' | 'resolved'>('all');
   const [driverLocation, setDriverLocation] = useState<DriverLocation | undefined>(undefined);
+  const [navigationOrigin, setNavigationOrigin] = useState<[number, number] | null>(null);
+  const [navigationRefreshKey, setNavigationRefreshKey] = useState(0);
   const [trackingStats, setTrackingStats] = useState<TrackingStats>({
     speed: 0,
     distanceTraveled: 0,
@@ -67,7 +69,6 @@ export default function DriverMapPage() {
   const [isTracking, setIsTracking] = useState(false);
   const [trackingPath, setTrackingPath] = useState<[number, number][]>([]);
   const [followDriver, setFollowDriver] = useState(false);
-  const [navigationLine, setNavigationLine] = useState<[number, number][]>([]);
   const [isReplaying, setIsReplaying] = useState(false);
   const [replayIndex, setReplayIndex] = useState(0);
   const [tripSelectionModalOpen, setTripSelectionModalOpen] = useState(false);
@@ -86,6 +87,7 @@ export default function DriverMapPage() {
     maxSpeed: 0,
     minSpeed: 0,
   });
+  const [mapMode, setMapMode] = useState<'navigation' | 'tracking'>('navigation');
   const replayIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
   const permissionCheckedRef = useRef(false);
@@ -114,6 +116,73 @@ export default function DriverMapPage() {
     const timer = setTimeout(checkPermission, 100);
     return () => clearTimeout(timer);
   }, []); // Remove geolocation dependency to prevent re-runs
+
+  // Keep a stable navigation origin so the embedded Google Maps view doesn't constantly reload
+  // as the driver's GPS updates during live tracking.
+  useEffect(() => {
+    if (!selectedTask) {
+      setNavigationOrigin(null);
+      return;
+    }
+
+    // If we already have an origin for this task, don't overwrite it automatically.
+    if (navigationOrigin) return;
+
+    if (geolocation.state.position) {
+      setNavigationOrigin([
+        geolocation.state.position.coords.latitude,
+        geolocation.state.position.coords.longitude,
+      ]);
+      return;
+    }
+
+    if (driverLocation) {
+      setNavigationOrigin([driverLocation.latitude, driverLocation.longitude]);
+    }
+  }, [selectedTask, navigationOrigin, geolocation.state.position, driverLocation]);
+
+  const embeddedDirectionsUrl = useMemo(() => {
+    if (!selectedTask || !navigationOrigin) return null;
+
+    const origin = `${navigationOrigin[0]},${navigationOrigin[1]}`;
+    const destination = `${selectedTask.location.latitude},${selectedTask.location.longitude}`;
+
+    // Preferred: Maps Embed API (best compatibility + route rendering)
+    // Requires Maps Embed API enabled for the key.
+    const embedApiKey = (import.meta as any)?.env?.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+    if (embedApiKey) {
+      const params = new URLSearchParams({
+        key: embedApiKey,
+        origin,
+        destination,
+        mode: 'driving',
+      });
+      return `https://www.google.com/maps/embed/v1/directions?${params.toString()}`;
+    }
+
+    // Fallback: "output=embed" routes (does not require an API key).
+    // Note: Feature set depends on Google; should render a route inside an iframe.
+    const fallbackParams = new URLSearchParams({
+      output: 'embed',
+      saddr: origin,
+      daddr: destination,
+      dirflg: 'd', // driving
+    });
+    return `https://www.google.com/maps?${fallbackParams.toString()}`;
+  }, [selectedTask, navigationOrigin]);
+
+  const refreshEmbeddedNavigation = useCallback(() => {
+    // Update the origin to the latest known driver position, then force a reload.
+    if (geolocation.state.position) {
+      setNavigationOrigin([
+        geolocation.state.position.coords.latitude,
+        geolocation.state.position.coords.longitude,
+      ]);
+    } else if (driverLocation) {
+      setNavigationOrigin([driverLocation.latitude, driverLocation.longitude]);
+    }
+    setNavigationRefreshKey((k) => k + 1);
+  }, [geolocation.state.position, driverLocation]);
 
   // Location streaming removed to prevent browser crashes
   // const locationStreaming = useLocationStreaming({
@@ -148,15 +217,13 @@ export default function DriverMapPage() {
 
   // Get current timestamp for display
   const getCurrentTimestamp = useCallback((): string => {
-    if (!selectedTripForReplay || replayIndex >= selectedTripForReplay.trackingData?.coordinates?.length) {
-      return '--:--:--';
-    }
-    const coordinates = selectedTripForReplay.trackingData?.coordinates || [];
-    if (replayIndex < coordinates.length) {
-      const timestamp = coordinates[replayIndex].timestamp;
+    const coordinates = selectedTripForReplay?.trackingData?.coordinates ?? [];
+    if (coordinates.length === 0 || replayIndex >= coordinates.length) return '--:--:--';
+    {
+      const timestamp = coordinates[replayIndex]?.timestamp;
+      if (!timestamp) return '--:--:--';
       return new Date(timestamp).toLocaleTimeString();
     }
-    return '--:--:--';
   }, [selectedTripForReplay, replayIndex]);
 
   // Location streaming removed to prevent browser crashes
@@ -540,20 +607,6 @@ export default function DriverMapPage() {
         throw new Error(errorMessage);
       }
 
-      // Create navigation line from current position to destination
-      if (geolocation.state.position && selectedTask) {
-        const startPoint: [number, number] = [
-          geolocation.state.position.coords.latitude,
-          geolocation.state.position.coords.longitude
-        ];
-        const endPoint: [number, number] = [
-          selectedTask.location.latitude,
-          selectedTask.location.longitude
-        ];
-        setNavigationLine([startPoint, endPoint]);
-        console.log('[handleStartTracking] Navigation line created:', [startPoint, endPoint]);
-      }
-
       // Start tracking with 30-second coordinate storage
       console.log('[handleStartTracking] Starting geolocation tracking...');
       geolocation.startTracking({ trackingInterval: 30000 }); // 30 seconds
@@ -629,7 +682,6 @@ export default function DriverMapPage() {
     geolocation.stopTracking();
     setIsTracking(false);
     setFollowDriver(false);
-    setNavigationLine([]); // Clear navigation line
     setTrackingStats(prev => ({
       ...prev,
       startTime: null,
@@ -953,60 +1005,186 @@ export default function DriverMapPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Map */}
+        {/* Navigation (embedded Google Maps) */}
         <div className="lg:col-span-2">
           <Card className="h-[600px]">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
-                Live Map View
-                {/* Location streaming removed to prevent browser crashes */}
-                {/* {locationStreaming.state.isStreaming && (
-                  <Badge variant="default" className="ml-auto">
-                    <Activity className="h-3 w-3 mr-1" />
-                    Tracking Active
-                  </Badge>
-                )} */}
-              </CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+               <CardTitle className="flex items-center gap-2">
+                 <MapPin className="h-5 w-5" />
+                 Interactive Map
+                 {isTracking && mapMode === 'tracking' && (
+                   <Badge variant="default" className="ml-auto">
+                     <Activity className="h-3 w-3 mr-1" />
+                     Live Tracking
+                   </Badge>
+                 )}
+               </CardTitle>
+               <div className="flex items-center gap-2">
+                 <Select value={mapMode} onValueChange={(value: 'navigation' | 'tracking') => setMapMode(value)}>
+                   <SelectTrigger className="w-32">
+                     <SelectValue />
+                   </SelectTrigger>
+                   <SelectContent>
+                     <SelectItem value="navigation">Navigation</SelectItem>
+                     <SelectItem value="tracking">Tracking</SelectItem>
+                   </SelectContent>
+                 </Select>
+                 {selectedTask && (
+                   <>
+                     <Button
+                       size="sm"
+                       variant="outline"
+                       onClick={refreshEmbeddedNavigation}
+                       disabled={!embeddedDirectionsUrl}
+                     >
+                       Refresh Route
+                     </Button>
+                     <Dialog>
+                       <DialogTrigger asChild>
+                         <Button size="sm" variant="outline" disabled={!embeddedDirectionsUrl}>
+                           Expand
+                         </Button>
+                       </DialogTrigger>
+                       <DialogContent className="max-w-5xl h-[85vh] p-0">
+                         <DialogHeader className="p-4">
+                           <DialogTitle>Navigation</DialogTitle>
+                         </DialogHeader>
+                         <div className="h-[calc(85vh-64px)] w-full">
+                           <InteractiveGoogleMap
+                             mode={mapMode}
+                             driverLocation={
+                               geolocation.state.position
+                                 ? {
+                                     lat: geolocation.state.position.coords.latitude,
+                                     lng: geolocation.state.position.coords.longitude,
+                                   }
+                                 : driverLocation
+                                 ? {
+                                     lat: driverLocation.latitude,
+                                     lng: driverLocation.longitude,
+                                   }
+                                 : undefined
+                             }
+                             destination={
+                               selectedTask
+                                 ? {
+                                     lat: selectedTask.location.latitude,
+                                     lng: selectedTask.location.longitude,
+                                   }
+                                 : undefined
+                             }
+                             trackingPath={trackingPath.map(([lat, lng]) => ({ lat, lng }))}
+                             enableStreaming={isTracking && mapMode === 'tracking'}
+                             onLocationUpdate={(location) => {
+                               if (isTracking) {
+                                 setTrackingPath((prev) => {
+                                   const newPath = [...prev];
+                                   // Only add if it's significantly different from the last point
+                                   if (
+                                     newPath.length === 0 ||
+                                     calculateDistance(newPath[newPath.length - 1][0], newPath[newPath.length - 1][1], location.lat, location.lng) > 10
+                                   ) {
+                                     newPath.push([location.lat, location.lng]);
+                                   }
+                                   return newPath;
+                                 });
+                               }
+                             }}
+                             onError={handleLocationError}
+                             className="h-full w-full"
+                           />
+                         </div>
+                       </DialogContent>
+                     </Dialog>
+                   </>
+                 )}
+               </div>
+              {selectedTask && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={refreshEmbeddedNavigation}
+                    disabled={!embeddedDirectionsUrl}
+                  >
+                    Refresh Route
+                  </Button>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="outline" disabled={!embeddedDirectionsUrl}>
+                        Expand
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-5xl h-[85vh] p-0">
+                      <DialogHeader className="p-4">
+                        <DialogTitle>Navigation</DialogTitle>
+                      </DialogHeader>
+                      <div className="h-[calc(85vh-64px)] w-full">
+                        {embeddedDirectionsUrl ? (
+                          <iframe
+                            key={`nav-modal-${selectedTaskId ?? 'no-task'}-${navigationRefreshKey}`}
+                            title="Google Maps Navigation (Expanded)"
+                            src={embeddedDirectionsUrl}
+                            className="h-full w-full border-0"
+                            loading="lazy"
+                            referrerPolicy="no-referrer-when-downgrade"
+                            allow="geolocation; fullscreen"
+                            allowFullScreen
+                          />
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">
+                            Unable to render embedded Google Maps navigation. Ensure `VITE_GOOGLE_MAPS_API_KEY` is set and Maps Embed API is enabled.
+                          </div>
+                        )}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              )}
             </CardHeader>
             <CardContent className="p-0">
-              <GoogleMap
-                drivers={[]} // TODO: Add driver locations
-                className="h-[500px] rounded-b-lg"
-                selectedTask={selectedTask}
-                currentPosition={
+              <InteractiveGoogleMap
+                mode={mapMode}
+                driverLocation={
                   geolocation.state.position
-                    ? [geolocation.state.position.coords.latitude, geolocation.state.position.coords.longitude]
+                    ? {
+                        lat: geolocation.state.position.coords.latitude,
+                        lng: geolocation.state.position.coords.longitude,
+                      }
+                    : driverLocation
+                    ? {
+                        lat: driverLocation.latitude,
+                        lng: driverLocation.longitude,
+                      }
                     : undefined
                 }
                 destination={
                   selectedTask
-                    ? [selectedTask.location.latitude, selectedTask.location.longitude]
+                    ? {
+                        lat: selectedTask.location.latitude,
+                        lng: selectedTask.location.longitude,
+                      }
                     : undefined
                 }
-                showCurrentLocation={true}
-                currentLocationAccuracy={geolocation.state.position?.coords.accuracy}
-                driverLocation={driverLocation}
-                defaultCenter={
-                  driverLocation
-                    ? [driverLocation.latitude, driverLocation.longitude]
-                    : undefined
-                }
-                // Live tracking props
-                isTracking={isTracking}
-                trackingPath={trackingPath}
-                navigationLine={navigationLine}
-                isReplaying={isReplaying}
-                replayPath={isReplaying && selectedTripForReplay ? replayCoordinates.slice(0, replayIndex + 1).map(coord => [coord.lat, coord.lng] as [number, number]) : undefined}
-                followDriver={followDriver}
-                onLocationError={handleLocationError}
-                onRoutingError={(error) => {
-                  toast({
-                    title: 'Routing Error',
-                    description: error,
-                    variant: 'destructive',
-                  });
+                trackingPath={trackingPath.map(([lat, lng]) => ({ lat, lng }))}
+                enableStreaming={isTracking && mapMode === 'tracking'}
+                onLocationUpdate={(location) => {
+                  if (isTracking) {
+                    setTrackingPath((prev) => {
+                      const newPath = [...prev];
+                      // Only add if it's significantly different from the last point
+                      if (
+                        newPath.length === 0 ||
+                        calculateDistance(newPath[newPath.length - 1][0], newPath[newPath.length - 1][1], location.lat, location.lng) > 10
+                      ) {
+                        newPath.push([location.lat, location.lng]);
+                      }
+                      return newPath;
+                    });
+                  }
                 }}
+                onError={handleLocationError}
+                className="h-[500px] w-full rounded-b-lg"
               />
             </CardContent>
           </Card>
@@ -1436,17 +1614,15 @@ export default function DriverMapPage() {
                         size="sm"
                         variant="outline"
                         onClick={() => {
-                          // TODO: Implement navigation
-                          if (navigator.geolocation) {
-                            navigator.geolocation.getCurrentPosition((position) => {
-                              const url = `https://www.google.com/maps/dir/${position.coords.latitude},${position.coords.longitude}/${selectedTask.location.latitude},${selectedTask.location.longitude}`;
-                              window.open(url, '_blank');
-                            });
-                          }
+                          // Do NOT launch a separate navigation flow.
+                          // Instead, refresh the embedded Google Maps Directions view on this page.
+                          refreshEmbeddedNavigation();
+                          document.getElementById('embedded-navigation')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                         }}
+                        disabled={!selectedTask}
                       >
                         <Navigation className="h-4 w-4 mr-1" />
-                        Navigate
+                        Open In-app Navigation
                       </Button>
                       <Button
                         size="sm"

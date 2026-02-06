@@ -23,10 +23,9 @@ import {
   LogOut,
   PhoneOutgoing,
   UserCheck,
-  Truck,
+  Truck
 } from "lucide-react";
 import { useLocation, useNavigate, Outlet } from "react-router-dom";
-import { AdminHeader } from "@/components/admin-header";
 import { AdminDataProvider } from "@/contexts/AdminDataProvider";
 import { UserManagementProvider } from "@/components/user-management-provider";
 import { NavLink } from "@/components/nav-link";
@@ -34,7 +33,7 @@ import { useLoading } from "@/contexts/LoadingProvider";
 import { useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { LoadingSpinner } from "@/components/loading-spinner";
 import { User } from "lucide-react";
 
@@ -49,7 +48,7 @@ const navLinks = [
   { to: "/admin/contact-management", label: "Contact Numbers", icon: PhoneOutgoing },
 ];
 
-function AdminSidebar({ adminProfile }: { adminProfile?: {firstName: string; lastName: string; image?: string} | null }) {
+function AdminSidebar({ adminProfile }: { adminProfile?: { firstName: string; lastName: string; image?: string } | null }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { state, isMobile, setOpenMobile } = useSidebar();
@@ -72,8 +71,8 @@ function AdminSidebar({ adminProfile }: { adminProfile?: {firstName: string; las
     <Sidebar>
       <SidebarHeader>
         <div className="flex items-center gap-2">
-            <img src="/shelter_logo.png" alt="Caritas Nigeria Logo" width={40} height={40} />
-            {state === 'expanded' && <h1 className="text-xl font-bold">CARITAS Hopeline Admin</h1>}
+          <img src="/shelter_logo.png" alt="Caritas Nigeria Logo" width={40} height={40} />
+          {state === 'expanded' && <h1 className="text-xl font-bold">CARITAS Hopeline Admin</h1>}
         </div>
       </SidebarHeader>
       <SidebarContent className="p-2">
@@ -93,45 +92,45 @@ function AdminSidebar({ adminProfile }: { adminProfile?: {firstName: string; las
           })}
         </SidebarMenu>
       </SidebarContent>
-       <SidebarContent className="p-2 mt-auto" >
-         {/* Admin Profile Section */}
-         <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-           <div className="text-center">
-             <div className="w-16 h-16 mx-auto mb-2 rounded-full overflow-hidden bg-gray-200">
-               {adminProfile?.image ? (
-                 <img
-                   src={adminProfile.image}
-                   alt="Profile"
-                   className="w-full h-full object-cover"
-                 />
-               ) : (
-                 <div className="w-full h-full flex items-center justify-center text-gray-400">
-                   <User className="w-8 h-8" />
-                 </div>
-               )}
-             </div>
-             <p className="text-sm font-medium text-gray-900">
-               {adminProfile ? `${adminProfile.firstName} ${adminProfile.lastName}`.trim() || 'Admin User' : 'Loading...'}
-             </p>
-           </div>
-         </div>
-         {state === 'expanded' && (
-            <div className="text-center px-2 py-4 space-y-4">
-                <p className="text-xs text-sidebar-foreground/70">Supported By</p>
-                <div className="flex justify-center items-center gap-4">
-                    <img src="/caritas-logo.png" alt="Caritas Nigeria Logo" width={100} height={40} />
-                    <img src="/citi-logo.png" alt="CITI Foundation Logo" width={100} height={40} className="mx-auto" />
+      <SidebarContent className="p-2 mt-auto" >
+        {/* Admin Profile Section */}
+        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+          <div className="text-center">
+            <div className="w-16 h-16 mx-auto mb-2 rounded-full overflow-hidden bg-gray-200">
+              {adminProfile?.image ? (
+                <img
+                  src={adminProfile.image}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                  <User className="w-8 h-8" />
                 </div>
+              )}
             </div>
-         )}
-         <SidebarSeparator />
-         <SidebarMenu>
-            <SidebarMenuItem>
-                 <SidebarMenuButton onClick={handleLogout} tooltip="Logout">
-                    <LogOut />
-                    Logout
-                </SidebarMenuButton>
-            </SidebarMenuItem>
+            <p className="text-sm font-medium text-gray-900">
+              {adminProfile ? `${adminProfile.firstName} ${adminProfile.lastName}`.trim() || 'Admin User' : 'Loading...'}
+            </p>
+          </div>
+        </div>
+        {state === 'expanded' && (
+          <div className="text-center px-2 py-4 space-y-4">
+            <p className="text-xs text-sidebar-foreground/70">Supported By</p>
+            <div className="flex justify-center items-center gap-4">
+              <img src="/caritas-logo.png" alt="Caritas Nigeria Logo" width={100} height={40} />
+              <img src="/citi-logo.png" alt="CITI Foundation Logo" width={100} height={40} className="mx-auto" />
+            </div>
+          </div>
+        )}
+        <SidebarSeparator />
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={handleLogout} tooltip="Logout">
+              <LogOut />
+              Logout
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
     </Sidebar>
@@ -144,8 +143,7 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const [authLoading, setAuthLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [adminProfile, setAdminProfile] = useState<{firstName: string; lastName: string; image?: string} | null>(null);
+  const [adminProfile, setAdminProfile] = useState<{ firstName: string; lastName: string; image?: string } | null>(null);
 
   useEffect(() => {
     setIsLoading(false);
@@ -256,21 +254,21 @@ export default function AdminLayout() {
   return (
     <UserManagementProvider>
       <AdminDataProvider>
-          <SidebarProvider>
-              <AdminSidebar adminProfile={adminProfile} />
-              <SidebarInset>
-                  <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-                      <SidebarTrigger className="-ml-1" />
-                      <div className="flex items-center gap-2">
-                          <img src="/shelter_logo.png" alt="Hopeline Admin Logo" width={32} height={32} />
-                          <h1 className="text-lg font-semibold">Hopeline Admin</h1>
-                      </div>
-                  </header>
-                  <main className="flex flex-1 flex-col gap-4 p-4 sm:px-8 sm:py-6 bg-gray-50/50 dark:bg-gray-900/50 min-h-screen">
-                      <Outlet />
-                  </main>
-              </SidebarInset>
-          </SidebarProvider>
+        <SidebarProvider>
+          <AdminSidebar adminProfile={adminProfile} />
+          <SidebarInset>
+            <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+              <SidebarTrigger className="-ml-1" />
+              <div className="flex items-center gap-2">
+                <img src="/shelter_logo.png" alt="Hopeline Admin Logo" width={32} height={32} />
+                <h1 className="text-lg font-semibold">Hopeline Admin</h1>
+              </div>
+            </header>
+            <main className="flex flex-1 flex-col gap-4 p-4 sm:px-8 sm:py-6 bg-gray-50/50 dark:bg-gray-900/50 min-h-screen">
+              <Outlet />
+            </main>
+          </SidebarInset>
+        </SidebarProvider>
       </AdminDataProvider>
     </UserManagementProvider>
   );

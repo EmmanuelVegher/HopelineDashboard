@@ -1,8 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.translateText = exports.getWeather = exports.sendTaskAssignmentNotification = exports.processapprovedusers = exports.translateNewMessage = void 0;
+exports.generateAgoraToken = exports.translateText = exports.sendSos = exports.getWeather = exports.sendTaskAssignmentNotification = exports.processapprovedusers = exports.translateNewMessage = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const agora_token_1 = require("agora-token");
 // Import flows for side effects (registration)
 // import '../../ai/flows/get-weather-flow';
 // import '../../ai/flows/send-sos-flow';
@@ -338,6 +339,101 @@ function generateShelterImpact(current, forecast) {
     return 'Current weather conditions are favorable for shelter operations. No significant impacts expected.';
 }
 /**
+ * Callable function for sending SOS alerts
+ */
+exports.sendSos = functions.https.onCall(async (data, context) => {
+    // SOS can be sent anonymously, so no auth check required
+    // if (!context.auth) {
+    //   throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    // }
+    const { emergencyType, location, additionalInfo, userId, userEmail } = data;
+    if (!emergencyType || !location || typeof location.latitude !== 'number' || typeof location.longitude !== 'number') {
+        throw new functions.https.HttpsError('invalid-argument', 'emergencyType and valid location are required');
+    }
+    const db = admin.firestore();
+    try {
+        const sosAlertsRef = db.collection('sosAlerts');
+        const docRef = await sosAlertsRef.add({
+            emergencyType,
+            location,
+            additionalInfo: additionalInfo || '',
+            userId: userId || null,
+            userEmail: userEmail || null,
+            status: 'Active',
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+        console.log("SOS Alert saved with ID: ", docRef.id);
+        // Check if this is a displacement-related emergency
+        const DISPLACEMENT_EMERGENCY_TYPES = [
+            'flood', 'earthquake', 'hurricane', 'tornado', 'tsunami',
+            'volcanic eruption', 'war', 'conflict', 'evacuation', 'disaster',
+            'fire', 'landslide', 'mudslide'
+        ];
+        if (DISPLACEMENT_EMERGENCY_TYPES.includes(emergencyType.toLowerCase())) {
+            console.log("Displacement emergency detected, checking for existing displaced person record");
+            // Fetch user data if userId is provided
+            let userData = null;
+            if (userId) {
+                try {
+                    const userDoc = await db.collection('users').doc(userId).get();
+                    if (userDoc.exists) {
+                        userData = userDoc.data();
+                        console.log("User data fetched:", userData);
+                    }
+                }
+                catch (userError) {
+                    console.warn("Could not fetch user data:", userError);
+                }
+            }
+            // Check for existing displaced person record
+            const displacedPersonsRef = db.collection('displacedPersons');
+            let existingQuery = null;
+            if (userId) {
+                existingQuery = displacedPersonsRef.where('userId', '==', userId);
+            }
+            let existingDocs = null;
+            if (existingQuery) {
+                existingDocs = await existingQuery.get();
+            }
+            if (!existingDocs || existingDocs.empty) {
+                if (userId) {
+                    const name = (userData === null || userData === void 0 ? void 0 : userData.displayName) || ((userData === null || userData === void 0 ? void 0 : userData.firstName) && (userData === null || userData === void 0 ? void 0 : userData.lastName))
+                        ? `${userData.firstName} ${userData.lastName}`
+                        : userEmail || 'Unknown Person';
+                    const details = (userData === null || userData === void 0 ? void 0 : userData.email) || userEmail || '';
+                    const displacedPersonData = {
+                        name,
+                        details,
+                        userId,
+                        status: 'Emergency',
+                        currentLocation: location.address || `${location.latitude}, ${location.longitude}`,
+                        destination: '',
+                        vulnerabilities: [],
+                        medicalNeeds: [],
+                        assistanceRequested: additionalInfo || `Displacement emergency: ${emergencyType}`,
+                        priority: 'High Priority',
+                        lastUpdate: new Date().toLocaleString(),
+                    };
+                    await displacedPersonsRef.add(displacedPersonData);
+                    console.log("Displaced person record created");
+                }
+            }
+            else {
+                console.log("Duplicate displaced person record found, skipping creation");
+            }
+            // Update SOS alert to mark as displacement-related
+            await docRef.update({
+                isDisplacementRelated: true
+            });
+        }
+        return { success: true, alertId: docRef.id };
+    }
+    catch (error) {
+        console.error("Error in sendSos function: ", error);
+        throw new functions.https.HttpsError('internal', 'Failed to send SOS alert');
+    }
+});
+/**
  * Callable function for translating text using Google Translate API v2
  */
 exports.translateText = functions.https.onCall(async (data, context) => {
@@ -402,6 +498,35 @@ exports.translateText = functions.https.onCall(async (data, context) => {
     catch (error) {
         console.error('Translation error:', error);
         throw new functions.https.HttpsError('internal', 'Translation failed');
+    }
+});
+/**
+ * Callable function for generating Agora RTC tokens
+ */
+exports.generateAgoraToken = functions.https.onCall(async (data, context) => {
+    // Check if user is authenticated
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+    const { channelName, uid, role = 'publisher' } = data;
+    if (!channelName || uid === undefined) {
+        throw new functions.https.HttpsError('invalid-argument', 'channelName and uid are required');
+    }
+    const appId = '8bb7364b135e43d0b936e3cb53dc69fe';
+    const appCertificate = '611360e6a5164a7188944aa59cc9ad40';
+    // Convert role string to RtcRole enum
+    const rtcRole = role === 'publisher' ? agora_token_1.RtcRole.PUBLISHER : agora_token_1.RtcRole.SUBSCRIBER;
+    const expirationTimeInSeconds = 3600; // 1 hour validity
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+    try {
+        const token = agora_token_1.RtcTokenBuilder.buildTokenWithUserAccount(appId, appCertificate, channelName, uid.toString(), rtcRole, privilegeExpiredTs, 0 // salt
+        );
+        return { token };
+    }
+    catch (error) {
+        console.error('Error generating Agora token:', error);
+        throw new functions.https.HttpsError('internal', 'Failed to generate token');
     }
 });
 //# sourceMappingURL=index.js.map
