@@ -96,10 +96,10 @@ export const DisplacementMap: React.FC<DisplacementMapProps> = ({ data, alerts =
                         return (
                             <foreignObject
                                 key={alert.id}
-                                x={x - 10}
-                                y={y - 10}
-                                width={20}
-                                height={20}
+                                x={x - 20}
+                                y={y - 20}
+                                width={40}
+                                height={40}
                                 className="overflow-visible pointer-events-none z-50"
                             >
                                 <div
@@ -107,11 +107,14 @@ export const DisplacementMap: React.FC<DisplacementMapProps> = ({ data, alerts =
                                     onMouseEnter={() => setHoveredAlert(alert)}
                                     onMouseLeave={() => setHoveredAlert(null)}
                                 >
-                                    {/* Urgent Pulsing Effect */}
-                                    <span className="absolute inline-flex h-full w-full rounded-full bg-red-600 opacity-75 animate-ping duration-1000"></span>
+                                    {/* Outer Radar Wave - Large & Soft */}
+                                    <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-20 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite]"></span>
 
-                                    {/* Core Marker */}
-                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600 border-2 border-white shadow-md"></span>
+                                    {/* Inner Urgent Pulse - Sharp & Fast */}
+                                    <span className="absolute inline-flex h-3/4 w-3/4 rounded-full bg-red-600 opacity-75 animate-ping"></span>
+
+                                    {/* Core Marker - Glowing */}
+                                    <span className="relative inline-flex rounded-full h-4 w-4 bg-red-600 border-2 border-white shadow-[0_0_15px_rgba(220,38,38,1)] z-10"></span>
                                 </div>
                             </foreignObject>
                         );
