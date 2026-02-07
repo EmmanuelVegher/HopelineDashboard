@@ -24,7 +24,7 @@ export const processapprovedusers = functions.pubsub.schedule("every 1 minutes")
   try {
     // Get all user requests that have been approved.
     const snapshot = await pendingUsersRef.where("status", "==", "approved")
-        .get();
+      .get();
 
     if (snapshot.empty) {
       console.log("No approved users to process.");
@@ -33,7 +33,7 @@ export const processapprovedusers = functions.pubsub.schedule("every 1 minutes")
 
     const promises = snapshot.docs.map(async (doc) => {
       const pendingUser = doc.data();
-      const {email, role, language} = pendingUser;
+      const { email, role, language } = pendingUser;
 
       try {
         // 1. Create the user in Firebase Authentication.
@@ -74,11 +74,11 @@ export const processapprovedusers = functions.pubsub.schedule("every 1 minutes")
         console.log(`Successfully processed and deleted request for ${email}`);
       } catch (error) {
         console.error(
-            `Failed to process user ${email} with doc ID ${doc.id}`,
-            error
+          `Failed to process user ${email} with doc ID ${doc.id}`,
+          error
         );
         // Optionally, update the status to "failed" to prevent retries.
-        await doc.ref.update({status: "failed", error: (error as Error).message});
+        await doc.ref.update({ status: "failed", error: (error as Error).message });
       }
     });
 
@@ -209,7 +209,7 @@ export const getWeather = functions.https.onCall(async (data, context) => {
     const forecast = apiData.daily.slice(1, 6).map((day: any, index: number) => {
       const date = new Date(day.dt * 1000);
       const dayName = index === 0 ? 'Tomorrow' :
-                     date.toLocaleDateString('en-US', { weekday: 'short' });
+        date.toLocaleDateString('en-US', { weekday: 'short' });
 
       return {
         day: dayName,
@@ -230,11 +230,6 @@ export const getWeather = functions.https.onCall(async (data, context) => {
       severity: mapSeverity(alert.tags?.[0] || 'Minor'),
       activeUntil: new Date((alert.end || Date.now() / 1000) * 1000).toLocaleTimeString()
     }));
-
-    // Add generated alerts if no real alerts
-    if (alerts.length === 0) {
-      alerts.push(...generateMockAlerts(currentConditions, forecast));
-    }
 
     const weatherData = {
       narrativeSummary,
@@ -337,40 +332,11 @@ function generateNarrativeSummary(current: any, forecast: any[]): string {
   return `${currentDesc} conditions with temperatures around ${currentTemp}.`;
 }
 
-function generateMockAlerts(current: any, forecast: any[]): any[] {
-  const alerts = [];
 
-  // Check for rain in forecast
-  const hasRain = forecast.some(day => ['Rain', 'Drizzle', 'Thunderstorm'].includes(day.description));
-
-  if (hasRain) {
-    alerts.push({
-      title: 'Weather Alert',
-      description: 'Rainfall expected in the coming days. Please stay informed about local weather conditions and prepare accordingly.',
-      area: 'Local Area',
-      severity: 'Moderate' as const,
-      activeUntil: new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleTimeString()
-    });
-  }
-
-  // High temperature alert
-  const highTemp = forecast.some(day => parseInt(day.temp) > 35);
-  if (highTemp) {
-    alerts.push({
-      title: 'Heat Advisory',
-      description: 'High temperatures expected. Stay hydrated and avoid prolonged sun exposure.',
-      area: 'Local Area',
-      severity: 'Minor' as const,
-      activeUntil: new Date(Date.now() + 12 * 60 * 60 * 1000).toLocaleTimeString()
-    });
-  }
-
-  return alerts;
-}
 
 function generateShelterImpact(current: any, forecast: any[]): string {
   const hasSevereWeather = ['Rain', 'Thunderstorm', 'Snow'].includes(current.description) ||
-                          forecast.some(day => ['Rain', 'Thunderstorm', 'Snow'].includes(day.description));
+    forecast.some(day => ['Rain', 'Thunderstorm', 'Snow'].includes(day.description));
 
   if (hasSevereWeather) {
     return 'Weather conditions may impact shelter accessibility. Monitor local alerts and follow safety guidelines.';

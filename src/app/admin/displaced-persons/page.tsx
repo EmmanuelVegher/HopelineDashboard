@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { type DisplacedPerson, type Shelter } from "@/lib/data";
-import { Users, CheckCircle, Heart, AlertTriangle, RefreshCw, Search, Filter, Plane, MapPin, Clock, Phone, Send, Info, BedDouble, Plus, Edit } from "lucide-react";
+import { Users, User, Check, CheckCircle, Heart, AlertTriangle, RefreshCw, Search, Filter, Plane, MapPin, Clock, Phone, Send, Info, BedDouble, Plus, Edit } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { collection, doc, writeBatch, runTransaction, addDoc, updateDoc } from "firebase/firestore";
@@ -21,7 +21,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAdminData } from "@/contexts/AdminDataProvider";
-import DisplacedPersonSurvey from "@/components/displaced-person-survey";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as XLSX from 'xlsx';
 
 const getStatusInfo = (status: string) => {
@@ -47,7 +49,7 @@ const getStatusInfo = (status: string) => {
                 badgeVariant: 'secondary' as const,
                 cardClass: 'border-orange-200 bg-orange-50/50',
                 icon: <Heart className="h-4 w-4 text-orange-600" />,
-                 priority: 'Medium Priority',
+                priority: 'Medium Priority',
                 priorityColor: 'bg-orange-500'
             };
         case 'Emergency':
@@ -59,19 +61,42 @@ const getStatusInfo = (status: string) => {
                 priorityColor: 'bg-red-600'
             };
         case 'Safe':
-        default:
             return {
-                badgeVariant: 'default' as const,
-                cardClass: '',
+                badgeVariant: 'outline' as const,
+                cardClass: 'border-green-200 bg-green-50/20',
                 icon: <CheckCircle className="h-4 w-4 text-green-600" />,
                 priority: 'Low Priority',
                 priorityColor: 'bg-green-500'
+            };
+        case 'Resettled':
+            return {
+                badgeVariant: 'outline' as const,
+                cardClass: 'border-green-300 bg-green-100/30',
+                icon: <CheckCircle className="h-4 w-4 text-green-700" />,
+                priority: 'Low Priority',
+                priorityColor: 'bg-green-600'
+            };
+        case 'Homebound':
+            return {
+                badgeVariant: 'outline' as const,
+                cardClass: 'border-slate-300 bg-slate-100',
+                icon: <RefreshCw className="h-4 w-4 text-slate-600" />,
+                priority: 'Low Priority',
+                priorityColor: 'bg-slate-500'
+            };
+        default:
+            return {
+                badgeVariant: 'outline' as const,
+                cardClass: 'border-gray-200',
+                icon: <Search className="h-4 w-4 text-gray-500" />,
+                priority: 'Low Priority',
+                priorityColor: 'bg-gray-500'
             };
     }
 };
 
 const getPriorityColor = (priority: string) => {
-    switch(priority) {
+    switch (priority) {
         case 'High Priority': return 'bg-red-600 text-white';
         case 'Medium Priority': return 'bg-yellow-500 text-white';
         case 'Low Priority': return 'bg-green-500 text-white';
@@ -81,6 +106,7 @@ const getPriorityColor = (priority: string) => {
 
 const initialPersonState: Partial<DisplacedPerson> = {
     name: '',
+    phone: '',
     details: '',
     status: 'Needs Assistance',
     currentLocation: '',
@@ -90,12 +116,40 @@ const initialPersonState: Partial<DisplacedPerson> = {
     assistanceRequested: '',
     priority: 'Medium Priority',
     lastUpdate: new Date().toLocaleString(),
+    // New fields
+    householdLocationType: 'Host community',
+    shelterCondition: 'Partially damaged',
+    displacementCause: '',
+    stayingLocation: 'Host community',
+    householdComposition: {
+        total: 1,
+        adults: 1,
+        children: 0,
+        elderly: 0,
+        pwds: 0
+    },
+    isShelterSafe: true,
+    weatherProtection: [],
+    urgentShelterProblem: 'Leakage',
+    receivedAssistance: false,
+    assistanceNeeded: 'Emergency shelter'
 };
 
-function PersonForm({ person, onSave, onCancel }: { person?: DisplacedPerson | null, onSave: () => void, onCancel: () => void }) {
+function PersonForm({ person, existingPersons = [], onSave, onCancel, onSwitchToEdit }: { person?: DisplacedPerson | null, existingPersons?: DisplacedPerson[], onSave: () => void, onCancel: () => void, onSwitchToEdit?: (person: DisplacedPerson) => void }) {
     const [formData, setFormData] = useState<Partial<DisplacedPerson>>(initialPersonState);
     const [loading, setLoading] = useState(false);
+    const [userSearch, setUserSearch] = useState('');
+    const [nameSuggestions, setNameSuggestions] = useState<DisplacedPerson[]>([]);
+    const [phoneDuplicate, setPhoneDuplicate] = useState<DisplacedPerson | null>(null);
     const { toast } = useToast();
+    const { users } = useAdminData();
+
+    const matchingUsers = userSearch.length > 1
+        ? users?.filter(u =>
+            u.displayName?.toLowerCase().includes(userSearch.toLowerCase()) ||
+            u.email?.toLowerCase().includes(userSearch.toLowerCase())
+        ).slice(0, 5) || []
+        : [];
 
     useEffect(() => {
         if (person) {
@@ -103,11 +157,60 @@ function PersonForm({ person, onSave, onCancel }: { person?: DisplacedPerson | n
         } else {
             setFormData(initialPersonState);
         }
+        // Reset warnings/suggestions when mode changes
+        setNameSuggestions([]);
+        setPhoneDuplicate(null);
     }, [person]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+
+        if (name === 'name' && value.length > 2) {
+            const matches = existingPersons.filter(p =>
+                p.name.toLowerCase().includes(value.toLowerCase()) && p.id !== person?.id
+            ).slice(0, 5);
+            setNameSuggestions(matches);
+        } else if (name === 'name') {
+            setNameSuggestions([]);
+        }
+
+        if (name === 'phone' && value.length > 5) {
+            const duplicate = existingPersons.find(p =>
+                p.phone === value && p.id !== person?.id
+            );
+            setPhoneDuplicate(duplicate || null);
+        } else if (name === 'phone') {
+            setPhoneDuplicate(null);
+        }
+    };
+
+    const handleUseExisting = () => {
+        if (phoneDuplicate && onSwitchToEdit) {
+            onSwitchToEdit(phoneDuplicate);
+        }
+    };
+
+    const handleCompositionChange = (field: keyof NonNullable<DisplacedPerson['householdComposition']>, value: string) => {
+        const numValue = parseInt(value) || 0;
+        setFormData(prev => ({
+            ...prev,
+            householdComposition: {
+                ...(prev.householdComposition || initialPersonState.householdComposition!),
+                [field]: numValue
+            }
+        }));
+    };
+
+    const handleWeatherToggle = (condition: string) => {
+        setFormData(prev => {
+            const current = prev.weatherProtection || [];
+            if (current.includes(condition)) {
+                return { ...prev, weatherProtection: current.filter(c => c !== condition) };
+            } else {
+                return { ...prev, weatherProtection: [...current, condition] };
+            }
+        });
     };
 
     const handleArrayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -130,12 +233,10 @@ function PersonForm({ person, onSave, onCancel }: { person?: DisplacedPerson | n
 
         try {
             if (person?.id) {
-                // Update existing person
                 const personRef = doc(db, "displacedPersons", person.id);
                 await updateDoc(personRef, dataToSave);
                 toast({ title: "Success", description: "Person updated successfully." });
             } else {
-                // Create new person
                 await addDoc(collection(db, "displacedPersons"), dataToSave);
                 toast({ title: "Success", description: "Person added successfully." });
             }
@@ -149,71 +250,306 @@ function PersonForm({ person, onSave, onCancel }: { person?: DisplacedPerson | n
     }
 
     return (
-         <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 max-h-[70vh] overflow-y-auto pr-2 sm:pr-4">
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                 <div className="space-y-2">
-                     <Label htmlFor="name">Full Name</Label>
-                     <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
-                 </div>
-                 <div className="space-y-2">
-                     <Label htmlFor="details">Identifying Details</Label>
-                     <Input id="details" name="details" value={formData.details} onChange={handleChange} placeholder="e.g., Age 45, Male" />
-                 </div>
-             </div>
-               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                   <div className="space-y-2">
-                      <Label htmlFor="status">Current Status</Label>
-                      <Select value={formData.status} onValueChange={(value) => handleSelectChange('status', value)}>
-                          <SelectTrigger id="status"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                              <SelectItem value="Needs Assistance">Needs Assistance</SelectItem>
-                              <SelectItem value="Moving to Shelter">Moving to Shelter</SelectItem>
-                              <SelectItem value="Emergency">Emergency</SelectItem>
-                              <SelectItem value="Safe">Safe</SelectItem>
-                          </SelectContent>
-                      </Select>
-                  </div>
-                   <div className="space-y-2">
-                      <Label htmlFor="priority">Priority Level</Label>
-                      <Select value={formData.priority} onValueChange={(value) => handleSelectChange('priority', value)}>
-                          <SelectTrigger id="priority"><SelectValue/></SelectTrigger>
-                          <SelectContent>
-                              <SelectItem value="Low Priority">Low Priority</SelectItem>
-                              <SelectItem value="Medium Priority">Medium Priority</SelectItem>
-                              <SelectItem value="High Priority">High Priority</SelectItem>
-                          </SelectContent>
-                      </Select>
-                  </div>
-              </div>
+        <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-4">
+            <Tabs defaultValue="basic" className="w-full">
+                <TabsList className="grid w-full grid-cols-3 mb-4">
+                    <TabsTrigger value="basic">Basic Info</TabsTrigger>
+                    <TabsTrigger value="assessment">Assessment</TabsTrigger>
+                    <TabsTrigger value="needs">shelter Needs</TabsTrigger>
+                </TabsList>
 
-            <div className="space-y-2">
-                <Label htmlFor="currentLocation">Current Location</Label>
-                <Input id="currentLocation" name="currentLocation" value={formData.currentLocation} onChange={handleChange} required />
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="destination">Destination (Optional)</Label>
-                <Input id="destination" name="destination" value={formData.destination} onChange={handleChange} />
-            </div>
+                <TabsContent value="basic" className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2 relative">
+                            <Label htmlFor="name">Full Name of Household Head</Label>
+                            <Input id="name" name="name" value={formData.name} onChange={handleChange} required placeholder="As per valid ID" autoComplete="off" />
+                            {nameSuggestions.length > 0 && (
+                                <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-40 overflow-y-auto">
+                                    <div className="p-2 text-xs font-semibold text-muted-foreground bg-slate-50 border-b">
+                                        Potential Matches Found:
+                                    </div>
+                                    {nameSuggestions.map(s => (
+                                        <div
+                                            key={s.id}
+                                            className="p-2 hover:bg-slate-50 cursor-pointer text-sm border-b last:border-0"
+                                            onClick={() => {
+                                                if (onSwitchToEdit) onSwitchToEdit(s);
+                                            }}
+                                        >
+                                            <span className="font-medium">{s.name}</span>
+                                            <span className="text-xs text-muted-foreground ml-2">({s.currentLocation})</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="phone">Phone Number / Contact</Label>
+                            <Input id="phone" name="phone" value={formData.phone} onChange={handleChange} required placeholder="Beneficiary or focal person" />
+                            {phoneDuplicate && (
+                                <Alert variant="destructive" className="mt-2 text-xs py-2">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    <AlertTitle className="text-xs font-semibold">Duplicate Phone Number</AlertTitle>
+                                    <AlertDescription className="mt-1">
+                                        <p>This number matches <strong>{phoneDuplicate.name}</strong> ({phoneDuplicate.currentLocation}).</p>
+                                        <div className="flex gap-2 mt-2">
+                                            <Button type="button" variant="secondary" size="sm" className="h-6 text-[10px]" onClick={handleUseExisting}>
+                                                Use Existing Record
+                                            </Button>
+                                            <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] bg-red-50 border-red-200 text-red-700 hover:bg-red-100" onClick={() => setPhoneDuplicate(null)}>
+                                                Flag & Continue
+                                            </Button>
+                                        </div>
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+                        </div>
+                    </div>
 
-            <div className="space-y-2">
-                <Label htmlFor="vulnerabilities">Vulnerabilities (comma-separated)</Label>
-                <Input id="vulnerabilities" name="vulnerabilities" value={formData.vulnerabilities?.join(', ')} onChange={handleArrayChange} placeholder="e.g., Elderly, Child, Pregnant" />
-            </div>
-             <div className="space-y-2">
-                <Label htmlFor="medicalNeeds">Medical Needs (comma-separated)</Label>
-                <Input id="medicalNeeds" name="medicalNeeds" value={formData.medicalNeeds?.join(', ')} onChange={handleArrayChange} placeholder="e.g., Insulin, Asthma Inhaler" />
-            </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="currentLocation">Current City/Village</Label>
+                            <Input id="currentLocation" name="currentLocation" value={formData.currentLocation} onChange={handleChange} required />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="details">Other Identifying Details</Label>
+                            <Input id="details" name="details" value={formData.details} onChange={handleChange} placeholder="e.g., Age 45, Male" />
+                        </div>
+                    </div>
 
-             <div className="space-y-2">
-                <Label htmlFor="assistanceRequested">Assistance Requested</Label>
-                <Textarea id="assistanceRequested" name="assistanceRequested" value={formData.assistanceRequested} onChange={handleChange} placeholder="Describe the specific help needed..."/>
-            </div>
+                    <div className="space-y-2">
+                        <Label>Current Location Type</Label>
+                        <RadioGroup
+                            value={formData.householdLocationType}
+                            onValueChange={(v) => handleSelectChange('householdLocationType', v)}
+                            className="flex flex-wrap gap-4"
+                        >
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="Host community" id="loc-host" />
+                                <Label htmlFor="loc-host">Host community</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="IDP camp" id="loc-idp" />
+                                <Label htmlFor="loc-idp">IDP camp</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="Refugee" id="loc-refugee" />
+                                <Label htmlFor="loc-refugee">Refugee</Label>
+                            </div>
+                        </RadioGroup>
+                    </div>
 
-            <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0">
-                <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">Cancel</Button>
-                <Button type="submit" disabled={loading} className="w-full sm:w-auto">{loading ? 'Saving...' : 'Save Record'}</Button>
+                    <div className="space-y-4 border rounded-lg p-4 bg-slate-50">
+                        <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-blue-600" />
+                            <h3 className="font-semibold text-sm">Link User Account</h3>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Link this record to an existing app user to share status updates.</p>
+                        <div className="relative">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Contact email or name..."
+                                className="pl-9 h-9"
+                                value={userSearch}
+                                onChange={(e) => setUserSearch(e.target.value)}
+                            />
+                            {userSearch && matchingUsers.length > 0 && (
+                                <ScrollArea className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-40">
+                                    {matchingUsers.map(u => (
+                                        <div
+                                            key={u.id}
+                                            className="p-2 hover:bg-slate-100 cursor-pointer flex items-center justify-between"
+                                            onClick={() => {
+                                                setFormData(prev => ({ ...prev, userId: u.id, name: u.displayName || prev.name }));
+                                                setUserSearch('');
+                                            }}
+                                        >
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-sm font-medium truncate">{u.displayName}</p>
+                                                <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                                            </div>
+                                            {formData.userId === u.id && <Check className="h-4 w-4 text-green-600" />}
+                                        </div>
+                                    ))}
+                                </ScrollArea>
+                            )}
+                        </div>
+                        {formData.userId && (
+                            <div className="flex items-center justify-between bg-blue-50 p-2 rounded border border-blue-100">
+                                <div className="flex items-center gap-2">
+                                    <CheckCircle className="h-4 w-4 text-blue-600" />
+                                    <p className="text-xs font-medium">Linked to: {users?.find(u => u.id === formData.userId)?.displayName}</p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    onClick={() => handleSelectChange('userId', '')}
+                                >
+                                    Unlink
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="assessment" className="space-y-4">
+                    <div className="space-y-2">
+                        <Label>Where is your household currently staying?</Label>
+                        <Select value={formData.stayingLocation} onValueChange={(v) => handleSelectChange('stayingLocation', v)}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Host community">Host community</SelectItem>
+                                <SelectItem value="IDP camp">IDP camp</SelectItem>
+                                <SelectItem value="Open space">Open space</SelectItem>
+                                <SelectItem value="Abandoned structure">Abandoned structure</SelectItem>
+                                <SelectItem value="Others">Others</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Current Shelter Condition</Label>
+                        <Select value={formData.shelterCondition} onValueChange={(v) => handleSelectChange('shelterCondition', v)}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Destroyed">Destroyed</SelectItem>
+                                <SelectItem value="Partially damaged">Partially damaged</SelectItem>
+                                <SelectItem value="Overcrowded">Overcrowded</SelectItem>
+                                <SelectItem value="No shelter">No shelter</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="displacementCause">What caused the damage/displacement?</Label>
+                        <Textarea id="displacementCause" name="displacementCause" value={formData.displacementCause} onChange={handleChange} placeholder="e.g. Flooding, Conflict..." />
+                    </div>
+
+                    <div className="space-y-3">
+                        <Label>Household Composition (Disaggregate)</Label>
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                            <div className="space-y-1">
+                                <Label className="text-[10px] uppercase">Total</Label>
+                                <Input type="number" min="1" value={formData.householdComposition?.total} onChange={(e) => handleCompositionChange('total', e.target.value)} />
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-[10px] uppercase">Adults</Label>
+                                <Input type="number" min="0" value={formData.householdComposition?.adults} onChange={(e) => handleCompositionChange('adults', e.target.value)} />
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-[10px] uppercase">Children</Label>
+                                <Input type="number" min="0" value={formData.householdComposition?.children} onChange={(e) => handleCompositionChange('children', e.target.value)} />
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-[10px] uppercase">Elderly</Label>
+                                <Input type="number" min="0" value={formData.householdComposition?.elderly} onChange={(e) => handleCompositionChange('elderly', e.target.value)} />
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-[10px] uppercase">PWDs</Label>
+                                <Input type="number" min="0" value={formData.householdComposition?.pwds} onChange={(e) => handleCompositionChange('pwds', e.target.value)} />
+                            </div>
+                        </div>
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="needs" className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="flex items-center justify-between p-3 border rounded-lg bg-slate-50">
+                            <div className="space-y-0.5">
+                                <Label>Is shelter safe/secure?</Label>
+                                <p className="text-[10px] text-muted-foreground">Is the structure secure?</p>
+                            </div>
+                            <Switch checked={formData.isShelterSafe} onCheckedChange={(checked) => handleSelectChange('isShelterSafe', checked as any)} />
+                        </div>
+                        <div className="flex items-center justify-between p-3 border rounded-lg bg-slate-50">
+                            <div className="space-y-0.5">
+                                <Label>Received assistance?</Label>
+                                <p className="text-[10px] text-muted-foreground">Previous shelter aid?</p>
+                            </div>
+                            <Switch checked={formData.receivedAssistance} onCheckedChange={(checked) => handleSelectChange('receivedAssistance', checked as any)} />
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Weather Protection Issues (Select all that apply)</Label>
+                        <div className="flex flex-wrap gap-2 text-[11px]">
+                            {['Rain', 'Wind', 'Heat', 'Cold'].map(cond => (
+                                <Button
+                                    key={cond} type="button"
+                                    variant={formData.weatherProtection?.includes(cond) ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => handleWeatherToggle(cond)}
+                                    className="h-8"
+                                >
+                                    {cond}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Most Urgent Shelter Problem</Label>
+                        <Select value={formData.urgentShelterProblem} onValueChange={(v) => handleSelectChange('urgentShelterProblem', v)}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Leakage">Leakage</SelectItem>
+                                <SelectItem value="Overcrowding">Overcrowding</SelectItem>
+                                <SelectItem value="Lack of privacy">Lack of privacy</SelectItem>
+                                <SelectItem value="Unsafe structure">Unsafe structure</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Assistance Needed Most Urgently</Label>
+                        <Select value={formData.assistanceNeeded} onValueChange={(v) => handleSelectChange('assistanceNeeded', v)}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Emergency shelter">Emergency shelter</SelectItem>
+                                <SelectItem value="Repairs">Repairs</SelectItem>
+                                <SelectItem value="Relocation">Relocation</SelectItem>
+                                <SelectItem value="Transitional shelter">Transitional shelter</SelectItem>
+                                <SelectItem value="NFIs">NFIs (Non-Food Items)</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label>Admin Status</Label>
+                            <Select value={formData.status} onValueChange={(value) => handleSelectChange('status', value)}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Needs Assistance">Needs Assistance</SelectItem>
+                                    <SelectItem value="Eligible for Shelter">Eligible</SelectItem>
+                                    <SelectItem value="Moving to Shelter">En Route</SelectItem>
+                                    <SelectItem value="Emergency">Emergency</SelectItem>
+                                    <SelectItem value="Safe">Safe / Assigned</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Admin Priority</Label>
+                            <Select value={formData.priority} onValueChange={(value) => handleSelectChange('priority', value)}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Low Priority">Low</SelectItem>
+                                    <SelectItem value="Medium Priority">Medium</SelectItem>
+                                    <SelectItem value="High Priority">High</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                </TabsContent>
+            </Tabs>
+
+            <DialogFooter className="pt-4 border-t sticky bottom-0 bg-white">
+                <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+                <Button type="submit" disabled={loading}>{loading ? 'Saving...' : 'Save Person Record'}</Button>
             </DialogFooter>
-        </form>
+        </form >
     );
 }
 
@@ -223,21 +559,18 @@ function AssignShelterDialog({ person, allShelters, isOpen, onOpenChange, onAssi
     const [selectedState, setSelectedState] = useState('');
     const [selectedShelter, setSelectedShelter] = useState<string>('');
     const [bedNumber, setBedNumber] = useState('');
-    const [mattress, setMattress] = useState(false);
-    const [foodPack, setFoodPack] = useState(false);
-    const [hygieneKit, setHygieneKit] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const { toast } = useToast();
 
     useEffect(() => {
         if (isOpen && allShelters.length > 0) {
-             const states = [...new Set(allShelters.map(s => {
+            const states = [...new Set(allShelters.map(s => {
                 const parts = s.location?.split(',').map(p => p.trim());
                 return parts?.length > 1 ? parts[1] : parts?.[0]; // Get state, or city if no state
             }).filter(Boolean as any))];
             setAvailableStates(states.sort());
         } else if (!isOpen) {
-             // Reset state when dialog closes
+            // Reset state when dialog closes
             setSelectedState('');
             setSelectedShelter('');
             setFilteredShelters([]);
@@ -249,7 +582,7 @@ function AssignShelterDialog({ person, allShelters, isOpen, onOpenChange, onAssi
         if (selectedState) {
             const sheltersInState = (allShelters || [])
                 .filter(s => s.location.includes(selectedState))
-                .sort((a,b) => b.availableCapacity - a.availableCapacity);
+                .sort((a, b) => b.availableCapacity - a.availableCapacity);
             setFilteredShelters(sheltersInState);
         } else {
             setFilteredShelters([]);
@@ -282,11 +615,17 @@ function AssignShelterDialog({ person, allShelters, isOpen, onOpenChange, onAssi
                 transaction.update(shelterRef, {
                     availableCapacity: shelterDoc.data().availableCapacity - 1
                 });
-                
+
                 transaction.update(personRef, {
                     status: 'Safe',
                     assignedShelterId: selectedShelter,
-                    allocatedResources: { bedNumber, mattress, foodPack, hygieneKit }
+                    allocatedResources: { bedNumber },
+                    activityLog: [...(person.activityLog || []), {
+                        date: new Date().toLocaleString(),
+                        action: `Assigned to Shelter: ${shelterDoc.data().name}`,
+                        performedBy: "Administrator",
+                        notes: bedNumber ? `Space/Bed: ${bedNumber}` : undefined
+                    }]
                 });
             });
 
@@ -299,20 +638,20 @@ function AssignShelterDialog({ person, allShelters, isOpen, onOpenChange, onAssi
             setSubmitting(false);
         }
     };
-    
+
     if (!person) return null;
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Assign Shelter for {person.name}</DialogTitle>
-                    <DialogDescription>Allocate a shelter and necessary resources for the individual.</DialogDescription>
+                    <DialogTitle>Assign Transit Space for {person.name}</DialogTitle>
+                    <DialogDescription>Allocate a transit space for the individual. Amenities like bedding and food are provided by external partners.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                     <div className="space-y-2">
+                    <div className="space-y-2">
                         <Label htmlFor="state">Filter by State</Label>
-                         <Select value={selectedState} onValueChange={setSelectedState}>
+                        <Select value={selectedState} onValueChange={setSelectedState}>
                             <SelectTrigger id="state">
                                 <SelectValue placeholder="Choose a state" />
                             </SelectTrigger>
@@ -327,7 +666,7 @@ function AssignShelterDialog({ person, allShelters, isOpen, onOpenChange, onAssi
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="shelter">Select Shelter</Label>
-                         <Select value={selectedShelter} onValueChange={setSelectedShelter} disabled={!selectedState}>
+                        <Select value={selectedShelter} onValueChange={setSelectedShelter} disabled={!selectedState}>
                             <SelectTrigger id="shelter">
                                 <SelectValue placeholder={!selectedState ? "Please select a state first" : "Choose a shelter"} />
                             </SelectTrigger>
@@ -340,28 +679,11 @@ function AssignShelterDialog({ person, allShelters, isOpen, onOpenChange, onAssi
                             </SelectContent>
                         </Select>
                     </div>
-                     {selectedShelter && (
+                    {selectedShelter && (
                         <>
                             <div className="space-y-2">
-                                <Label htmlFor="bed-number">Bed / Space Number</Label>
-                                <Input id="bed-number" value={bedNumber} onChange={e => setBedNumber(e.target.value)} placeholder="e.g., B-12" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Allocate Resources</Label>
-                                <div className="flex flex-col gap-2">
-                                    <div className="flex items-center space-x-2">
-                                        <Checkbox id="mattress" checked={mattress} onCheckedChange={checked => setMattress(!!checked)} />
-                                        <label htmlFor="mattress" className="text-sm font-medium">Mattress</label>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                        <Checkbox id="food-pack" checked={foodPack} onCheckedChange={checked => setFoodPack(!!checked)} />
-                                        <label htmlFor="food-pack" className="text-sm font-medium">Food Pack</label>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                        <Checkbox id="hygiene-kit" checked={hygieneKit} onCheckedChange={checked => setHygieneKit(!!checked)} />
-                                        <label htmlFor="hygiene-kit" className="text-sm font-medium">Hygiene Kit</label>
-                                    </div>
-                                </div>
+                                <Label htmlFor="bed-number">Room / Space Number</Label>
+                                <Input id="bed-number" value={bedNumber} onChange={e => setBedNumber(e.target.value)} placeholder="e.g., Room 101 or Space B-12" />
                             </div>
                         </>
                     )}
@@ -377,12 +699,75 @@ function AssignShelterDialog({ person, allShelters, isOpen, onOpenChange, onAssi
     )
 }
 
+function LogActivityDialog({ person, isOpen, onOpenChange, onLog }: { person: DisplacedPerson | null, isOpen: boolean, onOpenChange: (open: boolean) => void, onLog: (action: string, notes: string) => void }) {
+    const [action, setAction] = useState('General Assistance');
+    const [notes, setNotes] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+
+    const handleSubmit = async () => {
+        if (!action) return;
+        setSubmitting(true);
+        try {
+            await onLog(person!.id, action, notes);
+            setNotes('');
+            onOpenChange(false);
+        } finally {
+            setSubmitting(false);
+        }
+    }
+
+    if (!person) return null;
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Log Activity for {person.name}</DialogTitle>
+                    <DialogDescription>Add a record of assistance or movement for this individual.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label>Type of Activity</Label>
+                        <Select value={action} onValueChange={setAction}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Food Pack Delivered">Food Pack Delivered</SelectItem>
+                                <SelectItem value="Medical Checkup">Medical Checkup</SelectItem>
+                                <SelectItem value="Clothing/NFIs Provided">Clothing/NFIs Provided</SelectItem>
+                                <SelectItem value="Counseling Session">Counseling Session</SelectItem>
+                                <SelectItem value="Communication with Family">Communication with Family</SelectItem>
+                                <SelectItem value="Protection Screening">Protection Screening</SelectItem>
+                                <SelectItem value="General Assistance">General Assistance</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Notes / Details (Optional)</Label>
+                        <Textarea
+                            placeholder="Enter specific details about the assistance provided..."
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            className="min-h-[100px]"
+                        />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button onClick={handleSubmit} disabled={submitting || !action}>
+                        {submitting ? 'Logging...' : 'Log Activity'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 export default function DisplacedPersonsPage() {
     const { persons: displacedPersons, shelters, loading, permissionError, fetchData } = useAdminData();
     const [selectedPerson, setSelectedPerson] = useState<DisplacedPerson | null>(null);
     const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+    const [isLogDialogOpen, setIsLogDialogOpen] = useState(false);
     const [isFormOpen, setIsFormOpen] = useState(false);
-    const [isSurveyOpen, setIsSurveyOpen] = useState(false);
     const [isExcelPreviewOpen, setIsExcelPreviewOpen] = useState(false);
     const [excelImportData, setExcelImportData] = useState<any[]>([]);
     const [excelImportErrors, setExcelImportErrors] = useState<string[]>([]);
@@ -393,23 +778,13 @@ export default function DisplacedPersonsPage() {
         setSelectedPerson(person);
         setIsAssignDialogOpen(true);
     };
-    
+
     const handleAssignmentComplete = () => {
         setIsAssignDialogOpen(false);
         setSelectedPerson(null);
         fetchData(); // Refresh the list
     }
 
-    const handleOpenBeneficiaryForm = () => {
-        setSelectedPerson(null); // No specific person selected for new registration
-        setIsSurveyOpen(true);
-    }
-
-    const handleSurveyComplete = () => {
-        setIsSurveyOpen(false);
-        setSelectedPerson(null);
-        fetchData(); // Refresh the list to show newly eligible persons
-    }
 
     const handleExcelImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -553,7 +928,7 @@ export default function DisplacedPersonsPage() {
                         medicalNeeds: [],
                         assistanceRequested: 'Imported from Excel survey',
                         priority: row.rcsi_category === 'High coping' ? 'High Priority' :
-                                 row.rcsi_category === 'Medium coping' ? 'Medium Priority' : 'Low Priority',
+                            row.rcsi_category === 'Medium coping' ? 'Medium Priority' : 'Low Priority',
                         lastUpdate: new Date().toLocaleString()
                     };
 
@@ -595,7 +970,7 @@ export default function DisplacedPersonsPage() {
             setImportingExcel(false);
         }
     };
-    
+
     const handleAddNew = () => {
         setSelectedPerson(null);
         setIsFormOpen(true);
@@ -611,7 +986,7 @@ export default function DisplacedPersonsPage() {
         setSelectedPerson(null);
         fetchData();
     }
-    
+
     const handleCancel = () => {
         setIsFormOpen(false);
         setSelectedPerson(null);
@@ -623,6 +998,58 @@ export default function DisplacedPersonsPage() {
             description: `Opening email client to contact ${person.name}.`,
         });
         window.location.href = `mailto:?subject=Message for ${person.name}&body=We are from the response team. Please reply to this message.`;
+    };
+
+    const handleLogActivity = async (personId: string, action: string, notes?: string) => {
+        const person = displacedPersons?.find(p => p.id === personId);
+        if (!person) return;
+
+        const newActivity = {
+            date: new Date().toLocaleString(),
+            action,
+            performedBy: "Administrator",
+            notes
+        };
+
+        const updatedLog = [...(person.activityLog || []), newActivity];
+
+        try {
+            await updateDoc(doc(db, "displacedPersons", personId), {
+                activityLog: updatedLog,
+                lastUpdate: new Date().toLocaleString()
+            });
+            toast({ title: "Activity Logged", description: action });
+            fetchData();
+        } catch (error) {
+            console.error("Error logging activity:", error);
+            toast({ title: "Error", description: "Failed to log activity", variant: "destructive" });
+        }
+    };
+
+    const handleUpdateStatus = async (personId: string, newStatus: DisplacedPerson['status']) => {
+        const person = displacedPersons?.find(p => p.id === personId);
+        if (!person) return;
+
+        const newActivity = {
+            date: new Date().toLocaleString(),
+            action: `Status changed to ${newStatus}`,
+            performedBy: "Administrator"
+        };
+
+        const updatedLog = [...(person.activityLog || []), newActivity];
+
+        try {
+            await updateDoc(doc(db, "displacedPersons", personId), {
+                status: newStatus,
+                activityLog: updatedLog,
+                lastUpdate: new Date().toLocaleString()
+            });
+            toast({ title: "Status Updated", description: `Person marked as ${newStatus}` });
+            fetchData();
+        } catch (error) {
+            console.error("Error updating status:", error);
+            toast({ title: "Error", description: "Failed to update status", variant: "destructive" });
+        }
     };
 
     const handleTrack = (location: string) => {
@@ -638,7 +1065,7 @@ export default function DisplacedPersonsPage() {
 
     return (
         <div className="space-y-6">
-             <Dialog open={isFormOpen} onOpenChange={(isOpen) => { if (!isOpen) handleCancel(); else setIsFormOpen(true);}}>
+            <Dialog open={isFormOpen} onOpenChange={(isOpen) => { if (!isOpen) handleCancel(); else setIsFormOpen(true); }}>
                 <DialogContent className="sm:max-w-xl">
                     <DialogHeader>
                         <DialogTitle>{selectedPerson ? "Edit Person Details" : "Add New Displaced Person"}</DialogTitle>
@@ -646,23 +1073,29 @@ export default function DisplacedPersonsPage() {
                             {selectedPerson ? "Update the information for this individual." : "Fill in the details for the new person."}
                         </DialogDescription>
                     </DialogHeader>
-                    <PersonForm person={selectedPerson} onSave={handleSave} onCancel={handleCancel} />
+                    <PersonForm
+                        person={selectedPerson}
+                        existingPersons={displacedPersons || []}
+                        onSave={handleSave}
+                        onCancel={handleCancel}
+                        onSwitchToEdit={handleEdit}
+                    />
                 </DialogContent>
             </Dialog>
             <AssignShelterDialog
                 person={selectedPerson}
                 allShelters={shelters || []}
                 isOpen={isAssignDialogOpen}
-                onOpenChange={(isOpen) => { if(!isOpen) setSelectedPerson(null); setIsAssignDialogOpen(isOpen);}}
+                onOpenChange={(isOpen) => { if (!isOpen) setSelectedPerson(null); setIsAssignDialogOpen(isOpen); }}
                 onAssign={handleAssignmentComplete}
             />
-
-            <DisplacedPersonSurvey
+            <LogActivityDialog
                 person={selectedPerson}
-                isOpen={isSurveyOpen}
-                onOpenChange={setIsSurveyOpen}
-                onComplete={handleSurveyComplete}
+                isOpen={isLogDialogOpen}
+                onOpenChange={(isOpen) => { if (!isOpen) setSelectedPerson(null); setIsLogDialogOpen(isOpen); }}
+                onLog={handleLogActivity}
             />
+
 
             <Dialog open={isExcelPreviewOpen} onOpenChange={setIsExcelPreviewOpen}>
                 <DialogContent className="max-w-7xl max-h-[90vh]">
@@ -761,40 +1194,37 @@ export default function DisplacedPersonsPage() {
             </Dialog>
 
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                  <div>
-                     <h1 className="text-2xl sm:text-3xl font-bold">Displaced Persons Monitoring</h1>
-                     <p className="text-muted-foreground text-sm sm:text-base">Real-time tracking and assistance coordination for displaced individuals</p>
-                 </div>
-                 <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
-                     <Button variant="outline" onClick={fetchData} disabled={loading} className="w-full sm:w-auto"><RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")}/>Refresh</Button>
-                     <Button onClick={handleAddNew} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4"/>Add Person</Button>
-                     <Button onClick={handleOpenBeneficiaryForm} variant="default" className="bg-green-600 hover:bg-green-700 w-full sm:w-auto">
-                         <Plus className="mr-2 h-4 w-4"/>Beneficiary Registration Form
-                     </Button>
-                     <div className="relative">
-                         <Input
-                             id="excel-import-main"
-                             type="file"
-                             accept=".xlsx,.xls"
-                             onChange={handleExcelImport}
-                             disabled={importingExcel}
-                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                         />
-                         <Button variant="outline" disabled={importingExcel} className="pointer-events-none w-full sm:w-auto">
-                             {importingExcel ? (
-                                 <>
-                                     <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                                     Importing...
-                                 </>
-                             ) : (
-                                 <>
-                                     <Send className="mr-2 h-4 w-4" />
-                                     Import Excel Data
-                                 </>
-                             )}
-                         </Button>
-                     </div>
-                 </div>
+                <div>
+                    <h1 className="text-2xl sm:text-3xl font-bold">Displaced Persons Monitoring</h1>
+                    <p className="text-muted-foreground text-sm sm:text-base">Real-time tracking and assistance coordination for displaced individuals</p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
+                    <Button variant="outline" onClick={fetchData} disabled={loading} className="w-full sm:w-auto"><RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />Refresh</Button>
+                    <Button onClick={handleAddNew} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" />Add Person</Button>
+                    <div className="relative">
+                        <Input
+                            id="excel-import-main"
+                            type="file"
+                            accept=".xlsx,.xls"
+                            onChange={handleExcelImport}
+                            disabled={importingExcel}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                        <Button variant="outline" disabled={importingExcel} className="pointer-events-none w-full sm:w-auto">
+                            {importingExcel ? (
+                                <>
+                                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                    Importing...
+                                </>
+                            ) : (
+                                <>
+                                    <Send className="mr-2 h-4 w-4" />
+                                    Import Excel Data
+                                </>
+                            )}
+                        </Button>
+                    </div>
+                </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-5 gap-1 sm:gap-4">
@@ -812,7 +1242,7 @@ export default function DisplacedPersonsPage() {
                         <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-green-500" />
                         <div>
                             <p className="text-xs sm:text-sm text-muted-foreground">Safe</p>
-                              {loading ? <Skeleton className="h-6 sm:h-7 w-8 sm:w-10 mt-1" /> : <p className="text-xl sm:text-2xl font-bold">{safeCount}</p>}
+                            {loading ? <Skeleton className="h-6 sm:h-7 w-8 sm:w-10 mt-1" /> : <p className="text-xl sm:text-2xl font-bold">{safeCount}</p>}
                         </div>
                     </CardContent>
                 </Card>
@@ -825,7 +1255,7 @@ export default function DisplacedPersonsPage() {
                         </div>
                     </CardContent>
                 </Card>
-                  <Card className="max-w-[90vw] sm:max-w-full">
+                <Card className="max-w-[90vw] sm:max-w-full">
                     <CardContent className="p-2 sm:p-4 flex items-center gap-2 sm:gap-4">
                         <Heart className="h-5 w-5 sm:h-6 sm:w-6 text-orange-500" />
                         <div>
@@ -845,7 +1275,7 @@ export default function DisplacedPersonsPage() {
                 </Card>
             </div>
 
-             <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
                 <div className="relative flex-grow">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                     <Input placeholder="Search by name or ID..." className="pl-10 h-9 sm:h-10" />
@@ -861,12 +1291,14 @@ export default function DisplacedPersonsPage() {
                         <SelectItem value="moving">Moving to Shelter</SelectItem>
                         <SelectItem value="assistance">Needs Assistance</SelectItem>
                         <SelectItem value="emergency">Emergency</SelectItem>
+                        <SelectItem value="resettled">Resettled</SelectItem>
+                        <SelectItem value="homebound">Homebound</SelectItem>
                     </SelectContent>
                 </Select>
                 <Button variant="outline" className="h-9 sm:h-10 w-full sm:w-auto"><Filter className="mr-2 h-4 w-4" />More Filters</Button>
             </div>
 
-             {permissionError && (
+            {permissionError && (
                 <Alert variant="destructive">
                     <AlertTriangle className="h-4 w-4" />
                     <AlertTitle>Permission Denied</AlertTitle>
@@ -877,16 +1309,16 @@ export default function DisplacedPersonsPage() {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                  {loading || !displacedPersons ? (
-                     Array.from({ length: 4 }).map((_, i) => (
-                         <Card key={i} className="max-w-[90vw] sm:max-w-full"><CardContent className="p-2 sm:p-4"><Skeleton className="h-64 sm:h-80 w-full" /></CardContent></Card>
-                     ))
-                 ) : displacedPersons.length > 0 ? (
-                     displacedPersons.map(person => {
-                         const statusInfo = getStatusInfo(person.status);
-                         return (
-                             <Card key={person.id} className={cn("transition-shadow hover:shadow-lg max-w-[90vw] sm:max-w-full", statusInfo.cardClass)}>
-                                 <CardContent className="p-2 sm:p-4 space-y-2 sm:space-y-4">
+                {loading || !displacedPersons ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                        <Card key={i} className="max-w-[90vw] sm:max-w-full"><CardContent className="p-2 sm:p-4"><Skeleton className="h-64 sm:h-80 w-full" /></CardContent></Card>
+                    ))
+                ) : displacedPersons.length > 0 ? (
+                    displacedPersons.map(person => {
+                        const statusInfo = getStatusInfo(person.status);
+                        return (
+                            <Card key={person.id} className={cn("transition-shadow hover:shadow-lg max-w-[90vw] sm:max-w-full", statusInfo.cardClass)}>
+                                <CardContent className="p-2 sm:p-4 space-y-2 sm:space-y-4">
                                     <div className="flex justify-between items-start">
                                         <div>
                                             <p className="font-bold">{person.name}</p>
@@ -922,6 +1354,44 @@ export default function DisplacedPersonsPage() {
                                                 </div>
                                             </div>
                                         </div>
+                                        <div className="flex flex-col gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200 mt-2">
+                                            <div className="flex items-center justify-between">
+                                                <p className="font-semibold text-[10px] uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                                                    <Clock className="h-3 w-3" /> Activity History
+                                                </p>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-6 px-2 text-[10px] text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                    onClick={() => {
+                                                        setSelectedPerson(person);
+                                                        setIsLogDialogOpen(true);
+                                                    }}
+                                                >
+                                                    <Plus className="h-3 w-3 mr-1" /> Log Activity
+                                                </Button>
+                                            </div>
+                                            {person.activityLog && person.activityLog.length > 0 ? (
+                                                <ScrollArea className="max-h-24">
+                                                    <div className="space-y-3 pr-2 pt-1">
+                                                        {person.activityLog.slice().reverse().map((log, idx) => (
+                                                            <div key={idx} className="relative pl-3 border-l-2 border-slate-200 ml-1">
+                                                                <div className="absolute -left-[5px] top-1 h-2 w-2 rounded-full bg-blue-500" />
+                                                                <div className="flex flex-col">
+                                                                    <div className="flex justify-between items-start">
+                                                                        <span className="font-semibold text-[10px] leading-tight text-slate-800">{log.action}</span>
+                                                                        <span className="text-[9px] text-slate-400 whitespace-nowrap ml-2">{log.date.split(',')[0]}</span>
+                                                                    </div>
+                                                                    {log.notes && <p className="text-[10px] text-slate-500 mt-0.5 leading-tight italic">{log.notes}</p>}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </ScrollArea>
+                                            ) : (
+                                                <p className="text-[10px] text-muted-foreground italic">No activities logged yet.</p>
+                                            )}
+                                        </div>
                                         {person.medicalNeeds && person.medicalNeeds.length > 0 && (
                                             <div className="flex items-start gap-2 sm:gap-3">
                                                 <Heart className="h-3 w-3 sm:h-4 sm:w-4 mt-0.5 text-muted-foreground" />
@@ -933,7 +1403,7 @@ export default function DisplacedPersonsPage() {
                                                 </div>
                                             </div>
                                         )}
-                                         <div className="flex items-start gap-2 sm:gap-3">
+                                        <div className="flex items-start gap-2 sm:gap-3">
                                             <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 mt-0.5 text-muted-foreground" />
                                             <div>
                                                 <p className="font-medium text-xs text-muted-foreground">Assistance Requested</p>
@@ -949,16 +1419,31 @@ export default function DisplacedPersonsPage() {
                                         </div>
                                     </div>
                                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-2 sm:pt-4 border-t gap-2">
-                                         <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
-                                            <Button size="sm" onClick={() => handleTrack(person.currentLocation)} className="w-full sm:w-auto">Track</Button>
-                                            <Button size="sm" variant="outline" onClick={() => handleContact(person)} className="w-full sm:w-auto">Contact</Button>
-                                            <Button size="sm" variant="outline" onClick={() => handleEdit(person)} className="w-full sm:w-auto"><Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Edit</Button>
-                                            <Button size="sm" variant="default" className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto" onClick={() => handleOpenAssignDialog(person)} disabled={person.status === 'Safe'}>
-                                                <BedDouble className="mr-2 h-3 w-3 sm:h-4 sm:w-4"/>
-                                                Assign Shelter
-                                            </Button>
-                                         </div>
-                                         <Badge className={cn(getPriorityColor(person.priority), "font-semibold text-xs sm:text-sm w-full sm:w-auto text-center")}>{person.priority}</Badge>
+                                        <div className="flex flex-wrap gap-1 sm:gap-2">
+                                            <Button size="sm" onClick={() => handleTrack(person.currentLocation)} className="h-8">Track</Button>
+                                            <Button size="sm" variant="outline" onClick={() => handleEdit(person)} className="h-8"><Edit className="mr-1 h-3 w-3" /> Edit</Button>
+                                            {person.status === 'Safe' ? (
+                                                <div className="flex gap-1">
+                                                    <Button size="sm" variant="outline" className="h-8 border-green-200 text-green-700 hover:bg-green-50" onClick={() => handleUpdateStatus(person.id, 'Resettled')}>
+                                                        Resettle
+                                                    </Button>
+                                                    <Button size="sm" variant="outline" className="h-8 border-slate-200 text-slate-700 hover:bg-slate-50" onClick={() => handleUpdateStatus(person.id, 'Homebound')}>
+                                                        Homebound
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <Button
+                                                    size="sm"
+                                                    variant="default"
+                                                    className="bg-blue-600 hover:bg-blue-700 h-8"
+                                                    onClick={() => handleOpenAssignDialog(person)}
+                                                    disabled={person.status === 'Safe' || person.status === 'Resettled' || person.status === 'Homebound'}
+                                                >
+                                                    <BedDouble className="mr-2 h-3 w-3" /> Assign Shelter
+                                                </Button>
+                                            )}
+                                        </div>
+                                        <Badge className={cn(getPriorityColor(person.priority), "font-semibold text-[10px] sm:text-xs")}>{person.priority}</Badge>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -969,7 +1454,7 @@ export default function DisplacedPersonsPage() {
                         <h3 className="text-xl font-semibold">No displaced persons found</h3>
                         <p className="text-muted-foreground mt-2">Click the "Add Person" button to register a new individual in need of assistance.</p>
                     </div>
-                ) : null }
+                ) : null}
             </div>
         </div>
     )

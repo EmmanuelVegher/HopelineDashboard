@@ -4,13 +4,14 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { AlarmClock, AlertTriangle, Building, LifeBuoy, MessageSquare, Send, Users, Wind, MapPin, Phone, Shield, Heart, Activity } from "lucide-react"
+import { AlarmClock, AlertTriangle, Building, LifeBuoy, MessageSquare, Send, Users, Wind, MapPin, Phone, Shield, Heart, Activity, Navigation, Clock } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useState, useEffect, useMemo } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { collection, getDocs, query, where, doc, getDoc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Shelter, UssdCode } from "@/lib/data";
+import type { DisplacedPerson, Shelter, UssdCode } from "@/lib/data";
 import { getWeather } from "@/ai/client";
 import { type GetWeatherOutput } from "@/ai/schemas/weather";
 
@@ -19,8 +20,11 @@ export default function Home() {
   const [ussdCodes, setUssdCodes] = useState<UssdCode[]>([]);
   const [emergencyContacts, setEmergencyContacts] = useState<UssdCode[]>([]);
   const [weatherData, setWeatherData] = useState<GetWeatherOutput | null>(null);
+  const [displacedRecord, setDisplacedRecord] = useState<DisplacedPerson | null>(null);
+  const [assignedShelter, setAssignedShelter] = useState<Shelter | null>(null);
   const [loading, setLoading] = useState(true);
   const [weatherLoading, setWeatherLoading] = useState(true);
+  const [recordLoading, setRecordLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -87,6 +91,40 @@ export default function Home() {
     };
 
     fetchWeather();
+  }, []);
+
+  useEffect(() => {
+    const fetchDisplacementRecord = async (uid: string) => {
+      setRecordLoading(true);
+      try {
+        const q = query(collection(db, "displacedPersons"), where("userId", "==", uid));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          const record = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as DisplacedPerson;
+          setDisplacedRecord(record);
+
+          if (record.assignedShelterId) {
+            const shelterDoc = await getDoc(doc(db, "shelters", record.assignedShelterId));
+            if (shelterDoc.exists()) {
+              setAssignedShelter({ id: shelterDoc.id, ...shelterDoc.data() } as Shelter);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching displacement record:", error);
+      }
+      setRecordLoading(false);
+    };
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        fetchDisplacementRecord(user.uid);
+      } else {
+        setRecordLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const halfIndex = Math.ceil(emergencyContacts.length / 2);
@@ -186,9 +224,8 @@ export default function Home() {
               HopeLine Dashboard
             </h1>
           </div>
-          <p className="text-muted-foreground text-sm sm:text-base lg:text-lg max-w-4xl mx-auto leading-relaxed">
-            Your emergency assistance platform for finding shelter, getting help, and staying safe in Bayelsa and Adamawa states.
-            A project supported by the CITI Foundation.
+          <p className="text-muted-foreground text-center max-w-2xl mx-auto mb-8">
+            Your emergency assistance platform for finding shelter, getting help, and staying safe in disaster-affected regions. A project supported by the CITI Foundation.
           </p>
         </div>
 
@@ -229,6 +266,115 @@ export default function Home() {
           </Alert>
         ) : null}
 
+        {/* Displacement Status Card */}
+        {recordLoading ? (
+          <Card className="border-blue-100 bg-blue-50/30">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <Skeleton className="h-12 w-12 rounded-full" />
+                <div className="space-y-2 flex-1">
+                  <Skeleton className="h-4 w-1/4" />
+                  <Skeleton className="h-4 w-full" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : displacedRecord ? (
+          <Card className="overflow-hidden border-blue-200 shadow-md">
+            <div className="bg-blue-600 px-6 py-3 flex justify-between items-center text-white">
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                <h2 className="font-bold">Migration & Assistance Status</h2>
+              </div>
+              <Badge variant="outline" className="bg-white/20 text-white border-white/40">
+                {displacedRecord.status}
+              </Badge>
+            </div>
+            <CardContent className="p-0">
+              <div className="grid grid-cols-1 md:grid-cols-2">
+                <div className="p-6 space-y-4 border-r">
+                  <div className="flex items-start gap-3">
+                    <div className="bg-blue-100 p-2 rounded-lg">
+                      <MapPin className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">Registered Current Location</p>
+                      <p className="text-sm text-muted-foreground">{displacedRecord.stayingLocation || 'Under Review'}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{displacedRecord.currentLocation}</p>
+                    </div>
+                  </div>
+
+                  {assignedShelter ? (
+                    <div className="flex items-start gap-3 bg-green-50 p-3 rounded-lg border border-green-100">
+                      <div className="bg-green-100 p-2 rounded-lg">
+                        <Building className="h-5 w-5 text-green-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-green-800">Assigned Transit Space</p>
+                        <p className="text-sm font-medium">{assignedShelter.name}</p>
+                        <p className="text-xs text-green-700">{assignedShelter.location}</p>
+                        {displacedRecord.allocatedResources?.bedNumber && (
+                          <Badge variant="secondary" className="mt-2 bg-green-200 text-green-800 block w-fit">
+                            Room/Space: {displacedRecord.allocatedResources.bedNumber}
+                          </Badge>
+                        )}
+                        <div className="mt-3 flex gap-2">
+                          <Link to={`/dashboard/navigate?lat=${assignedShelter.latitude || ''}&lng=${assignedShelter.longitude || ''}`}>
+                            <Button size="sm" className="bg-green-600 hover:bg-green-700 h-8 text-xs">
+                              <Navigation className="h-3 w-3 mr-1" /> Get Directions
+                            </Button>
+                          </Link>
+                          <Link to="/dashboard/assistance">
+                            <Button size="sm" variant="outline" className="h-8 text-xs border-green-200 text-green-700 hover:bg-green-100">
+                              Report Issue
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-3 bg-slate-50 p-4 rounded-lg border border-slate-200">
+                      <div className="bg-slate-200 p-2 rounded-lg">
+                        <Building className="h-5 w-5 text-slate-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-600">Shelter Assignment</p>
+                        <p className="text-xs text-slate-500 mt-1">Your record is currently under review for transit space allocation. We will notify you once a space is assigned.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-6 bg-slate-50/50">
+                  <h3 className="text-sm font-bold flex items-center gap-2 mb-4 text-slate-700">
+                    <Clock className="h-4 w-4" /> Activity History
+                  </h3>
+                  {displacedRecord.activityLog && displacedRecord.activityLog.length > 0 ? (
+                    <div className="space-y-4">
+                      {displacedRecord.activityLog.slice(-3).reverse().map((log, idx) => (
+                        <div key={idx} className="relative pl-6 border-l-2 border-slate-200">
+                          <div className={`absolute -left-[9px] top-0 h-4 w-4 rounded-full border-2 border-white flex items-center justify-center ${idx === 0 ? 'bg-blue-600 shadow-sm' : 'bg-slate-400'}`}>
+                            {idx === 0 && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold leading-none">{log.action}</p>
+                            <p className="text-[10px] text-muted-foreground mt-1">{log.date.split(',')[0]} &middot; {log.notes || 'Automated Update'}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-6 text-center">
+                      <Activity className="h-8 w-8 text-slate-300 mb-2" />
+                      <p className="text-xs text-slate-400">No activity history yet.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
         {/* Quick Actions Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {quickActions.map((action, index) => (
@@ -239,24 +385,22 @@ export default function Home() {
               <div className={`${action.iconBg} p-4 rounded-2xl mb-4 transition-all duration-300 hover:scale-110`}>
                 <action.icon className={`h-8 w-8 sm:h-10 sm:w-10 ${action.iconColor}`} />
               </div>
-              <CardTitle className={`text-lg sm:text-xl font-bold mb-2 text-center ${
-                action.title === "Emergency SOS" || action.title === "Get Assistance" ? "text-black" : "text-foreground"
-              }`}>
+              <CardTitle className={`text-lg sm:text-xl font-bold mb-2 text-center ${action.title === "Emergency SOS" || action.title === "Get Assistance" ? "text-black" : "text-foreground"
+                }`}>
                 {action.title}
               </CardTitle>
               <CardDescription className="text-sm sm:text-base text-muted-foreground mb-6 text-center">
                 {action.description}
               </CardDescription>
               <Link to={action.href} className="w-full">
-                <Button 
-                  className={`w-full h-12 sm:h-14 text-sm sm:text-base font-medium transition-all duration-200 hover:scale-105 ${
-                    action.color === 'destructive' 
-                      ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg hover:shadow-xl' 
-                      : 'bg-white hover:bg-slate-50 text-slate-800 border-2 border-slate-200 shadow-md hover:shadow-lg'
-                  }`}
+                <Button
+                  className={`w-full h-12 sm:h-14 text-sm sm:text-base font-medium transition-all duration-200 hover:scale-105 ${action.color === 'destructive'
+                    ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg hover:shadow-xl'
+                    : 'bg-white hover:bg-slate-50 text-slate-800 border-2 border-slate-200 shadow-md hover:shadow-lg'
+                    }`}
                 >
-                  {action.title === "Emergency SOS" ? "Send SOS Now" : 
-                   action.title === "Find Shelter" ? "Find Nearest Shelter" : "Request Help"}
+                  {action.title === "Emergency SOS" ? "Send SOS Now" :
+                    action.title === "Find Shelter" ? "Find Nearest Shelter" : "Request Help"}
                 </Button>
               </Link>
             </Card>
@@ -339,7 +483,7 @@ export default function Home() {
             <CardContent className="pt-0 sm:pt-2">
               <div className="space-y-3 sm:space-y-4">
                 {loading ? (
-                  Array.from({length: 4}).map((_, i) => (
+                  Array.from({ length: 4 }).map((_, i) => (
                     <Skeleton key={i} className="h-8 w-full bg-yellow-100/50" />
                   ))
                 ) : ussdCodes.length > 0 ? (
@@ -381,7 +525,7 @@ export default function Home() {
             <CardContent className="pt-0 sm:pt-2">
               <div className="space-y-3 sm:space-y-4">
                 {loading ? (
-                  Array.from({length: 4}).map((_, i) => (
+                  Array.from({ length: 4 }).map((_, i) => (
                     <Skeleton key={i} className="h-8 w-full bg-green-100/50" />
                   ))
                 ) : emergencyContacts.length > 0 ? (

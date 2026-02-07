@@ -42,53 +42,53 @@ export interface ActivityItem {
 // These map to the SVG coordinate space (0-800 width, 0-650 height)
 const STATE_COORDINATES: Record<string, { x: number; y: number }> = {
     // North West
-    'Sokoto': { x: 160, y: 78 },
-    'Kebbi': { x: 120, y: 156 },
-    'Zamfara': { x: 220, y: 117 },
-    'Katsina': { x: 320, y: 78 },
-    'Kano': { x: 400, y: 130 },
-    'Jigawa': { x: 480, y: 104 },
-    'Kaduna': { x: 340, y: 208 },
+    'Sokoto': { x: 173, y: 74 },
+    'Kebbi': { x: 130, y: 140 },
+    'Zamfara': { x: 215, y: 118 },
+    'Katsina': { x: 326, y: 105 },
+    'Kano': { x: 363, y: 147 },
+    'Jigawa': { x: 415, y: 121 },
+    'Kaduna': { x: 296, y: 229 },
 
     // North East
-    'Yobe': { x: 600, y: 117 },
-    'Borno': { x: 700, y: 156 },
-    'Bauchi': { x: 520, y: 208 },
-    'Gombe': { x: 620, y: 234 },
-    'Adamawa': { x: 700, y: 286 },
-    'Taraba': { x: 600, y: 364 },
+    'Yobe': { x: 521, y: 120 },
+    'Borno': { x: 650, y: 127 },
+    'Bauchi': { x: 447, y: 182 },
+    'Gombe': { x: 531, y: 216 },
+    'Adamawa': { x: 612, y: 295 },
+    'Taraba': { x: 488, y: 366 },
 
     // North Central
-    'Niger': { x: 240, y: 260 },
-    'Kwara': { x: 160, y: 338 },
-    'Kogi': { x: 320, y: 390 },
-    'Abuja': { x: 400, y: 312 }, // FCT
-    'Nasarawa': { x: 420, y: 351 },
-    'Plateau': { x: 500, y: 299 },
-    'Benue': { x: 460, y: 429 },
+    'Niger': { x: 173, y: 259 },
+    'Kwara': { x: 112, y: 303 },
+    'Kogi': { x: 245, y: 392 },
+    'Abuja': { x: 280, y: 314 }, // FCT
+    'Nasarawa': { x: 348, y: 334 },
+    'Plateau': { x: 429, y: 285 },
+    'Benue': { x: 374, y: 413 },
 
     // South West
-    'Oyo': { x: 120, y: 416 },
-    'Osun': { x: 180, y: 429 },
-    'Ekiti': { x: 220, y: 429 },
-    'Ondo': { x: 240, y: 468 },
-    'Ogun': { x: 120, y: 468 },
-    'Lagos': { x: 100, y: 494 },
+    'Oyo': { x: 59, y: 362 },
+    'Osun': { x: 117, y: 398 },
+    'Ekiti': { x: 167, y: 389 },
+    'Ondo': { x: 157, y: 443 },
+    'Ogun': { x: 60, y: 422 },
+    'Lagos': { x: 54, y: 460 },
 
     // South East
-    'Enugu': { x: 420, y: 481 },
-    'Ebonyi': { x: 460, y: 481 },
-    'Anambra': { x: 380, y: 494 },
-    'Abia': { x: 420, y: 520 },
-    'Imo': { x: 380, y: 520 },
+    'Enugu': { x: 292, y: 461 },
+    'Ebonyi': { x: 329, y: 478 },
+    'Anambra': { x: 268, y: 478 },
+    'Abia': { x: 303, y: 529 },
+    'Imo': { x: 269, y: 521 },
 
     // South South
-    'Edo': { x: 280, y: 455 },
-    'Delta': { x: 280, y: 507 },
-    'Bayelsa': { x: 300, y: 559 },
-    'Rivers': { x: 380, y: 559 },
-    'Akwa Ibom': { x: 460, y: 559 },
-    'Cross River': { x: 520, y: 520 },
+    'Edo': { x: 197, y: 452 },
+    'Delta': { x: 199, y: 507 },
+    'Bayelsa': { x: 239, y: 574 },
+    'Rivers': { x: 270, y: 558 },
+    'Akwa Ibom': { x: 297, y: 563 },
+    'Cross River': { x: 372, y: 506 },
 };
 
 export const useSituationData = () => {
@@ -236,7 +236,7 @@ export const useSituationData = () => {
                         }
                     });
 
-                    setStateData(Object.values(stateMap).filter(s => s.displacedCount > 0 || s.shelterCount > 0 || s.criticalAlerts > 0));
+                    setStateData(Object.values(stateMap));
                     setLoading(false);
                 });
 

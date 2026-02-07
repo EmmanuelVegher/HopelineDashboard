@@ -28,7 +28,16 @@ export async function getWeather(input: any) {
     const getWeatherFunction = httpsCallable(functions, 'getWeather');
     const result = await getWeatherFunction(input);
 
-    return result.data;
+    const data = result.data as any;
+
+    // Filter out potential synthetic alerts from older backend versions
+    if (data && data.alerts) {
+      data.alerts = data.alerts.filter((alert: any) =>
+        alert.description !== 'Rainfall expected in the coming days. Please stay informed about local weather conditions and prepare accordingly.'
+      );
+    }
+
+    return data;
   } catch (error) {
     console.error('Firebase Function error:', error);
     // Fallback to mock data if Firebase Function fails
@@ -49,15 +58,7 @@ export async function getWeather(input: any) {
         { day: 'Thu', temp: '29°C', description: 'Sunny', icon: 'Sun' as const },
         { day: 'Fri', temp: '30°C', description: 'Sunny', icon: 'Sun' as const }
       ],
-      alerts: [
-        {
-          title: 'Flood & Security Alert',
-          description: 'Heavy rainfall and potential flooding forecasted for Bayelsa. Increased security vigilance advised in Adamawa. Please find safe shelter immediately.',
-          area: 'Bayelsa and Adamawa',
-          severity: 'Severe' as const,
-          activeUntil: '23:59:59'
-        }
-      ],
+      alerts: [],
       shelterImpact: 'Current weather conditions are favorable for shelter operations. No significant impacts expected.',
       lastUpdated: new Date().toLocaleTimeString()
     };

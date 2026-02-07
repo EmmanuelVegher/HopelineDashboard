@@ -116,6 +116,103 @@ const ActivityFeedItem = ({ item }: { item: ActivityItem }) => (
     </div>
 );
 
+function RegionalDeepDiveModal({ state, isOpen, onClose, recentActivity }: { state: StateData | null, isOpen: boolean, onClose: () => void, recentActivity: ActivityItem[] }) {
+    if (!state) return null;
+
+    const occupancyRate = state.totalCapacity > 0 ? Math.round((state.occupiedCapacity / state.totalCapacity) * 100) : 0;
+    const regionalActivity = recentActivity.filter(a => a.location.includes(state.name));
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className={cn("w-3 h-3 rounded-full", state.riskLevel === 'high' ? "bg-red-600" : "bg-blue-600")} />
+                        <DialogTitle className="text-2xl font-black uppercase tracking-tighter tabular-nums">
+                            {state.name} Regional Deep-Dive
+                        </DialogTitle>
+                    </div>
+                    <DialogDescription className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">
+                        Tactical metrics and field status for {state.name} region
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-6">
+                    {/* Key Metrics */}
+                    <div className="md:col-span-1 space-y-4">
+                        <Card className="bg-slate-50 border-slate-200 shadow-none">
+                            <CardContent className="p-4">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Displaced Population</p>
+                                <p className="text-3xl font-black text-slate-900 tabular-nums">{state.displacedCount.toLocaleString()}</p>
+                            </CardContent>
+                        </Card>
+                        <Card className="bg-slate-50 border-slate-200 shadow-none">
+                            <CardContent className="p-4">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Active Shelters</p>
+                                <p className="text-3xl font-black text-slate-900 tabular-nums">{state.shelterCount}</p>
+                            </CardContent>
+                        </Card>
+                        <Card className="bg-slate-50 border-slate-200 shadow-none">
+                            <CardContent className="p-4">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">SOS Alerts</p>
+                                <p className={cn("text-3xl font-black tabular-nums", state.criticalAlerts > 0 ? "text-red-600" : "text-slate-900")}>
+                                    {state.criticalAlerts}
+                                </p>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Occupancy Chart/Progress */}
+                    <div className="md:col-span-2 space-y-6">
+                        <div className="space-y-4 bg-slate-900 p-6 rounded-xl text-white">
+                            <div className="flex justify-between items-end mb-2">
+                                <div>
+                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Capacity Utilization</h4>
+                                    <p className="text-4xl font-black tracking-tighter">{occupancyRate}%</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{state.occupiedCapacity.toLocaleString()} / {state.totalCapacity.toLocaleString()}</p>
+                                    <p className="text-[9px] font-bold text-blue-400">BED SPACES OCCUPIED</p>
+                                </div>
+                            </div>
+                            <Progress
+                                value={occupancyRate}
+                                className="h-3 bg-white/10 [&>div]:bg-blue-500"
+                            />
+                            <div className="flex justify-between text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] pt-2">
+                                <span>Zero Occupancy</span>
+                                <span>Critical Limit</span>
+                            </div>
+                        </div>
+
+                        {/* Regional Feed */}
+                        <div className="space-y-4">
+                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2 flex items-center gap-2">
+                                <Activity className="h-3 w-3" /> Regional SOS Feed
+                            </h4>
+                            <ScrollArea className="h-[250px] pr-4">
+                                {regionalActivity.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {regionalActivity.map(item => (
+                                            <ActivityFeedItem key={item.id} item={item} />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                                        <CheckCircle className="h-8 w-8 mb-2 opacity-20" />
+                                        <p className="text-xs italic">No critical incidents reported in this region</p>
+                                    </div>
+                                )}
+                            </ScrollArea>
+                        </div>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+
 export default function AdminDashboardPage() {
     const { alerts, persons, shelters, drivers, loading, permissionError, fetchData } = useAdminData();
     const { toast } = useToast();
@@ -128,6 +225,7 @@ export default function AdminDashboardPage() {
     const [selectedDriver, setSelectedDriver] = useState<Driver | undefined>(undefined);
     const { stateData, recentActivity } = useSituationData();
     const [selectedState, setSelectedState] = useState<StateData | null>(null);
+    const [isDeepDiveOpen, setIsDeepDiveOpen] = useState(false);
     const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
     useEffect(() => {
@@ -519,10 +617,23 @@ export default function AdminDashboardPage() {
                                         </div>
                                     </CardHeader>
                                     <CardContent className="p-0 flex-1 relative min-h-[600px] bg-white">
-                                        <DisplacementMap data={stateData} onStateSelect={setSelectedState} />
+                                        <DisplacementMap
+                                            data={stateData}
+                                            onStateSelect={(state) => {
+                                                setSelectedState(state);
+                                                setIsDeepDiveOpen(true);
+                                            }}
+                                        />
                                     </CardContent>
                                 </Card>
                             </div>
+
+                            <RegionalDeepDiveModal
+                                state={selectedState}
+                                isOpen={isDeepDiveOpen}
+                                onClose={() => setIsDeepDiveOpen(false)}
+                                recentActivity={recentActivity}
+                            />
 
                             {/* Sidebar Detail */}
                             <div className="xl:col-span-1">
