@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { db, auth } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, doc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, getDoc, serverTimestamp, getDocs, orderBy, Timestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { SosAlert } from '@/ai/schemas/sos';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +14,8 @@ import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
-import { MapPin, Navigation, Play, Square, Activity, Clock, Route, Target, AlertTriangle, CheckCircle, XCircle, Pause, SkipBack, SkipForward, RotateCcw } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { MapPin, Navigation, Play, Square, Activity, Clock, Route, Target, AlertTriangle, CheckCircle, XCircle, Pause, SkipBack, SkipForward, RotateCcw, History as HistoryIcon } from 'lucide-react';
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { useToast } from '@/hooks/use-toast';
 import { useGeolocation } from '@/hooks/useGeolocation';
@@ -25,7 +26,7 @@ import InteractiveGoogleMap from '@/components/interactive-google-map';
 interface MapTask extends SosAlert {
   assignedAt: Date;
   trackingData?: {
-    coordinates: Array<{lat: number, lng: number, timestamp: number}>;
+    coordinates: Array<{ lat: number, lng: number, timestamp: number }>;
     startTime: string;
     endTime: string;
     totalDistance: number;
@@ -67,12 +68,20 @@ export default function DriverMapPage() {
     lastPosition: null,
   });
   const [isTracking, setIsTracking] = useState(false);
+
+  // General History Playback State
+  const [historyStartDate, setHistoryStartDate] = useState<string>(() => {
+    const d = new Date();
+    d.setHours(d.getHours() - 3);
+    return d.toISOString().slice(0, 16);
+  });
+  const [historyEndDate, setHistoryEndDate] = useState<string>(new Date().toISOString().slice(0, 16));
+  const [isFetchingGeneralHistory, setIsFetchingGeneralHistory] = useState(false);
   const [trackingPath, setTrackingPath] = useState<[number, number][]>([]);
   const [followDriver, setFollowDriver] = useState(false);
   const [isReplaying, setIsReplaying] = useState(false);
   const [replayIndex, setReplayIndex] = useState(0);
   const [tripSelectionModalOpen, setTripSelectionModalOpen] = useState(false);
-  const [availableTrips, setAvailableTrips] = useState<MapTask[]>([]);
   const [selectedTripForReplay, setSelectedTripForReplay] = useState<MapTask | null>(null);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -91,6 +100,7 @@ export default function DriverMapPage() {
   const replayIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
   const permissionCheckedRef = useRef(false);
+  const lastLocationUpdateRef = useRef<number>(0);
 
   // Initialize geolocation and location streaming hooks
   const geolocation = useGeolocation({
@@ -199,10 +209,10 @@ export default function DriverMapPage() {
     const Δφ = (lat2 - lat1) * Math.PI / 180;
     const Δλ = (lng2 - lng1) * Math.PI / 180;
 
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) *
+      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c;
   }, []);
@@ -304,37 +314,7 @@ export default function DriverMapPage() {
   //   });
   // }, [locationStreaming, toast]);
 
-  // Calculate trip progress percentage
-  const calculateTripProgress = useCallback(() => {
-    if (!selectedTask || !geolocation.state.position || !trackingStats.startTime) {
-      return 0;
-    }
 
-    const currentPos = geolocation.state.position;
-    const destination = selectedTask.location;
-    const startPos = trackingStats.lastPosition;
-
-    if (!startPos) return 0;
-
-    const totalDistance = calculateDistance(
-      startPos.coords.latitude,
-      startPos.coords.longitude,
-      destination.latitude,
-      destination.longitude
-    );
-
-    const remainingDistance = calculateDistance(
-      currentPos.coords.latitude,
-      currentPos.coords.longitude,
-      destination.latitude,
-      destination.longitude
-    );
-
-    if (totalDistance === 0) return 100;
-
-    const progress = ((totalDistance - remainingDistance) / totalDistance) * 100;
-    return Math.max(0, Math.min(100, progress));
-  }, [selectedTask, geolocation.state.position, trackingStats.lastPosition, calculateDistance]);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -374,37 +354,7 @@ export default function DriverMapPage() {
     return () => unsubscribe();
   }, [userId]);
 
-  const fetchAvailableTrips = useCallback(async () => {
-    try {
-      const tripsWithTracking: MapTask[] = [];
 
-      for (const task of tasks) {
-        const taskDoc = await getDoc(doc(db, 'sosAlerts', task.id));
-        if (taskDoc.exists()) {
-          const taskData = taskDoc.data();
-          if (taskData.trackingData && taskData.trackingData.coordinates && taskData.trackingData.coordinates.length > 0) {
-            tripsWithTracking.push(task);
-          }
-        }
-      }
-
-      setAvailableTrips(tripsWithTracking);
-    } catch (error) {
-      console.error('Error fetching available trips:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load available trips.',
-        variant: 'destructive',
-      });
-    }
-  }, [tasks, toast]);
-
-  // Fetch available trips when modal opens
-  useEffect(() => {
-    if (tripSelectionModalOpen) {
-      fetchAvailableTrips();
-    }
-  }, [tripSelectionModalOpen, fetchAvailableTrips]);
 
 
   // Fetch driver's location from users collection
@@ -416,7 +366,7 @@ export default function DriverMapPage() {
       if (doc.exists()) {
         const userData = doc.data();
         if (userData.latitude && userData.longitude &&
-            userData.latitude !== 0 && userData.longitude !== 0) {
+          userData.latitude !== 0 && userData.longitude !== 0) {
           setDriverLocation({
             latitude: userData.latitude,
             longitude: userData.longitude,
@@ -440,7 +390,7 @@ export default function DriverMapPage() {
         const newPath = [...prev];
         // Only add if it's significantly different from the last point
         if (newPath.length === 0 ||
-            calculateDistance(newPath[newPath.length - 1][0], newPath[newPath.length - 1][1], lat, lng) > 10) { // 10 meters minimum
+          calculateDistance(newPath[newPath.length - 1][0], newPath[newPath.length - 1][1], lat, lng) > 10) { // 10 meters minimum
           newPath.push([lat, lng]);
         }
         return newPath;
@@ -478,8 +428,22 @@ export default function DriverMapPage() {
         timeElapsed,
         lastPosition: currentPos,
       }));
+
+      // Update driver's location in Firestore (throttled to every 5 seconds)
+      const now = Date.now();
+      if (userId && (!lastLocationUpdateRef.current || now - lastLocationUpdateRef.current > 5000)) {
+        lastLocationUpdateRef.current = now;
+        const userRef = doc(db, 'users', userId);
+        updateDoc(userRef, {
+          latitude: lat,
+          longitude: lng,
+          heading: currentPos.coords.heading || 0,
+          speed: currentPos.coords.speed || 0,
+          lastLocationUpdate: serverTimestamp(),
+        }).catch(err => console.error("Error updating driver location:", err));
+      }
     }
-  }, [isTracking, geolocation.state.position, trackingStats.lastPosition, trackingStats.startTime, calculateDistance]);
+  }, [isTracking, geolocation.state.position, trackingStats.lastPosition, trackingStats.startTime, calculateDistance, userId]);
 
   const filteredTasks = tasks.filter(task => {
     switch (mapView) {
@@ -506,55 +470,7 @@ export default function DriverMapPage() {
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'Active':
-        return <AlertTriangle className="h-4 w-4 text-red-500" />;
-      case 'Responding':
-        return <Clock className="h-4 w-4 text-blue-500" />;
-      case 'In Transit':
-        return <MapPin className="h-4 w-4 text-orange-500" />;
-      case 'Resolved':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      default:
-        return <XCircle className="h-4 w-4 text-gray-500" />;
-    }
-  };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Active':
-        return 'bg-red-100 text-red-800';
-      case 'Responding':
-        return 'bg-blue-100 text-blue-800';
-      case 'In Transit':
-        return 'bg-orange-100 text-orange-800';
-      case 'Resolved':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const acceptTask = async (taskId: string) => {
-    try {
-      const taskRef = doc(db, 'sosAlerts', taskId);
-      await updateDoc(taskRef, {
-        status: 'Responding',
-      });
-      toast({
-        title: 'Task Accepted',
-        description: 'You have accepted the SOS task.',
-      });
-    } catch (error) {
-      console.error('Error accepting task:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to accept task. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  };
 
   const updateTaskStatus = async (taskId: string, newStatus: 'Resolved' | 'In Transit' | 'Responding') => {
     try {
@@ -641,7 +557,7 @@ export default function DriverMapPage() {
     }
   }, [geolocation, selectedTask, toast]);
 
-  const saveTrackingDataToFirestore = useCallback(async (taskId: string, coordinates: Array<{lat: number, lng: number, timestamp: number}>) => {
+  const saveTrackingDataToFirestore = useCallback(async (taskId: string, coordinates: Array<{ lat: number, lng: number, timestamp: number }>) => {
     if (coordinates.length === 0) return;
 
     try {
@@ -712,8 +628,11 @@ export default function DriverMapPage() {
         if (trackingData && trackingData.coordinates && trackingData.coordinates.length > 0) {
           setSelectedTripForReplay(task);
           setTripSelectionModalOpen(false);
+          setReplayCoordinates(trackingData.coordinates); // Fix: Set replayCoordinates
           setIsReplaying(true);
           setIsPlaying(true);
+          setMapMode('tracking'); // Fix: Set map mode to tracking
+          setFollowDriver(true); // Fix: Enable follow driver
           setReplayIndex(0);
           setCurrentPlaybackTime(0);
 
@@ -726,12 +645,12 @@ export default function DriverMapPage() {
           let speeds: number[] = [];
           for (let i = 1; i < coordinates.length; i++) {
             const dist = calculateDistance(
-              coordinates[i-1].lat, coordinates[i-1].lng,
+              coordinates[i - 1].lat, coordinates[i - 1].lng,
               coordinates[i].lat, coordinates[i].lng
             );
             totalDistance += dist;
 
-            const timeDiff = (coordinates[i].timestamp - coordinates[i-1].timestamp) / 1000;
+            const timeDiff = (coordinates[i].timestamp - coordinates[i - 1].timestamp) / 1000;
             if (timeDiff > 0) {
               speeds.push((dist / timeDiff) * 3.6); // km/h
             }
@@ -800,7 +719,7 @@ export default function DriverMapPage() {
           stopPlayback();
           toast({
             title: 'Replay Complete',
-            description: 'Trip replay has finished.',
+            description: 'History replay has finished.',
           });
           return prev;
         }
@@ -913,55 +832,73 @@ export default function DriverMapPage() {
     setSelectedTripForReplay(null);
   }, [stopPlayback]);
 
-  const startReplay = useCallback(async (taskId: string) => {
-    try {
-      // Fetch tracking data from Firestore
-      const taskDoc = await getDoc(doc(db, 'sosAlerts', taskId));
-      if (taskDoc.exists()) {
-        const taskData = taskDoc.data();
-        const trackingData = taskData.trackingData;
-
-        if (trackingData && trackingData.coordinates && trackingData.coordinates.length > 0) {
-          setIsReplaying(true);
-          setReplayIndex(0);
-
-          // Animate through coordinates
-          const replayInterval = setInterval(() => {
-            setReplayIndex(prev => {
-              if (prev >= trackingData.coordinates.length - 1) {
-                clearInterval(replayInterval);
-                setIsReplaying(false);
-                toast({
-                  title: 'Replay Complete',
-                  description: 'Trip replay has finished.',
-                });
-                return prev;
-              }
-              return prev + 1;
-            });
-          }, 1000); // 1 second per coordinate for replay
-
-          toast({
-            title: 'Replay Started',
-            description: 'Visualizing the trip path...',
-          });
-        } else {
-          toast({
-            title: 'No Tracking Data',
-            description: 'No tracking data available for this trip.',
-            variant: 'destructive',
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error starting replay:', error);
-      toast({
-        title: 'Replay Error',
-        description: 'Failed to load tracking data for replay.',
-        variant: 'destructive',
-      });
+  const fetchGeneralHistory = useCallback(async () => {
+    if (!userId) {
+      toast({ title: "Auth Required", description: "You must be logged in to fetch history.", variant: "destructive" });
+      return;
     }
-  }, [toast]);
+
+    setIsFetchingGeneralHistory(true);
+    try {
+      const start = new Date(historyStartDate);
+      const end = new Date(historyEndDate);
+
+      console.log(`DriverMapPage: Fetching history for driver ${userId} from ${start.toISOString()} to ${end.toISOString()}`);
+
+      const q = query(
+        collection(db, 'users', userId, 'locationHistory'),
+        where('timestamp', '>=', Timestamp.fromDate(start)),
+        where('timestamp', '<=', Timestamp.fromDate(end)),
+        orderBy('timestamp', 'asc')
+      );
+
+      const snapshot = await getDocs(q);
+      const history = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          ...data,
+          id: doc.id,
+          lat: data.latitude,
+          lng: data.longitude,
+          timestamp: data.timestamp?.toMillis ? data.timestamp.toMillis() : (data.timestampMs || Date.now()),
+          displayTime: data.timestamp?.toDate ? data.timestamp.toDate().toLocaleTimeString() : 'Unknown',
+          sortTime: data.timestampMs || (data.timestamp?.toMillis?.()) || 0
+        };
+      });
+
+      if (history.length === 0) {
+        toast({ title: "No Data Found", description: "No location records found for the selected time range." });
+        setIsFetchingGeneralHistory(false);
+        return;
+      }
+
+      setReplayCoordinates(history);
+      setReplayIndex(0);
+      setPlaybackDuration(history.length * (1000 / playbackSpeed));
+      setIsReplaying(true);
+      setIsPlaying(true);
+      setMapMode('tracking');
+      setFollowDriver(true);
+      startPlayback(history);
+
+      setTripStats({
+        totalDistance: 0,
+        averageSpeed: 0,
+        maxSpeed: 0,
+        duration: history.length,
+        minSpeed: 0
+      });
+
+      toast({ title: "History Loaded", description: `Found ${history.length} data points for replay.` });
+    } catch (error) {
+      console.error("Error fetching general history:", error);
+      toast({ title: "Fetch Error", description: "Could not retrieve historical data.", variant: "destructive" });
+    } finally {
+      setIsFetchingGeneralHistory(false);
+    }
+  }, [userId, historyStartDate, historyEndDate, toast, setReplayCoordinates, setReplayIndex, setPlaybackDuration, setIsReplaying, setIsPlaying, setTripStats, startPlayback, playbackSpeed]);
+
+
 
   if (loading) {
     return (
@@ -1009,96 +946,97 @@ export default function DriverMapPage() {
         <div className="lg:col-span-2">
           <Card className="h-[600px]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
-               <CardTitle className="flex items-center gap-2">
-                 <MapPin className="h-5 w-5" />
-                 Interactive Map
-                 {isTracking && mapMode === 'tracking' && (
-                   <Badge variant="default" className="ml-auto">
-                     <Activity className="h-3 w-3 mr-1" />
-                     Live Tracking
-                   </Badge>
-                 )}
-               </CardTitle>
-               <div className="flex items-center gap-2">
-                 <Select value={mapMode} onValueChange={(value: 'navigation' | 'tracking') => setMapMode(value)}>
-                   <SelectTrigger className="w-32">
-                     <SelectValue />
-                   </SelectTrigger>
-                   <SelectContent>
-                     <SelectItem value="navigation">Navigation</SelectItem>
-                     <SelectItem value="tracking">Tracking</SelectItem>
-                   </SelectContent>
-                 </Select>
-                 {selectedTask && (
-                   <>
-                     <Button
-                       size="sm"
-                       variant="outline"
-                       onClick={refreshEmbeddedNavigation}
-                       disabled={!embeddedDirectionsUrl}
-                     >
-                       Refresh Route
-                     </Button>
-                     <Dialog>
-                       <DialogTrigger asChild>
-                         <Button size="sm" variant="outline" disabled={!embeddedDirectionsUrl}>
-                           Expand
-                         </Button>
-                       </DialogTrigger>
-                       <DialogContent className="max-w-5xl h-[85vh] p-0">
-                         <DialogHeader className="p-4">
-                           <DialogTitle>Navigation</DialogTitle>
-                         </DialogHeader>
-                         <div className="h-[calc(85vh-64px)] w-full">
-                           <InteractiveGoogleMap
-                             mode={mapMode}
-                             driverLocation={
-                               geolocation.state.position
-                                 ? {
-                                     lat: geolocation.state.position.coords.latitude,
-                                     lng: geolocation.state.position.coords.longitude,
-                                   }
-                                 : driverLocation
-                                 ? {
-                                     lat: driverLocation.latitude,
-                                     lng: driverLocation.longitude,
-                                   }
-                                 : undefined
-                             }
-                             destination={
-                               selectedTask
-                                 ? {
-                                     lat: selectedTask.location.latitude,
-                                     lng: selectedTask.location.longitude,
-                                   }
-                                 : undefined
-                             }
-                             trackingPath={trackingPath.map(([lat, lng]) => ({ lat, lng }))}
-                             enableStreaming={isTracking && mapMode === 'tracking'}
-                             onLocationUpdate={(location) => {
-                               if (isTracking) {
-                                 setTrackingPath((prev) => {
-                                   const newPath = [...prev];
-                                   // Only add if it's significantly different from the last point
-                                   if (
-                                     newPath.length === 0 ||
-                                     calculateDistance(newPath[newPath.length - 1][0], newPath[newPath.length - 1][1], location.lat, location.lng) > 10
-                                   ) {
-                                     newPath.push([location.lat, location.lng]);
-                                   }
-                                   return newPath;
-                                 });
-                               }
-                             }}
-                             onError={handleLocationError}
-                             className="h-full w-full"
-                           />
-                         </div>
-                       </DialogContent>
-                     </Dialog>
-                   </>
-                 )}
-               </div>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Interactive Map
+                {isTracking && mapMode === 'tracking' && (
+                  <Badge variant="default" className="ml-auto">
+                    <Activity className="h-3 w-3 mr-1" />
+                    Live Tracking
+                  </Badge>
+                )}
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Select value={mapMode} onValueChange={(value: 'navigation' | 'tracking') => setMapMode(value)}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="navigation">Navigation</SelectItem>
+                    <SelectItem value="tracking">Tracking</SelectItem>
+                  </SelectContent>
+                </Select>
+                {selectedTask && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={refreshEmbeddedNavigation}
+                      disabled={!embeddedDirectionsUrl}
+                    >
+                      Refresh Route
+                    </Button>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button size="sm" variant="outline" disabled={!embeddedDirectionsUrl}>
+                          Expand
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-5xl h-[85vh] p-0">
+                        <DialogHeader className="p-4">
+                          <DialogTitle>Navigation</DialogTitle>
+                        </DialogHeader>
+                        <div className="h-[calc(85vh-64px)] w-full">
+                          <InteractiveGoogleMap
+                            mode={mapMode}
+                            driverLocation={
+                              geolocation.state.position
+                                ? {
+                                  lat: geolocation.state.position.coords.latitude,
+                                  lng: geolocation.state.position.coords.longitude,
+                                }
+                                : driverLocation
+                                  ? {
+                                    lat: driverLocation.latitude,
+                                    lng: driverLocation.longitude,
+                                  }
+                                  : undefined
+                            }
+                            destination={
+                              selectedTask
+                                ? {
+                                  lat: selectedTask.location.latitude,
+                                  lng: selectedTask.location.longitude,
+                                }
+                                : undefined
+                            }
+                            trackingPath={trackingPath.map(([lat, lng]) => ({ lat, lng }))}
+                            enableStreaming={isTracking && mapMode === 'tracking'}
+                            onLocationUpdate={(location) => {
+                              if (isTracking) {
+                                setTrackingPath((prev) => {
+                                  const newPath = [...prev];
+                                  // Only add if it's significantly different from the last point
+                                  if (
+                                    newPath.length === 0 ||
+                                    calculateDistance(newPath[newPath.length - 1][0], newPath[newPath.length - 1][1], location.lat, location.lng) > 10
+                                  ) {
+                                    newPath.push([location.lat, location.lng]);
+                                  }
+                                  return newPath;
+                                });
+                              }
+                            }}
+                            onError={handleLocationError}
+                            className="h-full w-full"
+                            followDriver={followDriver}
+                          />
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </>
+                )}
+              </div>
               {selectedTask && (
                 <div className="flex items-center gap-2">
                   <Button
@@ -1146,45 +1084,35 @@ export default function DriverMapPage() {
               <InteractiveGoogleMap
                 mode={mapMode}
                 driverLocation={
-                  geolocation.state.position
-                    ? {
-                        lat: geolocation.state.position.coords.latitude,
-                        lng: geolocation.state.position.coords.longitude,
-                      }
-                    : driverLocation
-                    ? {
-                        lat: driverLocation.latitude,
-                        lng: driverLocation.longitude,
-                      }
-                    : undefined
+                  isReplaying && replayCoordinates[replayIndex]
+                    ? { lat: replayCoordinates[replayIndex].lat, lng: replayCoordinates[replayIndex].lng }
+                    : geolocation.state.position
+                      ? { lat: geolocation.state.position.coords.latitude, lng: geolocation.state.position.coords.longitude }
+                      : driverLocation
+                        ? { lat: driverLocation.latitude, lng: driverLocation.longitude }
+                        : undefined
                 }
-                destination={
-                  selectedTask
-                    ? {
-                        lat: selectedTask.location.latitude,
-                        lng: selectedTask.location.longitude,
-                      }
-                    : undefined
+                destination={selectedTask ? {
+                  lat: selectedTask.location.latitude,
+                  lng: selectedTask.location.longitude
+                } : undefined}
+                trackingPath={
+                  isReplaying
+                    ? replayCoordinates.slice(0, replayIndex + 1).map(c => ({ lat: c.lat, lng: c.lng }))
+                    : trackingPath.map(([lat, lng]) => ({ lat, lng }))
                 }
-                trackingPath={trackingPath.map(([lat, lng]) => ({ lat, lng }))}
-                enableStreaming={isTracking && mapMode === 'tracking'}
-                onLocationUpdate={(location) => {
-                  if (isTracking) {
-                    setTrackingPath((prev) => {
-                      const newPath = [...prev];
-                      // Only add if it's significantly different from the last point
-                      if (
-                        newPath.length === 0 ||
-                        calculateDistance(newPath[newPath.length - 1][0], newPath[newPath.length - 1][1], location.lat, location.lng) > 10
-                      ) {
-                        newPath.push([location.lat, location.lng]);
-                      }
+                enableStreaming={isTracking}
+                onLocationUpdate={(loc) => {
+                  if (isTracking && !isReplaying) {
+                    setTrackingPath(prev => {
+                      const newPath = [...prev, [loc.lat, loc.lng] as [number, number]];
                       return newPath;
                     });
                   }
                 }}
                 onError={handleLocationError}
                 className="h-[500px] w-full rounded-b-lg"
+                followDriver={followDriver}
               />
             </CardContent>
           </Card>
@@ -1239,6 +1167,51 @@ export default function DriverMapPage() {
                 )}
               </div>
 
+              {/* Movement History Replay Controls */}
+              {!isTracking && !selectedTask && (
+                <Card className="border shadow-sm bg-purple-50/20">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-xs font-black uppercase tracking-widest text-purple-600 flex items-center gap-2">
+                      <HistoryIcon className="h-4 w-4" /> Movement History Replay
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[9px] font-bold uppercase text-slate-500">From</Label>
+                        <Input
+                          type="datetime-local"
+                          value={historyStartDate}
+                          onChange={(e) => setHistoryStartDate(e.target.value)}
+                          className="h-8 text-xs bg-white"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[9px] font-bold uppercase text-slate-500">To</Label>
+                        <Input
+                          type="datetime-local"
+                          value={historyEndDate}
+                          onChange={(e) => setHistoryEndDate(e.target.value)}
+                          className="h-8 text-xs bg-white"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      onClick={fetchGeneralHistory}
+                      className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold uppercase text-[10px] h-8 shadow-sm"
+                      disabled={isFetchingGeneralHistory}
+                    >
+                      {isFetchingGeneralHistory ? (
+                        <div className="flex items-center gap-1">
+                          <div className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Fetching...
+                        </div>
+                      ) : "Load Replay"}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
               {!geolocation.state.isSupported && (
                 <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
                   Geolocation is not supported in this browser.
@@ -1265,12 +1238,12 @@ export default function DriverMapPage() {
                   <span className="text-muted-foreground">Location Permission:</span>
                   <Badge variant={
                     geolocation.state.permission === 'granted' ? 'default' :
-                    geolocation.state.permission === 'denied' ? 'destructive' :
-                    geolocation.state.permission === 'prompt' ? 'secondary' : 'outline'
+                      geolocation.state.permission === 'denied' ? 'destructive' :
+                        geolocation.state.permission === 'prompt' ? 'secondary' : 'outline'
                   }>
                     {geolocation.state.permission === 'granted' ? 'Granted' :
-                     geolocation.state.permission === 'denied' ? 'Denied' :
-                     geolocation.state.permission === 'prompt' ? 'Prompt' : 'Unknown'}
+                      geolocation.state.permission === 'denied' ? 'Denied' :
+                        geolocation.state.permission === 'prompt' ? 'Prompt' : 'Unknown'}
                   </Badge>
                 </div>
 
@@ -1626,7 +1599,8 @@ export default function DriverMapPage() {
                       </Button>
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="default"
+                        className="flex-1 bg-purple-600 hover:bg-purple-700 shadow-md transform transition-all active:scale-95"
                         onClick={async () => {
                           if (!selectedTask) {
                             toast({
@@ -1651,8 +1625,8 @@ export default function DriverMapPage() {
                         }}
                         disabled={isReplaying || !selectedTask}
                       >
-                        <Route className="h-4 w-4 mr-1" />
-                        Playback
+                        <Play className="h-4 w-4 mr-1" />
+                        Replay Trip
                       </Button>
                     </div>
 

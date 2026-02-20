@@ -11,14 +11,15 @@ interface LatLng {
 }
 
 interface InteractiveGoogleMapProps {
-   mode: 'navigation' | 'tracking';
-   driverLocation?: LatLng;
-   destination?: LatLng;
-   trackingPath?: LatLng[];
-   className?: string;
-   onError?: (error: string) => void;
-   enableStreaming?: boolean;
-   onLocationUpdate?: (location: LatLng) => void;
+  mode: 'navigation' | 'tracking';
+  driverLocation?: LatLng;
+  destination?: LatLng;
+  trackingPath?: LatLng[];
+  className?: string;
+  onError?: (error: string) => void;
+  enableStreaming?: boolean;
+  onLocationUpdate?: (location: LatLng) => void;
+  followDriver?: boolean;
 }
 
 export default function InteractiveGoogleMap({
@@ -30,6 +31,7 @@ export default function InteractiveGoogleMap({
   onError,
   enableStreaming = false,
   onLocationUpdate,
+  followDriver = true,
 }: InteractiveGoogleMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<google.maps.Map | null>(null);
@@ -39,6 +41,7 @@ export default function InteractiveGoogleMap({
   const trackingPathRef = useRef<google.maps.Polyline | null>(null);
   const driverMarkerRef = useRef<google.maps.Marker | null>(null);
   const destinationMarkerRef = useRef<google.maps.Marker | null>(null);
+  const hasInitialCenteredRef = useRef(false);
 
   const [isLoaded, setIsLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -157,7 +160,7 @@ export default function InteractiveGoogleMap({
 
   // Initialize map
   useEffect(() => {
-    if (!isLoaded || !mapRef.current) return;
+    if (!isLoaded || !mapRef.current || googleMapRef.current) return;
 
     try {
       // Determine center point
@@ -165,12 +168,12 @@ export default function InteractiveGoogleMap({
         lat: 6.5244, // Lagos, Nigeria
         lng: 3.3792
       };
-    
+
       // Use streaming location or provided driver location as center if available
       const currentDriverLocation = enableStreaming && locationStreaming.currentLocation
         ? { lat: locationStreaming.currentLocation.lat, lng: locationStreaming.currentLocation.lng }
         : driverLocation;
-    
+
       if (currentDriverLocation) {
         center = {
           lat: currentDriverLocation.lat,
@@ -219,10 +222,10 @@ export default function InteractiveGoogleMap({
 
       // Check for billing-related errors
       if (error?.message?.includes('BillingNotEnabledMapError') ||
-          error?.message?.includes('billing') ||
-          error?.message?.includes('This API project is not authorized to use this API') ||
-          error?.message?.includes('Geocoding API') ||
-          error?.message?.includes('Maps API')) {
+        error?.message?.includes('billing') ||
+        error?.message?.includes('This API project is not authorized to use this API') ||
+        error?.message?.includes('Geocoding API') ||
+        error?.message?.includes('Maps API')) {
         const errorMsg = 'Google Maps billing is not enabled for this API key. Please enable billing in your Google Cloud Console and ensure the Maps API is activated.';
         setBillingError(errorMsg);
         onError?.(errorMsg);
@@ -299,6 +302,7 @@ export default function InteractiveGoogleMap({
             lat: currentDriverLocation.lat,
             lng: currentDriverLocation.lng
           });
+          driverMarkerRef.current.setMap(googleMapRef.current);
         }
 
         markersRef.current.push(driverMarkerRef.current);
@@ -341,6 +345,7 @@ export default function InteractiveGoogleMap({
             lat: destination.lat,
             lng: destination.lng
           });
+          destinationMarkerRef.current.setMap(googleMapRef.current);
         }
 
         markersRef.current.push(destinationMarkerRef.current);
@@ -351,8 +356,8 @@ export default function InteractiveGoogleMap({
 
       // Check for billing-related errors during marker operations
       if (error?.message?.includes('BillingNotEnabledMapError') ||
-          error?.message?.includes('billing') ||
-          error?.message?.includes('This API project is not authorized to use this API')) {
+        error?.message?.includes('billing') ||
+        error?.message?.includes('This API project is not authorized to use this API')) {
         const errorMsg = 'Google Maps billing is not enabled for this API key. Please enable billing in your Google Cloud Console and ensure the Maps API is activated.';
         setBillingError(errorMsg);
         onError?.(errorMsg);
@@ -461,7 +466,7 @@ export default function InteractiveGoogleMap({
 
   // Handle tracking mode - show path
   useEffect(() => {
-    if (!isLoaded || !googleMapRef.current || mode !== 'tracking') return;
+    if (!isLoaded || !googleMapRef.current) return;
 
     if (trackingPath.length > 1) {
       // Create or update tracking path
@@ -516,10 +521,17 @@ export default function InteractiveGoogleMap({
     }
 
     if (center) {
-      googleMapRef.current.setCenter(center);
-      googleMapRef.current.setZoom(15);
+      const shouldCenter = followDriver || !hasInitialCenteredRef.current;
+
+      if (shouldCenter) {
+        googleMapRef.current.setCenter(center);
+        if (!hasInitialCenteredRef.current) {
+          googleMapRef.current.setZoom(15);
+          hasInitialCenteredRef.current = true;
+        }
+      }
     }
-  }, [isLoaded, mode, driverLocation, destination, enableStreaming, locationStreaming.currentLocation]);
+  }, [isLoaded, mode, driverLocation, destination, enableStreaming, locationStreaming.currentLocation, followDriver]);
 
   if (billingError) {
     return (

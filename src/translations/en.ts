@@ -75,7 +75,7 @@ export const en = {
   navigation: {
     dashboard: "Dashboard",
     profile: "Profile",
-    assistance: "Chat with Support Agent",
+    assistance: "Chat Page",
     sos: "Send Emergency SOS",
     findShelter: "Find Shelter",
     navigate: "Find Routes",

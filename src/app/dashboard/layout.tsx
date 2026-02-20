@@ -34,7 +34,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { LoadingSpinner } from "@/components/loading-spinner";
 import { TranslationProvider, useTranslation } from "@/contexts/TranslationContext";
 
-function DashboardContent({ userProfile }: { userProfile?: {firstName: string; lastName: string; image?: string} | null }) {
+function DashboardContent({ userProfile }: { userProfile?: { firstName: string; lastName: string; image?: string } | null }) {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
@@ -68,8 +68,8 @@ function DashboardContent({ userProfile }: { userProfile?: {firstName: string; l
     <Sidebar>
       <SidebarHeader>
         <div className="flex items-center gap-2">
-            <img src="/hopeline_red.png" alt="HopeLine Logo" width={40} height={40} />
-            {state === 'expanded' && <h1 className="text-xl font-bold">CARITAS HopeLine</h1>}
+          <img src="/hopeline_red.png" alt="HopeLine Logo" width={40} height={40} />
+          {state === 'expanded' && <h1 className="text-xl font-bold">CARITAS HopeLine</h1>}
         </div>
       </SidebarHeader>
       <SidebarContent className="p-2">
@@ -89,53 +89,53 @@ function DashboardContent({ userProfile }: { userProfile?: {firstName: string; l
           })}
         </SidebarMenu>
       </SidebarContent>
-       <SidebarContent className="p-2 mt-auto" >
-         {/* User Profile Section */}
-         <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-           <div className="text-center">
-             <div className="w-16 h-16 mx-auto mb-2 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
-               {userProfile?.image ? (
-                 <img
-                   src={userProfile.image}
-                   alt="Profile"
-                   className="w-full h-full object-cover"
-                   onError={(e) => {
-                     console.log('Profile image failed to load:', userProfile.image);
-                     // Hide the broken image and show fallback
-                     e.currentTarget.style.display = 'none';
-                     e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                   }}
-                   onLoad={() => {
-                     console.log('Profile image loaded successfully:', userProfile.image);
-                   }}
-                 />
-               ) : null}
-               <div className={`w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500 ${userProfile?.image ? 'hidden' : ''}`}>
-                 <User className="w-8 h-8" />
-               </div>
-             </div>
-             <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-               {userProfile ? `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || 'User' : 'Loading...'}
-             </p>
-           </div>
-         </div>
-         {state === 'expanded' && (
-            <div className="text-center px-2 py-4 space-y-4">
-                <p className="text-xs text-sidebar-foreground/70">Supported By</p>
-                <div className="flex justify-center items-center gap-4">
-                    <img src="/caritas-logo.png" alt="Caritas Nigeria Logo" width={100} height={40} />
-                    <img src="/citi-logo.png" alt="CITI Foundation Logo" width={100} height={40} className="mx-auto" />
-                </div>
+      <SidebarContent className="p-2 mt-auto" >
+        {/* User Profile Section */}
+        <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <div className="text-center">
+            <div className="w-16 h-16 mx-auto mb-2 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+              {userProfile?.image ? (
+                <img
+                  src={userProfile.image}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    console.log('Profile image failed to load:', userProfile.image);
+                    // Hide the broken image and show fallback
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                  }}
+                  onLoad={() => {
+                    console.log('Profile image loaded successfully:', userProfile.image);
+                  }}
+                />
+              ) : null}
+              <div className={`w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500 ${userProfile?.image ? 'hidden' : ''}`}>
+                <User className="w-8 h-8" />
+              </div>
             </div>
-         )}
-         <SidebarSeparator />
-         <SidebarMenu>
-            <SidebarMenuItem>
-                 <SidebarMenuButton onClick={handleLogout} tooltip={t('common.logout')}>
-                    <LogOut />
-                    {t('common.logout')}
-                </SidebarMenuButton>
-            </SidebarMenuItem>
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+              {userProfile ? `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || 'User' : 'Loading...'}
+            </p>
+          </div>
+        </div>
+        {state === 'expanded' && (
+          <div className="text-center px-2 py-4 space-y-4">
+            <p className="text-xs text-sidebar-foreground/70">Supported By</p>
+            <div className="flex justify-center items-center gap-4">
+              <img src="/caritas-logo.png" alt="Caritas Nigeria Logo" width={100} height={40} />
+              <img src="/citi-logo.png" alt="CITI Foundation Logo" width={100} height={40} className="mx-auto" />
+            </div>
+          </div>
+        )}
+        <SidebarSeparator />
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={handleLogout} tooltip={t('common.logout')}>
+              <LogOut />
+              {t('common.logout')}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
     </Sidebar>
@@ -143,12 +143,13 @@ function DashboardContent({ userProfile }: { userProfile?: {firstName: string; l
 }
 
 
+
 export default function DashboardLayout() {
   const { setIsLoading } = useLoading();
   const navigate = useNavigate();
   const [authLoading, setAuthLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
-  const [userProfile, setUserProfile] = useState<{firstName: string; lastName: string; image?: string} | null>(null);
+  const [userProfile, setUserProfile] = useState<{ firstName: string; lastName: string; image?: string; role: string } | null>(null);
 
   useEffect(() => {
     setIsLoading(false);
@@ -189,17 +190,11 @@ export default function DashboardLayout() {
           if (userData.role === 'user' || userData.role === undefined || userData.role === null) {
             console.log("Dashboard layout: User authorized as regular user");
             setIsAuthorized(true);
-          } else if (userData.role === 'Admin') {
-            console.log("Dashboard layout: User is admin, redirecting to admin");
-            // Admin user, redirect to admin panel
-            navigate('/admin');
-          } else if (userData.role === 'support agent') {
-            console.log("Dashboard layout: User is support agent, redirecting to support agent dashboard");
-            // Support agent, redirect to support agent dashboard
-            navigate('/support-agent');
+          } else if (userData.role === 'Admin' || userData.role === 'super-admin' || userData.role === 'support agent') {
+            console.log("Dashboard layout: User is staff, allowing access to dashboard as requested");
+            setIsAuthorized(true);
           } else {
             console.log("Dashboard layout: User has unrecognized role, allowing access as regular user");
-            // Unknown role, allow access as regular user
             setIsAuthorized(true);
           }
         } else {
@@ -247,6 +242,7 @@ export default function DashboardLayout() {
             firstName: userData.firstName || '',
             lastName: userData.lastName || '',
             image: userData.image || userData.profileImage || '',
+            role: userData.role || 'user'
           };
 
           console.log('Dashboard layout: Setting userProfile:', profileData);
@@ -281,19 +277,19 @@ export default function DashboardLayout() {
   return (
     <TranslationProvider>
       <SidebarProvider>
-          <DashboardContent userProfile={userProfile} />
-          <SidebarInset>
-              <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-                  <SidebarTrigger className="-ml-1" />
-                  <div className="flex items-center gap-2">
-                      <img src="/hopeline_red.png" alt="HopeLine Logo" width={32} height={32} />
-                      <h1 className="text-lg font-semibold">HopeLine Dashboard</h1>
-                  </div>
-              </header>
-              <main className="flex flex-1 flex-col gap-4 p-4 sm:px-8 sm:py-6 bg-gray-50/50 dark:bg-gray-900/50 min-h-screen">
-                  <Outlet />
-              </main>
-          </SidebarInset>
+        <DashboardContent userProfile={userProfile} />
+        <SidebarInset>
+          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+            <SidebarTrigger className="-ml-1" />
+            <div className="flex items-center gap-2">
+              <img src="/hopeline_red.png" alt="HopeLine Logo" width={32} height={32} />
+              <h1 className="text-lg font-semibold">HopeLine Dashboard</h1>
+            </div>
+          </header>
+          <main className="flex flex-1 flex-col gap-4 p-4 sm:px-8 sm:py-6 bg-gray-50/50 dark:bg-gray-900/50 min-h-screen">
+            <Outlet />
+          </main>
+        </SidebarInset>
       </SidebarProvider>
     </TranslationProvider>
   );

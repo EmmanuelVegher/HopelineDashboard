@@ -7,18 +7,16 @@
  */
 // SVG ViewBox: 0 0 745 600
 // Empirical Bounds from Path Data:
-const MAP_MIN_X = 0.96;
-const MAP_MAX_X = 682.64;
-const MAP_MIN_Y = 0.23;
-const MAP_MAX_Y = 585.32;
+const MAP_MIN_X = 0;
+const MAP_MIN_Y = 0;
 
-const MAP_WIDTH = MAP_MAX_X - MAP_MIN_X;
-const MAP_HEIGHT = MAP_MAX_Y - MAP_MIN_Y;
+const MAP_WIDTH = 745;
+const MAP_HEIGHT = 600;
 
-const MIN_LON = 2.667421;
-const MAX_LAT = 13.892750;
-const MAX_LON = 14.680752;
-const MIN_LAT = 4.269658;
+const MIN_LON = 2.65; // Shift West slightly to include Lagos (3.38E)
+const MAX_LAT = 13.9;
+const MAX_LON = 14.7;
+const MIN_LAT = 4.25;
 
 const LON_RANGE = MAX_LON - MIN_LON;
 const LAT_RANGE = MAX_LAT - MIN_LAT;

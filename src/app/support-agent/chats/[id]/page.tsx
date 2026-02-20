@@ -2,37 +2,28 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   MessageSquare,
   Send,
   Phone,
   MapPin,
   Globe,
-  Clock,
-  User,
   Loader2,
   Paperclip,
-  Mic,
-  Video,
-  MoreVertical,
   CheckCircle,
   AlertCircle,
   File,
-  Download,
-  Image,
   ExternalLink,
   ArrowLeft
 } from "lucide-react";
-import { collection, query, where, onSnapshot, addDoc, doc, setDoc, getDoc, updateDoc, serverTimestamp, orderBy, limit, getDocs } from "firebase/firestore";
+import { collection, query, onSnapshot, addDoc, doc, getDoc, updateDoc, serverTimestamp, orderBy } from "firebase/firestore";
 import { db, auth, functions } from "@/lib/firebase";
 import { httpsCallable } from "firebase/functions";
-import { translateText } from "@/ai/client";
 import { useToast } from "@/hooks/use-toast";
 import { MessageStatus } from "@/components/message-status";
 
@@ -45,18 +36,18 @@ interface Attachment {
 }
 
 interface Message {
-   id: string;
-   content: string;
-   messageType: string;
-   originalText: string;
-   receiverId: string;
-   senderEmail: string;
-   senderId: string;
-   timestamp: any;
-   userTranslatedText?: string; // Translation for the user
-   agentTranslatedText?: string; // Translation for the agent
-   attachments?: Attachment[];
-   status?: 'sent' | 'delivered' | 'read';
+  id: string;
+  content: string;
+  messageType: string;
+  originalText: string;
+  receiverId: string;
+  senderEmail: string;
+  senderId: string;
+  timestamp: any;
+  userTranslatedText?: string; // Translation for the user
+  agentTranslatedText?: string; // Translation for the agent
+  attachments?: Attachment[];
+  status?: 'sent' | 'delivered' | 'read';
 }
 
 interface ChatSession {
@@ -78,6 +69,13 @@ interface SupportAgentSettings {
   autoTranslate: boolean;
 }
 
+import { CallInterface } from "@/components/chat/call-interface";
+
+// Helper function to generate channel name
+const generateChannelName = (uid1: string, uid2: string) => {
+  return [uid1, uid2].sort().join('_');
+};
+
 export default function IndividualChatPage() {
   const params = useParams();
   const chatId = params.id as string;
@@ -86,8 +84,20 @@ export default function IndividualChatPage() {
   const [inputValue, setInputValue] = useState('');
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [userData, setUserData] = useState<Record<string, {firstName: string, lastName: string, image?: string}>>({});
+  const [userData, setUserData] = useState<Record<string, { firstName: string, lastName: string, image?: string }>>({});
   const [settings, setSettings] = useState<SupportAgentSettings | null>(null);
+
+  // Call State
+  const [activeCall, setActiveCall] = useState<{
+    callId: string;
+    chatId: string;
+    channelName: string;
+    recipientName: string;
+    recipientImage?: string;
+    callType: 'video' | 'voice';
+    isIncoming: boolean;
+  } | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -140,14 +150,16 @@ export default function IndividualChatPage() {
       if (docSnap.exists()) {
         const data = docSnap.data();
 
-        // Get user profile data
         try {
-          const userDoc = await getDoc(doc(db, 'users', data.userId));
+          // Determine the "other" person in the chat
+          const otherUserId = data.participants?.find((id: string) => id !== auth.currentUser?.uid) || data.userId;
+
+          const userDoc = await getDoc(doc(db, 'users', otherUserId));
           if (userDoc.exists()) {
             const userData = userDoc.data();
             const session: ChatSession = {
               id: docSnap.id,
-              userId: data.userId,
+              userId: otherUserId,
               userName: userData.displayName || userData.firstName || userData.email || 'Unknown User',
               userImage: userData.image,
               lastMessage: data.lastMessage || '',
@@ -160,22 +172,22 @@ export default function IndividualChatPage() {
             };
             setChatSession(session);
 
-            // Also set user data for agent
-            const agentId = auth.currentUser?.uid;
-            if (agentId) {
-              const agentDoc = await getDoc(doc(db, 'users', agentId));
-              if (agentDoc.exists()) {
-                const agentData = agentDoc.data();
+            // Also set user data for names
+            const currentUserId = auth.currentUser?.uid;
+            if (currentUserId) {
+              const currentUserDoc = await getDoc(doc(db, 'users', currentUserId));
+              if (currentUserDoc.exists()) {
+                const currentUserData = currentUserDoc.data();
                 setUserData({
-                  [data.userId]: {
+                  [otherUserId]: {
                     firstName: userData.firstName || '',
                     lastName: userData.lastName || '',
                     image: userData.image
                   },
-                  [agentId]: {
-                    firstName: agentData.firstName || '',
-                    lastName: agentData.lastName || '',
-                    image: agentData.image
+                  [currentUserId]: {
+                    firstName: currentUserData.firstName || '',
+                    lastName: currentUserData.lastName || '',
+                    image: currentUserData.image
                   }
                 });
               }
@@ -345,6 +357,47 @@ export default function IndividualChatPage() {
     }
   };
 
+  const handleCall = async (type: 'voice' | 'video') => {
+    if (!chatSession || !auth.currentUser) return;
+
+    try {
+      const channelName = generateChannelName(auth.currentUser.uid, chatSession.userId);
+      const callDocRef = await addDoc(collection(db, 'calls'), {
+        userId: chatSession.userId,
+        agentId: auth.currentUser.uid,
+        userName: chatSession.userName,
+        userImage: chatSession.userImage || '',
+        agentName: 'Support Agent', // Ideally fetch from profile
+        agentImage: '',
+        callType: type,
+        chatId: chatId,
+        channelName: channelName,
+        callerId: auth.currentUser.uid,
+        status: 'ringing',
+        startTime: serverTimestamp(),
+        acceptedAt: null,
+        endTime: null,
+        duration: 0,
+        language: 'en',
+        location: '',
+        priority: 'normal'
+      });
+
+      setActiveCall({
+        callId: callDocRef.id,
+        chatId: chatId,
+        channelName: channelName,
+        recipientName: chatSession.userName,
+        recipientImage: chatSession.userImage,
+        callType: type,
+        isIncoming: false
+      });
+    } catch (error) {
+      console.error("Error starting call:", error);
+      toast({ title: "Error", description: "Failed to start call", variant: "destructive" });
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-emerald-50 p-4 sm:p-6 lg:p-8">
@@ -385,6 +438,22 @@ export default function IndividualChatPage() {
           </div>
         </div>
       </div>
+    );
+  }
+
+  // Render active call interface if in call
+  if (activeCall) {
+    return (
+      <CallInterface
+        callId={activeCall.callId}
+        chatId={activeCall.chatId}
+        channelName={activeCall.channelName}
+        recipientName={activeCall.recipientName}
+        recipientImage={activeCall.recipientImage}
+        callType={activeCall.callType}
+        isIncoming={activeCall.isIncoming}
+        onClose={() => setActiveCall(null)}
+      />
     );
   }
 
@@ -435,7 +504,7 @@ export default function IndividualChatPage() {
                 variant="outline"
                 size="sm"
                 className="w-full sm:w-auto"
-                onClick={() => toast({ title: "Call Feature", description: "Voice calling will be available soon" })}
+                onClick={() => handleCall('voice')}
               >
                 <Phone className="h-4 w-4 mr-2" />
                 Call
@@ -462,9 +531,8 @@ export default function IndividualChatPage() {
               messages.map((message) => (
                 <div
                   key={message.id}
-                  className={`flex items-end gap-2 ${
-                    message.senderId === auth.currentUser?.uid ? "justify-end" : "justify-start"
-                  }`}
+                  className={`flex items-end gap-2 ${message.senderId === auth.currentUser?.uid ? "justify-end" : "justify-start"
+                    }`}
                 >
                   {message.senderId !== auth.currentUser?.uid && (
                     <Avatar className="h-8 w-8">
@@ -473,11 +541,10 @@ export default function IndividualChatPage() {
                     </Avatar>
                   )}
                   <div className="flex flex-col gap-1 items-start">
-                    <div className={`rounded-lg px-4 py-2 shadow-sm max-w-[400px] ${
-                      message.senderId === auth.currentUser?.uid
-                        ? "bg-blue-600 text-white"
-                        : "bg-slate-100 text-slate-800"
-                    }`}>
+                    <div className={`rounded-lg px-4 py-2 shadow-sm max-w-[400px] ${message.senderId === auth.currentUser?.uid
+                      ? "bg-blue-600 text-white"
+                      : "bg-slate-100 text-slate-800"
+                      }`}>
                       {message.attachments && message.attachments.length > 0 && (
                         <div className="space-y-2 mb-2">
                           {message.attachments.map((attachment, index) => (
@@ -582,11 +649,10 @@ export default function IndividualChatPage() {
                                   href={attachment.url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className={`flex items-center gap-2 p-2 rounded-lg border transition-colors ${
-                                    message.senderId === auth.currentUser?.uid
-                                      ? "border-blue-400 bg-blue-700 hover:bg-blue-800"
-                                      : "border-slate-300 bg-slate-50 hover:bg-slate-100"
-                                  }`}
+                                  className={`flex items-center gap-2 p-2 rounded-lg border transition-colors ${message.senderId === auth.currentUser?.uid
+                                    ? "border-blue-400 bg-blue-700 hover:bg-blue-800"
+                                    : "border-slate-300 bg-slate-50 hover:bg-slate-100"
+                                    }`}
                                 >
                                   <File className="h-4 w-4" />
                                   <div className="flex-1 min-w-0">
@@ -665,7 +731,7 @@ export default function IndividualChatPage() {
                   className="h-8 w-8 rounded-full"
                   disabled={!inputValue.trim() || sending}
                 >
-                  {sending ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4"/>}
+                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>
               </div>
             </div>

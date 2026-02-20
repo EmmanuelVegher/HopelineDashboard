@@ -4,19 +4,35 @@ import { StateData, ActivityItem } from '@/hooks/useSituationData';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { geoToSvg } from '@/lib/map-utils';
-import { Search, Info } from 'lucide-react';
+import { Search, Info, Maximize2, Minimize2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
 interface DisplacementMapProps {
     data: StateData[];
     alerts?: ActivityItem[];
     onStateSelect?: (state: StateData) => void;
+    isSuperAdmin?: boolean;
 }
 
-export const DisplacementMap: React.FC<DisplacementMapProps> = ({ data, alerts = [], onStateSelect }) => {
+export const DisplacementMap: React.FC<DisplacementMapProps> = ({ data, alerts = [], onStateSelect, isSuperAdmin }) => {
     const [hoveredState, setHoveredState] = useState<StateData | null>(null);
     const [hoveredAlert, setHoveredAlert] = useState<ActivityItem | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [isFullScreen, setIsFullScreen] = useState(false);
+    const mapRef = React.useRef<HTMLDivElement>(null);
+
+    const toggleFullScreen = () => {
+        if (!mapRef.current) return;
+        if (!document.fullscreenElement) {
+            mapRef.current.requestFullscreen().catch(err => {
+                alert(`Error attempting to enable full-screen mode: ${err.message}`);
+            });
+            setIsFullScreen(true);
+        } else {
+            document.exitFullscreen();
+            setIsFullScreen(false);
+        }
+    };
 
     const filteredData = data.map(s => ({
         ...s,
@@ -24,7 +40,7 @@ export const DisplacementMap: React.FC<DisplacementMapProps> = ({ data, alerts =
     }));
 
     return (
-        <Card className="relative w-full h-[650px] bg-white border border-slate-100 shadow-none overflow-hidden flex items-center justify-center p-0 rounded-xl group/map">
+        <Card ref={mapRef} className="relative w-full h-[650px] bg-white border border-slate-100 shadow-none overflow-hidden flex items-center justify-center p-0 rounded-xl group/map">
 
             {/* Very Subtle Grid - Light Mode */}
             <div className="absolute inset-0 z-0 opacity-[0.02] pointer-events-none"
@@ -34,16 +50,30 @@ export const DisplacementMap: React.FC<DisplacementMapProps> = ({ data, alerts =
                 }}
             />
 
-            {/* Map Controls: Filter Box */}
-            <div className="absolute top-6 left-6 z-50 w-64 group/filter">
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-hover/filter:text-blue-500 transition-colors" />
-                    <Input
-                        placeholder="Filter states..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-9 bg-white/90 backdrop-blur-sm border-slate-200 shadow-lg rounded-full h-10 transition-all focus:ring-2 focus:ring-blue-500/20"
-                    />
+            {/* Map Controls: Filter Box & Fullscreen */}
+            <div className="absolute top-6 left-6 z-50 flex items-center gap-4">
+                {isSuperAdmin && (
+                    <div className="w-64 group/filter">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-hover/filter:text-blue-500 transition-colors" />
+                            <Input
+                                placeholder="Filter states..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-9 bg-white/90 backdrop-blur-sm border-slate-200 shadow-lg rounded-full h-10 transition-all focus:ring-2 focus:ring-blue-500/20"
+                            />
+                        </div>
+                    </div>
+                )}
+                <div className="bg-white/90 backdrop-blur-sm border-slate-200 shadow-lg rounded-full h-10 px-4 flex items-center gap-2 hover:bg-slate-50 cursor-pointer"
+                    onClick={toggleFullScreen}
+                >
+                    {isFullScreen ? (
+                        <Minimize2 className="w-4 h-4 text-blue-600" />
+                    ) : (
+                        <Maximize2 className="w-4 h-4 text-blue-600" />
+                    )}
+                    <span className="text-xs font-bold uppercase tracking-wider">{isFullScreen ? 'Exit Fullscreen' : 'Fullscreen Map'}</span>
                 </div>
             </div>
 
@@ -152,6 +182,9 @@ export const DisplacementMap: React.FC<DisplacementMapProps> = ({ data, alerts =
                     {/* SOS Alert Markers - Geographically Precise */}
                     {alerts.map((alert) => {
                         if (!alert.coordinates || !alert.coordinates.latitude || !alert.coordinates.longitude) return null;
+
+                        // Only show active alerts on the map as pulsing red dots
+                        if (alert.status !== 'Active' && alert.status !== 'transmitting') return null;
 
                         const { x, y } = geoToSvg(alert.coordinates.latitude, alert.coordinates.longitude);
 

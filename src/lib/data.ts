@@ -41,6 +41,7 @@ export type Driver = {
     vehicleImageUrl?: string;
     email: string;
     vehicleDetails?: any;
+    state?: string;
     // Location streaming data
     locationAccuracy?: number;
     locationTimestamp?: number;
@@ -73,7 +74,7 @@ export type DisplacedPerson = {
     };
     // New Shelter Assessment Fields
     householdLocationType?: 'Host community' | 'IDP camp' | 'Refugee';
-    shelterCondition?: 'Destroyed' | 'Partially damaged' | 'Overcrowded' | 'No shelter';
+    shelterCondition?: 'Rented accommodation' | 'Own house (damaged but habitable)' | 'Own house (safe and adequate)' | 'Staying with relatives or friends' | 'Homeless / living in open areas' | 'Makeshift or temporary shelter (tent, shack, uncompleted building)' | 'Camp shelter (formal IDP camp)' | string;
     displacementCause?: string;
     stayingLocation?: 'Host community' | 'IDP camp' | 'Open space' | 'Abandoned structure' | 'Others';
     householdComposition?: {
@@ -85,9 +86,9 @@ export type DisplacedPerson = {
     };
     isShelterSafe?: boolean;
     weatherProtection?: string[]; // Rain, Wind, Heat, Cold
-    urgentShelterProblem?: 'Leakage' | 'Overcrowding' | 'Lack of privacy' | 'Unsafe structure';
+    urgentShelterProblem?: string[]; // Leakage, Overcrowding, Lack of privacy, Unsafe structure
     receivedAssistance?: boolean;
-    assistanceNeeded?: 'Emergency shelter' | 'Repairs' | 'Relocation' | 'Transitional shelter' | 'NFIs';
+    assistanceNeeded?: string[]; // Emergency shelter, Repairs, Relocation, Transitional shelter, NFIs;
 
     surveyCompleted?: boolean;
     surveyId?: string;
@@ -97,6 +98,11 @@ export type DisplacedPerson = {
         performedBy: string;
         notes?: string;
     }[];
+    imageUrl?: string;
+    latitude?: number;
+    longitude?: number;
+    gender?: string;
+    state?: string;
 }
 
 export type UserProfile = {
@@ -116,6 +122,7 @@ export type UserProfile = {
     language?: string;
     state?: string;
     accountStatus?: string;
+    availability?: 'online' | 'offline' | 'away' | string;
     location?: string;
     // Location streaming data
     latitude?: number;
@@ -142,12 +149,14 @@ export type AdminUser = {
     createdAt?: any;
     isOnline?: boolean;
     uid?: string;
+    state?: string;
 };
 
 export type UssdCode = {
     id: string;
     name: string;
     code: string;
+    state?: string;
 };
 
 export type Vehicle = {
@@ -168,6 +177,7 @@ export type Vehicle = {
     mileage?: number;
     fuelType?: string;
     color?: string;
+    state?: string;
     notes?: string;
     createdAt: string;
     updatedAt: string;

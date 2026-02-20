@@ -13,18 +13,16 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import {
-  CheckCircle,
   User,
   Settings,
   History,
   Car,
   LogOut,
-  Bell,
+  MessageSquare
 } from "lucide-react";
 import { useLocation, useNavigate, Outlet, Link } from "react-router-dom";
 import { useLoading } from '@/contexts/LoadingProvider';
 import { useEffect, useState } from 'react';
-import { useEffect as useReactEffect } from 'react';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -36,12 +34,13 @@ const driverRoles = ['driver', 'pilot', 'responder', 'rider', 'Driver', 'Pilot',
 
 const navLinks = [
   { to: "/driver/map", label: "Tasks", icon: Car },
+  { to: "/driver/chats", label: "Chats", icon: MessageSquare },
   { to: "/driver/profile", label: "Profile", icon: User },
   { to: "/driver/settings", label: "Settings", icon: Settings },
   { to: "/driver/history", label: "History", icon: History },
 ];
 
-function DriverSidebar({ activeAlertsCount = 0, driverProfile }: { activeAlertsCount?: number; driverProfile?: {firstName: string; lastName: string; image?: string} | null }) {
+function DriverSidebar({ activeAlertsCount = 0, driverProfile }: { activeAlertsCount?: number; driverProfile?: { firstName: string; lastName: string; image?: string } | null }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { state, isMobile, setOpenMobile } = useSidebar();
@@ -83,8 +82,8 @@ function DriverSidebar({ activeAlertsCount = 0, driverProfile }: { activeAlertsC
     <Sidebar>
       <SidebarHeader>
         <div className="flex items-center gap-2">
-            <img src="/shelter_logo.png" alt="Hopeline Logo" width={40} height={40} />
-            {state === 'expanded' && <h1 className="text-xl font-bold">Driver Panel</h1>}
+          <img src="/shelter_logo.png" alt="Hopeline Logo" width={40} height={40} />
+          {state === 'expanded' && <h1 className="text-xl font-bold">Driver Panel</h1>}
         </div>
       </SidebarHeader>
       <SidebarContent className="p-2">
@@ -158,7 +157,7 @@ export default function DriverLayout() {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [tasks, setTasks] = useState<MapTask[]>([]);
-  const [driverProfile, setDriverProfile] = useState<{firstName: string; lastName: string; image?: string} | null>(null);
+  const [driverProfile, setDriverProfile] = useState<{ firstName: string; lastName: string; image?: string } | null>(null);
 
   useEffect(() => {
     setIsLoading(false);

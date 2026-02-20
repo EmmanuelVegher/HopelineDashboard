@@ -28,6 +28,7 @@ import { useLocation, useNavigate, Outlet } from "react-router-dom";
 import { NavLink } from "@/components/nav-link";
 import { useLoading } from "@/contexts/LoadingProvider";
 import { useTranslationContext } from "@/contexts/TranslationProvider";
+import { AdminDataProvider } from "@/contexts/AdminDataProvider";
 import { useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -46,7 +47,7 @@ const navLinks = [
   { to: "/support-agent/notifications", key: "notifications", icon: Bell },
 ];
 
-function SupportAgentSidebar({ userProfile }: { userProfile?: {firstName: string; lastName: string; image?: string; isOnline?: boolean} | null }) {
+function SupportAgentSidebar({ userProfile }: { userProfile?: { firstName: string; lastName: string; image?: string; isOnline?: boolean } | null }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { state, isMobile, setOpenMobile } = useSidebar();
@@ -69,8 +70,8 @@ function SupportAgentSidebar({ userProfile }: { userProfile?: {firstName: string
     <Sidebar>
       <SidebarHeader>
         <div className="flex items-center gap-2">
-            <img src="/hopeline_red.png" alt="HopeLine Logo" width={40} height={40} />
-            {state === 'expanded' && <h1 className="text-xl font-bold">{t('supportAgent.sidebar.supportAgent')}</h1>}
+          <img src="/hopeline_red.png" alt="HopeLine Logo" width={40} height={40} />
+          {state === 'expanded' && <h1 className="text-xl font-bold">{t('supportAgent.sidebar.supportAgent')}</h1>}
         </div>
       </SidebarHeader>
       <SidebarContent className="p-2">
@@ -91,61 +92,61 @@ function SupportAgentSidebar({ userProfile }: { userProfile?: {firstName: string
           })}
         </SidebarMenu>
       </SidebarContent>
-       <SidebarContent className="p-2 mt-auto" >
-         {/* User Profile Section */}
-         <div className="mb-4 p-3 bg-muted/50 rounded-lg">
-           <div className="text-center">
-             <div className="w-16 h-16 mx-auto mb-2 rounded-full overflow-hidden bg-muted relative">
-               {userProfile?.image ? (
-                 <img
-                   src={userProfile.image}
-                   alt="Profile"
-                   className="w-full h-full object-cover"
-                   onError={(e) => {
-                     console.log('Support agent profile image failed to load:', userProfile.image);
-                     e.currentTarget.style.display = 'none';
-                     e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                   }}
-                   onLoad={() => {
-                     console.log('Support agent profile image loaded successfully:', userProfile.image);
-                   }}
-                 />
-               ) : null}
-               <div className={`w-full h-full flex items-center justify-center text-muted-foreground ${userProfile?.image ? 'hidden' : ''}`}>
-                 <Headphones className="w-8 h-8" />
-               </div>
-               {/* Online status indicator */}
-               {userProfile?.isOnline && (
-                 <div className="absolute bottom-0 right-0 w-4 h-4 bg-brand-green border-2 border-primary-foreground rounded-full"></div>
-               )}
-             </div>
-             <p className="text-sm font-medium text-foreground">
-               {userProfile ? `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || t('supportAgent.sidebar.supportAgent') : t('supportAgent.sidebar.loading')}
-             </p>
-             {userProfile?.isOnline && (
-               <p className="text-xs text-brand-green-text font-medium">{t('supportAgent.sidebar.online')}</p>
-             )}
-           </div>
-         </div>
-         {state === 'expanded' && (
-            <div className="text-center px-2 py-4 space-y-4">
-                <p className="text-xs text-sidebar-foreground/70">{t('supportAgent.sidebar.supportedBy')}</p>
-                <div className="flex justify-center items-center gap-4">
-                    <img src="/caritas-logo.png" alt="Caritas Nigeria Logo" width={100} height={40} />
-                    <img src="/citi-logo.png" alt="CITI Foundation Logo" width={100} height={40} className="mx-auto" />
-                </div>
+      <SidebarContent className="p-2 mt-auto" >
+        {/* User Profile Section */}
+        <div className="mb-4 p-3 bg-muted/50 rounded-lg">
+          <div className="text-center">
+            <div className="w-16 h-16 mx-auto mb-2 rounded-full overflow-hidden bg-muted relative">
+              {userProfile?.image ? (
+                <img
+                  src={userProfile.image}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    console.log('Support agent profile image failed to load:', userProfile.image);
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                  }}
+                  onLoad={() => {
+                    console.log('Support agent profile image loaded successfully:', userProfile.image);
+                  }}
+                />
+              ) : null}
+              <div className={`w-full h-full flex items-center justify-center text-muted-foreground ${userProfile?.image ? 'hidden' : ''}`}>
+                <Headphones className="w-8 h-8" />
+              </div>
+              {/* Online status indicator */}
+              {userProfile?.isOnline && (
+                <div className="absolute bottom-0 right-0 w-4 h-4 bg-brand-green border-2 border-primary-foreground rounded-full"></div>
+              )}
             </div>
-         )}
-         <SidebarSeparator />
-         <SidebarMenu>
-            <SidebarMenuItem>
-                 <SidebarMenuButton onClick={handleLogout} tooltip={t('supportAgent.sidebar.logout')}>
-                   <LogOut />
-                   {t('supportAgent.sidebar.logout')}
-                 </SidebarMenuButton>
-            </SidebarMenuItem>
+            <p className="text-sm font-medium text-foreground">
+              {userProfile ? `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || t('supportAgent.sidebar.supportAgent') : t('supportAgent.sidebar.loading')}
+            </p>
+            {userProfile?.isOnline && (
+              <p className="text-xs text-brand-green-text font-medium">{t('supportAgent.sidebar.online')}</p>
+            )}
+          </div>
+        </div>
+        {state === 'expanded' && (
+          <div className="text-center px-2 py-4 space-y-4">
+            <p className="text-xs text-sidebar-foreground/70">{t('supportAgent.sidebar.supportedBy')}</p>
+            <div className="flex justify-center items-center gap-4">
+              <img src="/caritas-logo.png" alt="Caritas Nigeria Logo" width={100} height={40} />
+              <img src="/citi-logo.png" alt="CITI Foundation Logo" width={100} height={40} className="mx-auto" />
+            </div>
+          </div>
+        )}
+        <SidebarSeparator />
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={handleLogout} tooltip={t('supportAgent.sidebar.logout')}>
+              <LogOut />
+              {t('supportAgent.sidebar.logout')}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
-       </SidebarContent>
+      </SidebarContent>
     </Sidebar>
   );
 }
@@ -156,7 +157,7 @@ export default function SupportAgentLayout() {
   const navigate = useNavigate();
   const [authLoading, setAuthLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
-  const [userProfile, setUserProfile] = useState<{firstName: string; lastName: string; image?: string; isOnline?: boolean} | null>(null);
+  const [userProfile, setUserProfile] = useState<{ firstName: string; lastName: string; image?: string; isOnline?: boolean } | null>(null);
   const { renderCount } = useTranslationContext();
 
   useEffect(() => {
@@ -262,20 +263,22 @@ export default function SupportAgentLayout() {
   }
 
   return (
-    <SidebarProvider key={renderCount}>
+    <AdminDataProvider profile={userProfile ? { role: 'support agent', firstName: userProfile.firstName, lastName: userProfile.lastName, image: userProfile.image } : null}>
+      <SidebarProvider key={renderCount}>
         <SupportAgentSidebar userProfile={userProfile} />
         <SidebarInset>
-            <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-                <SidebarTrigger className="-ml-1" />
-                <div className="flex items-center gap-2">
-                    <img src="/hopeline_red.png" alt="Support Agent Logo" width={32} height={32} />
-                    <h1 className="text-lg font-semibold">Support Agent</h1>
-                </div>
-            </header>
-            <main className="flex flex-1 flex-col gap-4 p-4 sm:px-8 sm:py-6 bg-gray-50/50 dark:bg-gray-900/50 min-h-screen">
-                <Outlet />
-            </main>
+          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+            <SidebarTrigger className="-ml-1" />
+            <div className="flex items-center gap-2">
+              <img src="/hopeline_red.png" alt="Support Agent Logo" width={32} height={32} />
+              <h1 className="text-lg font-semibold">Support Agent</h1>
+            </div>
+          </header>
+          <main className="flex flex-1 flex-col gap-4 p-4 sm:px-8 sm:py-6 bg-gray-50/50 dark:bg-gray-900/50 min-h-screen">
+            <Outlet />
+          </main>
         </SidebarInset>
-    </SidebarProvider>
+      </SidebarProvider>
+    </AdminDataProvider>
   );
 }

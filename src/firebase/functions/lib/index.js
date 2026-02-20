@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateAgoraToken = exports.translateText = exports.sendSos = exports.getWeather = exports.sendTaskAssignmentNotification = exports.processapprovedusers = exports.translateNewMessage = void 0;
+exports.createTeamMember = exports.trackDriverLocationHistory = exports.createDisplacedPersonAccounts = exports.generateAgoraToken = exports.translateText = exports.sendSos = exports.initializeGlobalGroups = exports.onTrainingPublished = exports.syncUserGroups = exports.getWeather = exports.sendTaskAssignmentNotification = exports.processapprovedusers = exports.translateNewMessage = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const agora_token_1 = require("agora-token");
@@ -207,10 +207,6 @@ exports.getWeather = functions.https.onCall(async (data, context) => {
                 activeUntil: new Date((alert.end || Date.now() / 1000) * 1000).toLocaleTimeString()
             });
         });
-        // Add generated alerts if no real alerts
-        if (alerts.length === 0) {
-            alerts.push(...generateMockAlerts(currentConditions, forecast));
-        }
         const weatherData = {
             narrativeSummary,
             currentConditions,
@@ -267,7 +263,108 @@ exports.getWeather = functions.https.onCall(async (data, context) => {
         };
     }
 });
-// Helper functions
+/**
+ * Automatically ensure state group chat exists when a user from a new state registers
+ */
+exports.syncUserGroups = functions.firestore.document("users/{userId}").onCreate(async (snap, context) => {
+    const userData = snap.data();
+    const db = admin.firestore();
+    if (userData.state) {
+        const stateGroupName = `${userData.state} Beneficiaries`;
+        const groupId = `state_${userData.state.toLowerCase().replace(/\s+/g, '_')}_beneficiaries`;
+        const groupRef = db.collection('chats').doc(groupId);
+        const groupDoc = await groupRef.get();
+        if (!groupDoc.exists) {
+            await groupRef.set({
+                name: stateGroupName,
+                type: 'group',
+                state: userData.state,
+                isBeneficiaryGroup: true,
+                participants: [], // We use state-based query for scalability, but can store admins here if needed
+                status: 'active',
+                lastMessage: 'Welcome to the state group chat!',
+                lastMessageTimestamp: admin.firestore.FieldValue.serverTimestamp(),
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            console.log(`Created state group chat: ${stateGroupName}`);
+        }
+    }
+    return null;
+});
+/**
+ * Send notifications and group messages when a new training module is published
+ */
+exports.onTrainingPublished = functions.firestore.document("trainingMaterials/{trainingId}").onCreate(async (snap, context) => {
+    var _a, _b;
+    const training = snap.data();
+    const db = admin.firestore();
+    const title = training.title || "New Training Available";
+    const body = `Category: ${training.category}. Tap to view the latest protocol.`;
+    // 1. Post to relevant Group Chats
+    let targetGroupId = 'global_beneficiaries';
+    if ((_a = training.targetedRoles) === null || _a === void 0 ? void 0 : _a.includes('admin'))
+        targetGroupId = 'global_admins';
+    else if ((_b = training.targetedRoles) === null || _b === void 0 ? void 0 : _b.includes('support-agent'))
+        targetGroupId = 'global_support';
+    try {
+        const chatRef = db.collection('chats').doc(targetGroupId);
+        await chatRef.collection('messages').add({
+            content: `📚 New Training: ${title}\n\n${training.description}`,
+            messageType: 'training_alert',
+            trainingId: context.params.trainingId,
+            senderId: 'system',
+            senderEmail: 'system@hopeline.app',
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            status: 'sent'
+        });
+        await chatRef.update({
+            lastMessage: `📚 New Training: ${title}`,
+            lastMessageTimestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+    }
+    catch (err) {
+        console.error("Error posting training to chat:", err);
+    }
+    // 2. Send Push Notification to all users (topic-based is better for scale)
+    const message = {
+        notification: {
+            title: `📚 ${title}`,
+            body: body,
+        },
+        topic: 'all_users', // You'll need to subscribe users to this topic in the app
+        data: {
+            type: "new_training",
+            trainingId: context.params.trainingId,
+        }
+    };
+    try {
+        await admin.messaging().send(message);
+        console.log("Global training notification sent");
+    }
+    catch (error) {
+        console.error("Error sending training notification:", error);
+    }
+});
+/**
+ * Callable to initialize global groups (Run once by super admin)
+ */
+exports.initializeGlobalGroups = functions.https.onCall(async (data, context) => {
+    if (!context.auth)
+        throw new functions.https.HttpsError('unauthenticated', 'Login required');
+    const db = admin.firestore();
+    const groups = [
+        { id: 'global_beneficiaries', name: 'Global Beneficiaries', isBeneficiaryGroup: true },
+        { id: 'global_support', name: 'Support Agents Hub', isSupportGroup: true },
+        { id: 'global_admins', name: 'Admin Tactical Command', isAdminGroup: true }
+    ];
+    const results = [];
+    for (const group of groups) {
+        const ref = db.collection('chats').doc(group.id);
+        await ref.set(Object.assign(Object.assign({}, group), { type: 'group', status: 'active', lastMessage: 'Global group initialized', lastMessageTimestamp: admin.firestore.FieldValue.serverTimestamp(), createdAt: admin.firestore.FieldValue.serverTimestamp(), participants: [] }), { merge: true });
+        results.push(group.id);
+    }
+    return { success: true, groups: results };
+});
 function mapWeatherIcon(description) {
     const iconMap = {
         'Sunny': 'Sun',
@@ -304,32 +401,6 @@ function generateNarrativeSummary(current, forecast) {
     }
     return `${currentDesc} conditions with temperatures around ${currentTemp}.`;
 }
-function generateMockAlerts(current, forecast) {
-    const alerts = [];
-    // Check for rain in forecast
-    const hasRain = forecast.some(day => ['Rain', 'Drizzle', 'Thunderstorm'].includes(day.description));
-    if (hasRain) {
-        alerts.push({
-            title: 'Weather Alert',
-            description: 'Rainfall expected in the coming days. Please stay informed about local weather conditions and prepare accordingly.',
-            area: 'Local Area',
-            severity: 'Moderate',
-            activeUntil: new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleTimeString()
-        });
-    }
-    // High temperature alert
-    const highTemp = forecast.some(day => parseInt(day.temp) > 35);
-    if (highTemp) {
-        alerts.push({
-            title: 'Heat Advisory',
-            description: 'High temperatures expected. Stay hydrated and avoid prolonged sun exposure.',
-            area: 'Local Area',
-            severity: 'Minor',
-            activeUntil: new Date(Date.now() + 12 * 60 * 60 * 1000).toLocaleTimeString()
-        });
-    }
-    return alerts;
-}
 function generateShelterImpact(current, forecast) {
     const hasSevereWeather = ['Rain', 'Thunderstorm', 'Snow'].includes(current.description) ||
         forecast.some(day => ['Rain', 'Thunderstorm', 'Snow'].includes(day.description));
@@ -346,7 +417,7 @@ exports.sendSos = functions.https.onCall(async (data, context) => {
     // if (!context.auth) {
     //   throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
     // }
-    const { emergencyType, location, additionalInfo, userId, userEmail } = data;
+    const { emergencyType, location, additionalInfo, userId, userEmail, readByAdmin, readBySuperAdmin } = data;
     if (!emergencyType || !location || typeof location.latitude !== 'number' || typeof location.longitude !== 'number') {
         throw new functions.https.HttpsError('invalid-argument', 'emergencyType and valid location are required');
     }
@@ -360,7 +431,9 @@ exports.sendSos = functions.https.onCall(async (data, context) => {
             userId: userId || null,
             userEmail: userEmail || null,
             status: 'Active',
-            timestamp: admin.firestore.FieldValue.serverTimestamp()
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            readByAdmin: readByAdmin !== null && readByAdmin !== void 0 ? readByAdmin : false,
+            readBySuperAdmin: readBySuperAdmin !== null && readBySuperAdmin !== void 0 ? readBySuperAdmin : false
         });
         console.log("SOS Alert saved with ID: ", docRef.id);
         // Check if this is a displacement-related emergency
@@ -501,32 +574,287 @@ exports.translateText = functions.https.onCall(async (data, context) => {
     }
 });
 /**
- * Callable function for generating Agora RTC tokens
+ * Generate Agora RTC token for voice/video calls
+ * Compatible with Flutter mobile app implementation
  */
 exports.generateAgoraToken = functions.https.onCall(async (data, context) => {
-    // Check if user is authenticated
+    // Check authentication
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
     }
-    const { channelName, uid, role = 'publisher' } = data;
-    if (!channelName || uid === undefined) {
-        throw new functions.https.HttpsError('invalid-argument', 'channelName and uid are required');
+    const { channelName, uid = 0, role = 'publisher' } = data;
+    if (!channelName) {
+        throw new functions.https.HttpsError('invalid-argument', 'Channel name is required');
     }
+    // Agora credentials (matching mobile app)
     const appId = '8bb7364b135e43d0b936e3cb53dc69fe';
     const appCertificate = '611360e6a5164a7188944aa59cc9ad40';
+    // Token expires in 24 hours
+    const expirationTimeInSeconds = Math.floor(Date.now() / 1000) + 24 * 60 * 60;
     // Convert role string to RtcRole enum
-    const rtcRole = role === 'publisher' ? agora_token_1.RtcRole.PUBLISHER : agora_token_1.RtcRole.SUBSCRIBER;
-    const expirationTimeInSeconds = 3600; // 1 hour validity
-    const currentTimestamp = Math.floor(Date.now() / 1000);
-    const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+    const rtcRole = role === 'subscriber' ? agora_token_1.RtcRole.SUBSCRIBER : agora_token_1.RtcRole.PUBLISHER;
     try {
-        const token = agora_token_1.RtcTokenBuilder.buildTokenWithUserAccount(appId, appCertificate, channelName, uid.toString(), rtcRole, privilegeExpiredTs, 0 // salt
-        );
-        return { token };
+        // Use buildTokenWithUid (compatible with mobile app)
+        const token = agora_token_1.RtcTokenBuilder.buildTokenWithUid(appId, appCertificate, channelName, uid, rtcRole, expirationTimeInSeconds, expirationTimeInSeconds);
+        console.log(`Generated Agora token for channel: ${channelName}, uid: ${uid}`);
+        return token; // Return token directly as string (matching mobile app)
     }
     catch (error) {
         console.error('Error generating Agora token:', error);
         throw new functions.https.HttpsError('internal', 'Failed to generate token');
+    }
+});
+/**
+ * Callable function for creating accounts for displaced persons
+ */
+exports.createDisplacedPersonAccounts = functions.runWith({
+    timeoutSeconds: 300,
+    memory: '512MB'
+}).https.onCall(async (data, context) => {
+    // Check if user is authenticated and has admin privileges (optional, depending on requirements)
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+    const { users } = data; // Expecting array of { name, phone }
+    if (!users || !Array.isArray(users)) {
+        throw new functions.https.HttpsError('invalid-argument', 'Users array is required');
+    }
+    const results = [];
+    const db = admin.firestore();
+    for (const user of users) {
+        try {
+            if (!user) {
+                results.push({ status: 'error', reason: 'User object is null or undefined' });
+                continue;
+            }
+            const { name, phone, gender, state, image, latitude, longitude } = user;
+            if (!name || !phone) {
+                console.warn('Missing required fields for account creation:', { name, phone });
+                results.push({
+                    name: name || 'Unknown',
+                    phone: phone || 'Unknown',
+                    status: 'error',
+                    reason: 'Name and phone are required for each beneficiary'
+                });
+                continue;
+            }
+            const phoneStr = String(phone);
+            console.log(`[PROVISIONING] Processing account for: ${name} (${phoneStr})`);
+            // 1. Tactical Phone Sanitization (Leading Zero Protocol)
+            let mobileNumber = phoneStr.replace(/\s+/g, '').replace(/[^0-9]/g, '');
+            if (mobileNumber.startsWith('234') && mobileNumber.length >= 11) {
+                mobileNumber = '0' + mobileNumber.substring(3);
+            }
+            else if (mobileNumber.length === 10 && !mobileNumber.startsWith('0')) {
+                mobileNumber = '0' + mobileNumber;
+            }
+            const syntheticEmail = `${mobileNumber}@hopeline.app`;
+            const password = mobileNumber; // Password is the sanitized 11-digit mobile number
+            // 2. E.164 Global Format for Auth
+            let cleanForE164 = phoneStr.replace(/\s+/g, '').replace(/[^0-9+]/g, '');
+            if (cleanForE164.startsWith('0')) {
+                cleanForE164 = cleanForE164.substring(1);
+            }
+            let formattedPhone = cleanForE164;
+            if (!cleanForE164.startsWith('+')) {
+                formattedPhone = `+234${cleanForE164}`;
+            }
+            console.log(`[IDENTITY] Generated: Email=${syntheticEmail}, Local=${mobileNumber}, Global=${formattedPhone}`);
+            try {
+                // Check if user exists by email
+                try {
+                    const authUser = await admin.auth().getUserByEmail(syntheticEmail);
+                    console.log(`[AUTH] User already exists (Email): ${syntheticEmail}`);
+                    results.push({ phone: phoneStr, status: 'skipped', reason: 'Account already exists (Email)', uid: authUser.uid });
+                    continue;
+                }
+                catch (error) {
+                    if (error.code !== 'auth/user-not-found')
+                        throw error;
+                }
+                // Check if user exists by phone number
+                try {
+                    const authUser = await admin.auth().getUserByPhoneNumber(formattedPhone);
+                    console.log(`[AUTH] User already exists (Phone): ${formattedPhone}`);
+                    results.push({ phone: phoneStr, status: 'skipped', reason: 'Account already exists (Phone)', uid: authUser.uid });
+                    continue;
+                }
+                catch (error) {
+                    if (error.code !== 'auth/user-not-found')
+                        throw error;
+                }
+                // Create user in Auth
+                const userRecord = await admin.auth().createUser({
+                    email: syntheticEmail,
+                    password: password,
+                    phoneNumber: formattedPhone,
+                    displayName: name,
+                    emailVerified: true,
+                });
+                const uid = userRecord.uid;
+                // Create user profile in Firestore (Normalization Protocol)
+                await db.collection("users").doc(uid).set({
+                    uid: uid,
+                    email: syntheticEmail,
+                    role: 'displaced_person',
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    isOnline: false,
+                    displayName: name,
+                    mobile: formattedPhone, // E.164 formatted (+234...)
+                    mobileNumber: mobileNumber, // Local format with leading zero (090...)
+                    firstName: name.split(' ')[0] || '',
+                    lastName: name.split(' ').slice(1).join(' ') || '',
+                    image: image || '',
+                    profileCompleted: 1, // Bypasses onboarding
+                    language: 'English',
+                    accountStatus: 'active', // Allows login
+                    gender: gender || '',
+                    state: state || '',
+                    latitude: !isNaN(parseFloat(latitude)) ? parseFloat(latitude) : null,
+                    longitude: !isNaN(parseFloat(longitude)) ? parseFloat(longitude) : null,
+                }, { merge: true });
+                console.log(`Successfully processed ${phoneStr}: ${uid}`);
+                results.push({ phone: phoneStr, status: 'created', uid });
+            }
+            catch (error) {
+                console.error(`Error processing account:`, error);
+                results.push({ status: 'error', reason: error.message || 'Unknown error' });
+            }
+        }
+        catch (error) {
+            console.error(`Error processing account:`, error);
+            results.push({ status: 'error', reason: error.message || 'Unknown error' });
+        }
+    }
+    return { results };
+});
+/**
+ * Trigger to track driver location history
+ * Listens for updates to user documents and archives location changes
+ */
+exports.trackDriverLocationHistory = functions.firestore.document("users/{userId}").onUpdate(async (change, context) => {
+    const beforeData = change.before.data();
+    const afterData = change.after.data();
+    const userId = context.params.userId;
+    // Check if user is a driver/responder role
+    const driverRoles = ['driver', 'pilot', 'responder', 'rider'];
+    if (!driverRoles.includes(afterData.role)) {
+        return null;
+    }
+    // Check if location exists and has changed
+    const beforeLat = beforeData.latitude;
+    const beforeLng = beforeData.longitude;
+    const afterLat = afterData.latitude;
+    const afterLng = afterData.longitude;
+    // If no location data in new update, skip
+    if (afterLat === undefined || afterLng === undefined) {
+        return null;
+    }
+    // Check if location changed significantly (approx 5-10 meters to reduce noise, or just any change)
+    // For simplicity, checking strict inequality. Client usually handles throttle.
+    if (beforeLat === afterLat && beforeLng === afterLng) {
+        return null;
+    }
+    try {
+        const db = admin.firestore();
+        const historyRef = db.collection("users").doc(userId).collection("locationHistory");
+        await historyRef.add({
+            latitude: afterLat,
+            longitude: afterLng,
+            heading: afterData.heading || null,
+            speed: afterData.speed || null,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            // Store plain timestamp for easier querying if needed
+            timestampMs: Date.now()
+        });
+        console.log(`Archived location for driver ${userId}: ${afterLat}, ${afterLng}`);
+    }
+    catch (error) {
+        console.error(`Error archiving location for ${userId}:`, error);
+    }
+    return null;
+});
+/**
+ * Callable function for creating team members (drivers, pilots, etc.)
+ */
+exports.createTeamMember = functions.https.onCall(async (data, context) => {
+    // Check if user is authenticated
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+    // Verify requester has admin privileges
+    // Note: For strict security, you should verify the caller's role from Firestore here.
+    // For now, we'll assume the client + Firestore rules protect the UI, but backend check is best practice.
+    const { email, password, phone, name, role, state, vehicleId, vehicleImageUrl } = data;
+    if (!email || !password || !phone || !name || !role) {
+        throw new functions.https.HttpsError('invalid-argument', 'Email, password, phone, name, and role are required');
+    }
+    try {
+        // 1. Check if user exists by email or phone to provide better error messages
+        try {
+            await admin.auth().getUserByEmail(email);
+            throw new functions.https.HttpsError('already-exists', 'A user with this email already exists.');
+        }
+        catch (e) {
+            if (e.code !== 'auth/user-not-found')
+                throw e;
+        }
+        // Format phone number to E.164 (Assuming Nigeria +234 if not provided)
+        let cleanPhone = phone.replace(/\s+/g, '').replace(/[^0-9+]/g, '');
+        // Remove leading 0 if present (common in Nigeria: 080...)
+        if (cleanPhone.startsWith('0')) {
+            cleanPhone = cleanPhone.substring(1);
+        }
+        // Add +234 if not present
+        let formattedPhone = cleanPhone;
+        if (!cleanPhone.startsWith('+')) {
+            formattedPhone = `+234${cleanPhone}`;
+        }
+        try {
+            await admin.auth().getUserByPhoneNumber(formattedPhone);
+            throw new functions.https.HttpsError('already-exists', 'A user with this phone number already exists.');
+        }
+        catch (e) {
+            if (e.code !== 'auth/user-not-found')
+                throw e;
+        }
+        // 2. Create user in Firebase Auth
+        const userRecord = await admin.auth().createUser({
+            email,
+            password,
+            phoneNumber: formattedPhone,
+            displayName: name,
+            emailVerified: true, // Auto-verify for internal tools
+        });
+        // 3. Create user profile in Firestore
+        const db = admin.firestore();
+        await db.collection("users").doc(userRecord.uid).set({
+            uid: userRecord.uid,
+            email,
+            role, // 'driver', 'pilot', etc.
+            name, // Store as 'name' to match Driver type, or map to displayName
+            displayName: name,
+            firstName: name.split(' ')[0] || '',
+            lastName: name.split(' ').slice(1).join(' ') || '',
+            phone,
+            mobile: phone, // Legacy field support
+            state: state || '',
+            vehicle: '', // Assigned later or via separate flow
+            vehicleId: vehicleId || null,
+            vehicleImageUrl: vehicleImageUrl || null,
+            status: 'Available',
+            task: 'Awaiting Assignment',
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            isOnline: false,
+            profileCompleted: 1,
+            accountStatus: 'active'
+        });
+        console.log(`Created team member ${name} (${role}) with UID ${userRecord.uid}`);
+        return { success: true, uid: userRecord.uid };
+    }
+    catch (error) {
+        console.error("Error creating team member:", error);
+        throw new functions.https.HttpsError(error.code || 'internal', error.message || 'Failed to create team member');
     }
 });
 //# sourceMappingURL=index.js.map

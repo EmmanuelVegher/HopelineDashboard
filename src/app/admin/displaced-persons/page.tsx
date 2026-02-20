@@ -6,17 +6,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { type DisplacedPerson, type Shelter } from "@/lib/data";
-import { Users, User, Check, CheckCircle, Heart, AlertTriangle, RefreshCw, Search, Filter, Plane, MapPin, Clock, Phone, Send, Info, BedDouble, Plus, Edit } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useState, useEffect } from "react";
-import { collection, doc, writeBatch, runTransaction, addDoc, updateDoc } from "firebase/firestore";
+import { Users, User, Check, CheckCircle, Heart, AlertTriangle, RefreshCw, Search, Filter, Plane, MapPin, Clock, Send, Info, BedDouble, Plus, Edit, Download, Navigation, Globe, Locate, Loader2, Phone, MessageSquare, MessageCircle } from "lucide-react";
+import { cn, formatTimestamp } from "@/lib/utils";
+import { NIGERIA_STATE_BOUNDS } from "@/lib/nigeria-geography";
+import { useGeolocation } from "@/hooks/useGeolocation";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { collection, doc, writeBatch, runTransaction, addDoc, updateDoc, setDoc } from "firebase/firestore";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { db } from "@/lib/firebase";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+import { useNavigate } from "react-router-dom";
+
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -24,6 +29,7 @@ import { useAdminData } from "@/contexts/AdminDataProvider";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import * as XLSX from 'xlsx';
 
 const getStatusInfo = (status: string) => {
@@ -118,7 +124,7 @@ const initialPersonState: Partial<DisplacedPerson> = {
     lastUpdate: new Date().toLocaleString(),
     // New fields
     householdLocationType: 'Host community',
-    shelterCondition: 'Partially damaged',
+    shelterCondition: '',
     displacementCause: '',
     stayingLocation: 'Host community',
     householdComposition: {
@@ -130,9 +136,11 @@ const initialPersonState: Partial<DisplacedPerson> = {
     },
     isShelterSafe: true,
     weatherProtection: [],
-    urgentShelterProblem: 'Leakage',
+    urgentShelterProblem: [],
     receivedAssistance: false,
-    assistanceNeeded: 'Emergency shelter'
+    assistanceNeeded: [],
+    gender: 'Other',
+    state: ''
 };
 
 function PersonForm({ person, existingPersons = [], onSave, onCancel, onSwitchToEdit }: { person?: DisplacedPerson | null, existingPersons?: DisplacedPerson[], onSave: () => void, onCancel: () => void, onSwitchToEdit?: (person: DisplacedPerson) => void }) {
@@ -142,7 +150,25 @@ function PersonForm({ person, existingPersons = [], onSave, onCancel, onSwitchTo
     const [nameSuggestions, setNameSuggestions] = useState<DisplacedPerson[]>([]);
     const [phoneDuplicate, setPhoneDuplicate] = useState<DisplacedPerson | null>(null);
     const { toast } = useToast();
-    const { users } = useAdminData();
+    const { users, adminProfile } = useAdminData();
+    const { getCurrentPosition } = useGeolocation();
+    const isSuperAdmin = adminProfile?.role?.toLowerCase().includes('super');
+    const adminState = adminProfile?.state || '';
+
+    const isFormValid = !!(
+        formData.name?.trim() &&
+        formData.phone?.trim() &&
+        formData.currentLocation?.trim() &&
+        formData.state?.trim() &&
+        formData.gender &&
+        formData.stayingLocation &&
+        formData.shelterCondition &&
+        formData.displacementCause?.trim()
+    );
+
+    const nigerianStates = Object.keys(NIGERIA_STATE_BOUNDS).sort();
+    const functions = getFunctions();
+    const createAccounts = httpsCallable(functions, 'createDisplacedPersonAccounts');
 
     const matchingUsers = userSearch.length > 1
         ? users?.filter(u =>
@@ -155,12 +181,15 @@ function PersonForm({ person, existingPersons = [], onSave, onCancel, onSwitchTo
         if (person) {
             setFormData(person);
         } else {
-            setFormData(initialPersonState);
+            setFormData({
+                ...initialPersonState,
+                state: isSuperAdmin ? '' : adminState
+            });
         }
         // Reset warnings/suggestions when mode changes
         setNameSuggestions([]);
         setPhoneDuplicate(null);
-    }, [person]);
+    }, [person, isSuperAdmin, adminState]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -193,13 +222,17 @@ function PersonForm({ person, existingPersons = [], onSave, onCancel, onSwitchTo
 
     const handleCompositionChange = (field: keyof NonNullable<DisplacedPerson['householdComposition']>, value: string) => {
         const numValue = parseInt(value) || 0;
-        setFormData(prev => ({
-            ...prev,
-            householdComposition: {
-                ...(prev.householdComposition || initialPersonState.householdComposition!),
-                [field]: numValue
+        setFormData(prev => {
+            const current = prev.householdComposition || initialPersonState.householdComposition!;
+            const next = { ...current, [field]: numValue };
+
+            // Auto-calculate total if changing components
+            if (field !== 'total') {
+                next.total = (next.adults || 0) + (next.children || 0) + (next.elderly || 0) + (next.pwds || 0);
             }
-        }));
+
+            return { ...prev, householdComposition: next };
+        });
     };
 
     const handleWeatherToggle = (condition: string) => {
@@ -213,31 +246,129 @@ function PersonForm({ person, existingPersons = [], onSave, onCancel, onSwitchTo
         });
     };
 
-    const handleArrayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value.split(',').map(item => item.trim()) }));
-    }
+    const toggleMultiSelect = (field: keyof DisplacedPerson, value: string) => {
+        setFormData(prev => {
+            const current = (prev[field] as string[]) || [];
+            if (current.includes(value)) {
+                return { ...prev, [field]: current.filter(v => v !== value) };
+            } else {
+                return { ...prev, [field]: [...current, value] };
+            }
+        });
+    };
+
+
 
     const handleSelectChange = (name: keyof DisplacedPerson, value: string) => {
         setFormData(prev => ({ ...prev, [name]: value }));
     }
 
+    const [uploadingImage, setUploadingImage] = useState(false);
+
+    // ... rest of state ...
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+
+        const file = e.target.files[0];
+        setUploadingImage(true);
+        try {
+            const storage = getStorage();
+            const storageRef = ref(storage, `displaced-persons/${Date.now()}_${file.name}`);
+            const snapshot = await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(snapshot.ref);
+
+            setFormData(prev => ({ ...prev, imageUrl: downloadURL }));
+            toast({ title: "Image Uploaded", description: "Image uploaded successfully." });
+        } catch (error) {
+            console.error("Upload error:", error);
+            toast({ title: "Upload Failed", description: "Could not upload image.", variant: "destructive" });
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+
+    const [fetchingLocation, setFetchingLocation] = useState(false);
+
+    const handleGetLocation = async () => {
+        setFetchingLocation(true);
+        try {
+            const position = await getCurrentPosition();
+            setFormData(prev => ({
+                ...prev,
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude
+            }));
+            toast({
+                title: "Location Captured",
+                description: `Lat: ${position.coords.latitude.toFixed(4)}, Lng: ${position.coords.longitude.toFixed(4)}`
+            });
+        } catch (error: any) {
+            console.error("Location error:", error);
+            toast({
+                title: "Location Error",
+                description: "Could not retrieve your current location. Please check permissions.",
+                variant: "destructive"
+            });
+        } finally {
+            setFetchingLocation(false);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
 
-        const dataToSave = {
-            ...formData,
-            lastUpdate: new Date().toLocaleString()
-        };
-
         try {
+            let dataToSave = {
+                ...formData,
+                lastUpdate: new Date().toLocaleString()
+            };
+
+            // Auto-create account if new person and phone exists
+            if (!person?.id && formData.phone?.trim() && formData.name?.trim()) {
+                try {
+                    const result: any = await createAccounts({
+                        users: [{
+                            name: formData.name,
+                            phone: formData.phone,
+                            gender: formData.gender,
+                            state: formData.state,
+                            image: formData.imageUrl,
+                            latitude: formData.latitude,
+                            longitude: formData.longitude
+                        }]
+                    });
+                    const accountResult = result.data.results[0];
+                    if (accountResult.status === 'created' || (accountResult.status === 'skipped' && accountResult.reason === 'Account already exists')) {
+                        // Attempt to link if created or already exists
+                        if (accountResult.uid) {
+                            dataToSave = { ...dataToSave, userId: accountResult.uid };
+                            toast({ title: "Account Created", description: `User account created/linked for ${formData.phone}` });
+                        } else {
+                            toast({ title: "Account Note", description: `Account for ${formData.phone} already exists or could not be linked automatically.` });
+                        }
+                    } else if (accountResult.status === 'error') {
+                        toast({ title: "Account Creation Failed", description: accountResult.reason, variant: 'destructive' });
+                    }
+                } catch (err) {
+                    console.error("Failed to create account helper:", err);
+                }
+            }
+
+
             if (person?.id) {
                 const personRef = doc(db, "displacedPersons", person.id);
-                await updateDoc(personRef, dataToSave);
+                await setDoc(personRef, {
+                    ...dataToSave,
+                    lastUpdate: new Date().toLocaleString()
+                }, { merge: true });
                 toast({ title: "Success", description: "Person updated successfully." });
             } else {
-                await addDoc(collection(db, "displacedPersons"), dataToSave);
+                await addDoc(collection(db, "displacedPersons"), {
+                    ...dataToSave,
+                    lastUpdate: new Date().toLocaleString()
+                });
                 toast({ title: "Success", description: "Person added successfully." });
             }
             onSave();
@@ -249,6 +380,8 @@ function PersonForm({ person, existingPersons = [], onSave, onCancel, onSwitchTo
         }
     }
 
+
+
     return (
         <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-4">
             <Tabs defaultValue="basic" className="w-full">
@@ -259,6 +392,60 @@ function PersonForm({ person, existingPersons = [], onSave, onCancel, onSwitchTo
                 </TabsList>
 
                 <TabsContent value="basic" className="space-y-4">
+                    <div className="space-y-4 border rounded-lg p-4 bg-slate-50">
+                        <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-blue-600" />
+                            <h3 className="font-semibold text-sm">Link User Account</h3>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Link this record to an existing app user to share status updates.</p>
+                        <div className="relative">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Contact email or name..."
+                                className="pl-9 h-9"
+                                value={userSearch}
+                                onChange={(e) => setUserSearch(e.target.value)}
+                            />
+                            {userSearch && matchingUsers.length > 0 && (
+                                <ScrollArea className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-40">
+                                    {matchingUsers.map(u => (
+                                        <div
+                                            key={u.id}
+                                            className="p-2 hover:bg-slate-100 cursor-pointer flex items-center justify-between"
+                                            onClick={() => {
+                                                setFormData(prev => ({ ...prev, userId: u.id, name: u.displayName || prev.name }));
+                                                setUserSearch('');
+                                            }}
+                                        >
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-sm font-medium truncate">{u.displayName}</p>
+                                                <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                                            </div>
+                                            {formData.userId === u.id && <Check className="h-4 w-4 text-green-600" />}
+                                        </div>
+                                    ))}
+                                </ScrollArea>
+                            )}
+                        </div>
+                        {formData.userId && (
+                            <div className="flex items-center justify-between bg-blue-50 p-2 rounded border border-blue-100">
+                                <div className="flex items-center gap-2">
+                                    <CheckCircle className="h-4 w-4 text-blue-600" />
+                                    <p className="text-xs font-medium">Linked to: {users?.find(u => u.id === formData.userId)?.displayName}</p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    onClick={() => handleSelectChange('userId', '')}
+                                >
+                                    Unlink
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2 relative">
                             <Label htmlFor="name">Full Name of Household Head</Label>
@@ -313,85 +500,94 @@ function PersonForm({ person, existingPersons = [], onSave, onCancel, onSwitchTo
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="details">Other Identifying Details</Label>
-                            <Input id="details" name="details" value={formData.details} onChange={handleChange} placeholder="e.g., Age 45, Male" />
+                            <Input id="details" name="details" value={formData.details} onChange={handleChange} placeholder="e.g., Age 45..." />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="gender">Sex</Label>
+                            <Select value={formData.gender} onValueChange={(v) => handleSelectChange('gender', v)}>
+                                <SelectTrigger id="gender">
+                                    <SelectValue placeholder="Select Gender" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Male">Male</SelectItem>
+                                    <SelectItem value="Female">Female</SelectItem>
+                                    <SelectItem value="Other">Other</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="state">Current State</Label>
+                            <Select
+                                value={formData.state || ''}
+                                onValueChange={(v) => handleSelectChange('state', v)}
+                                disabled={!isSuperAdmin && !!adminState}
+                            >
+                                <SelectTrigger id="state">
+                                    <SelectValue placeholder="Select State" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {isSuperAdmin ? (
+                                        nigerianStates.map(s => (
+                                            <SelectItem key={s} value={s}>{s}</SelectItem>
+                                        ))
+                                    ) : (
+                                        <SelectItem value={adminState}>{adminState}</SelectItem>
+                                    )}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
 
                     <div className="space-y-2">
-                        <Label>Current Location Type</Label>
-                        <RadioGroup
-                            value={formData.householdLocationType}
-                            onValueChange={(v) => handleSelectChange('householdLocationType', v)}
-                            className="flex flex-wrap gap-4"
-                        >
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="Host community" id="loc-host" />
-                                <Label htmlFor="loc-host">Host community</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="IDP camp" id="loc-idp" />
-                                <Label htmlFor="loc-idp">IDP camp</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="Refugee" id="loc-refugee" />
-                                <Label htmlFor="loc-refugee">Refugee</Label>
-                            </div>
-                        </RadioGroup>
-                    </div>
-
-                    <div className="space-y-4 border rounded-lg p-4 bg-slate-50">
-                        <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-blue-600" />
-                            <h3 className="font-semibold text-sm">Link User Account</h3>
-                        </div>
-                        <p className="text-xs text-muted-foreground">Link this record to an existing app user to share status updates.</p>
-                        <div className="relative">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Contact email or name..."
-                                className="pl-9 h-9"
-                                value={userSearch}
-                                onChange={(e) => setUserSearch(e.target.value)}
-                            />
-                            {userSearch && matchingUsers.length > 0 && (
-                                <ScrollArea className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-40">
-                                    {matchingUsers.map(u => (
-                                        <div
-                                            key={u.id}
-                                            className="p-2 hover:bg-slate-100 cursor-pointer flex items-center justify-between"
-                                            onClick={() => {
-                                                setFormData(prev => ({ ...prev, userId: u.id, name: u.displayName || prev.name }));
-                                                setUserSearch('');
-                                            }}
-                                        >
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-sm font-medium truncate">{u.displayName}</p>
-                                                <p className="text-xs text-muted-foreground truncate">{u.email}</p>
-                                            </div>
-                                            {formData.userId === u.id && <Check className="h-4 w-4 text-green-600" />}
-                                        </div>
-                                    ))}
-                                </ScrollArea>
-                            )}
-                        </div>
-                        {formData.userId && (
-                            <div className="flex items-center justify-between bg-blue-50 p-2 rounded border border-blue-100">
-                                <div className="flex items-center gap-2">
-                                    <CheckCircle className="h-4 w-4 text-blue-600" />
-                                    <p className="text-xs font-medium">Linked to: {users?.find(u => u.id === formData.userId)?.displayName}</p>
-                                </div>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    onClick={() => handleSelectChange('userId', '')}
-                                >
-                                    Unlink
-                                </Button>
+                        <Label htmlFor="image">Location Image (Optional)</Label>
+                        <Input type="file" id="imagefile" accept="image/*" onChange={handleImageUpload} disabled={uploadingImage} />
+                        {formData.imageUrl && (
+                            <div className="mt-2 text-xs text-green-600 flex items-center gap-1">
+                                <CheckCircle className="h-3 w-3" /> Image Uploaded
                             </div>
                         )}
+                        <Input
+                            id="image"
+                            name="imageUrl"
+                            value={formData.imageUrl || ''}
+                            onChange={handleChange}
+                            placeholder="Or enter URL manually https://..."
+                            className="mt-2"
+                        />
                     </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between h-5">
+                                <Label htmlFor="latitude">Latitude (Optional)</Label>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-[10px] gap-1 px-2 border-blue-200 text-blue-700 hover:bg-blue-50"
+                                    onClick={handleGetLocation}
+                                    disabled={fetchingLocation}
+                                >
+                                    {fetchingLocation ? (
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                        <Locate className="h-3 w-3" />
+                                    )}
+                                    {fetchingLocation ? 'Fetching...' : 'Get Current Location'}
+                                </Button>
+                            </div>
+                            <Input type="number" id="latitude" name="latitude" value={formData.latitude || ''} onChange={handleChange} placeholder="e.g. 11.8333" step="any" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="longitude">Longitude (Optional)</Label>
+                            <Input type="number" id="longitude" name="longitude" value={formData.longitude || ''} onChange={handleChange} placeholder="e.g. 13.1500" step="any" />
+                        </div>
+                    </div>
+
+
                 </TabsContent>
 
                 <TabsContent value="assessment" className="space-y-4">
@@ -414,10 +610,13 @@ function PersonForm({ person, existingPersons = [], onSave, onCancel, onSwitchTo
                         <Select value={formData.shelterCondition} onValueChange={(v) => handleSelectChange('shelterCondition', v)}>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="Destroyed">Destroyed</SelectItem>
-                                <SelectItem value="Partially damaged">Partially damaged</SelectItem>
-                                <SelectItem value="Overcrowded">Overcrowded</SelectItem>
-                                <SelectItem value="No shelter">No shelter</SelectItem>
+                                <SelectItem value="Rented accommodation">Rented accommodation</SelectItem>
+                                <SelectItem value="Own house (damaged but habitable)">Own house (damaged but habitable)</SelectItem>
+                                <SelectItem value="Own house (safe and adequate)">Own house (safe and adequate)</SelectItem>
+                                <SelectItem value="Staying with relatives or friends">Staying with relatives or friends</SelectItem>
+                                <SelectItem value="Homeless / living in open areas">Homeless / living in open areas</SelectItem>
+                                <SelectItem value="Makeshift or temporary shelter (tent, shack, uncompleted building)">Makeshift or temporary shelter (tent, shack, uncompleted building)</SelectItem>
+                                <SelectItem value="Camp shelter (formal IDP camp)">Camp shelter (formal IDP camp)</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -432,7 +631,7 @@ function PersonForm({ person, existingPersons = [], onSave, onCancel, onSwitchTo
                         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                             <div className="space-y-1">
                                 <Label className="text-[10px] uppercase">Total</Label>
-                                <Input type="number" min="1" value={formData.householdComposition?.total} onChange={(e) => handleCompositionChange('total', e.target.value)} />
+                                <Input type="number" min="0" value={formData.householdComposition?.total} readOnly className="bg-slate-100 font-bold" />
                             </div>
                             <div className="space-y-1">
                                 <Label className="text-[10px] uppercase">Adults</Label>
@@ -490,30 +689,39 @@ function PersonForm({ person, existingPersons = [], onSave, onCancel, onSwitchTo
                     </div>
 
                     <div className="space-y-2">
-                        <Label>Most Urgent Shelter Problem</Label>
-                        <Select value={formData.urgentShelterProblem} onValueChange={(v) => handleSelectChange('urgentShelterProblem', v)}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Leakage">Leakage</SelectItem>
-                                <SelectItem value="Overcrowding">Overcrowding</SelectItem>
-                                <SelectItem value="Lack of privacy">Lack of privacy</SelectItem>
-                                <SelectItem value="Unsafe structure">Unsafe structure</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <Label>Most Urgent Shelter Problem (Select all that apply)</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                            {['Leakage', 'Overcrowding', 'Lack of privacy', 'Unsafe structure'].map(problem => (
+                                <div key={problem} className="flex items-center space-x-2 p-2 border rounded hover:bg-slate-50">
+                                    <Checkbox
+                                        id={`problem-${problem}`}
+                                        checked={formData.urgentShelterProblem?.includes(problem)}
+                                        onCheckedChange={() => toggleMultiSelect('urgentShelterProblem', problem)}
+                                    />
+                                    <label htmlFor={`problem-${problem}`} className="text-sm font-medium leading-none cursor-pointer">
+                                        {problem}
+                                    </label>
+                                </div>
+                            ))}
+                        </div>
                     </div>
 
                     <div className="space-y-2">
-                        <Label>Assistance Needed Most Urgently</Label>
-                        <Select value={formData.assistanceNeeded} onValueChange={(v) => handleSelectChange('assistanceNeeded', v)}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Emergency shelter">Emergency shelter</SelectItem>
-                                <SelectItem value="Repairs">Repairs</SelectItem>
-                                <SelectItem value="Relocation">Relocation</SelectItem>
-                                <SelectItem value="Transitional shelter">Transitional shelter</SelectItem>
-                                <SelectItem value="NFIs">NFIs (Non-Food Items)</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <Label>Assistance Needed Most Urgently (Select all that apply)</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                            {['Emergency shelter', 'Repairs', 'Relocation', 'Transitional shelter', 'NFIs'].map(need => (
+                                <div key={need} className="flex items-center space-x-2 p-2 border rounded hover:bg-slate-50">
+                                    <Checkbox
+                                        id={`need-${need}`}
+                                        checked={formData.assistanceNeeded?.includes(need)}
+                                        onCheckedChange={() => toggleMultiSelect('assistanceNeeded', need)}
+                                    />
+                                    <label htmlFor={`need-${need}`} className="text-sm font-medium leading-none cursor-pointer">
+                                        {need}
+                                    </label>
+                                </div>
+                            ))}
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -547,7 +755,7 @@ function PersonForm({ person, existingPersons = [], onSave, onCancel, onSwitchTo
 
             <DialogFooter className="pt-4 border-t sticky bottom-0 bg-white">
                 <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-                <Button type="submit" disabled={loading}>{loading ? 'Saving...' : 'Save Person Record'}</Button>
+                <Button type="submit" disabled={loading || !isFormValid}>{loading ? 'Saving...' : 'Save Person Record'}</Button>
             </DialogFooter>
         </form >
     );
@@ -699,7 +907,7 @@ function AssignShelterDialog({ person, allShelters, isOpen, onOpenChange, onAssi
     )
 }
 
-function LogActivityDialog({ person, isOpen, onOpenChange, onLog }: { person: DisplacedPerson | null, isOpen: boolean, onOpenChange: (open: boolean) => void, onLog: (action: string, notes: string) => void }) {
+function LogActivityDialog({ person, isOpen, onOpenChange, onLog }: { person: DisplacedPerson | null, isOpen: boolean, onOpenChange: (open: boolean) => void, onLog: (personId: string, action: string, notes?: string) => void }) {
     const [action, setAction] = useState('General Assistance');
     const [notes, setNotes] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -762,8 +970,111 @@ function LogActivityDialog({ person, isOpen, onOpenChange, onLog }: { person: Di
     )
 }
 
+function AccountCreationSummaryDialog({ summary, onClose }: { summary: { created: number, skipped: any[], errors: any[] } | null, onClose: () => void }) {
+    if (!summary) return null;
+
+    return (
+        <Dialog open={!!summary} onOpenChange={onClose}>
+            <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+                <DialogHeader>
+                    <DialogTitle>Account Creation Summary</DialogTitle>
+                    <DialogDescription>
+                        Summary of user accounts created during import.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="grid grid-cols-3 gap-4 py-4">
+                    <Card className="bg-green-50 border-green-200">
+                        <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+                            <span className="text-2xl font-bold text-green-700">{summary.created}</span>
+                            <span className="text-xs text-green-600 font-medium">Accounts Created</span>
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-yellow-50 border-yellow-200">
+                        <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+                            <span className="text-2xl font-bold text-yellow-700">{summary.skipped.length}</span>
+                            <span className="text-xs text-yellow-600 font-medium">Skipped (Duplicate)</span>
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-red-50 border-red-200">
+                        <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+                            <span className="text-2xl font-bold text-red-700">{summary.errors.length}</span>
+                            <span className="text-xs text-red-600 font-medium">Errors</span>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="flex-1 overflow-y-auto min-h-[200px]">
+                    {summary.skipped.length > 0 && (
+                        <div className="mb-6">
+                            <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                                <Info className="h-4 w-4 text-yellow-600" />
+                                Skipped Accounts
+                            </h4>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>No.</TableHead>
+                                        <TableHead>Name</TableHead>
+                                        <TableHead>Phone</TableHead>
+                                        <TableHead>Reason</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {summary.skipped.map((item, i) => (
+                                        <TableRow key={i}>
+                                            <TableCell className="text-xs">{i + 1}</TableCell>
+                                            <TableCell className="text-xs font-medium">{item.name}</TableCell>
+                                            <TableCell className="text-xs text-muted-foreground">{item.phone}</TableCell>
+                                            <TableCell className="text-xs text-yellow-600">{item.reason}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    )}
+
+                    {summary.errors.length > 0 && (
+                        <div className="mb-6">
+                            <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                                <AlertTriangle className="h-4 w-4 text-red-600" />
+                                Failed Accounts
+                            </h4>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>No.</TableHead>
+                                        <TableHead>Name</TableHead>
+                                        <TableHead>Phone</TableHead>
+                                        <TableHead>Reason</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {summary.errors.map((item, i) => (
+                                        <TableRow key={i}>
+                                            <TableCell className="text-xs">{i + 1}</TableCell>
+                                            <TableCell className="text-xs font-medium">{item.name}</TableCell>
+                                            <TableCell className="text-xs text-muted-foreground">{item.phone}</TableCell>
+                                            <TableCell className="text-xs text-red-600">{item.reason}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    )}
+                </div>
+
+                <DialogFooter>
+                    <Button onClick={onClose}>Close</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 export default function DisplacedPersonsPage() {
-    const { persons: displacedPersons, shelters, loading, permissionError, fetchData } = useAdminData();
+    const { persons: displacedPersons, shelters, loading, permissionError, fetchData, adminProfile } = useAdminData();
+    const isSuperAdmin = adminProfile?.role?.toLowerCase().includes('super');
     const [selectedPerson, setSelectedPerson] = useState<DisplacedPerson | null>(null);
     const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
     const [isLogDialogOpen, setIsLogDialogOpen] = useState(false);
@@ -771,133 +1082,301 @@ export default function DisplacedPersonsPage() {
     const [isExcelPreviewOpen, setIsExcelPreviewOpen] = useState(false);
     const [excelImportData, setExcelImportData] = useState<any[]>([]);
     const [excelImportErrors, setExcelImportErrors] = useState<string[]>([]);
+    const [skippedPhonesCount, setSkippedPhonesCount] = useState(0);
     const [importingExcel, setImportingExcel] = useState(false);
+    const [isImportInstructionsOpen, setIsImportInstructionsOpen] = useState(false);
     const { toast } = useToast();
+    const functions = getFunctions();
+    const createAccounts = httpsCallable(functions, 'createDisplacedPersonAccounts');
+    const [creationSummary, setCreationSummary] = useState<{ created: number, skipped: any[], errors: any[] } | null>(null);
+    const [creatingAccounts, setCreatingAccounts] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all');
+    const navigate = useNavigate();
+
+    const handleCall = (phone: string) => window.open(`tel:${phone}`, '_self');
+    const handleSMS = (phone: string) => window.open(`sms:${phone}`, '_self');
+    const handleWhatsApp = (phone: string) => {
+        const clean = phone.replace(/\D/g, '');
+        const waPhone = clean.startsWith('0') ? '234' + clean.substring(1) : clean;
+        window.open(`https://wa.me/${waPhone}`, '_blank');
+    };
+    const handleChat = (userId?: string) => {
+        if (!userId) {
+            toast({ title: "No linked account", description: "This beneficiary doesn't have a linked user account for in-app chat.", variant: "destructive" });
+            return;
+        }
+        navigate(`/admin/chats?userId=${userId}`);
+    };
+
+    const filteredPersons = useMemo(() => {
+        if (!displacedPersons) return [];
+        return displacedPersons.filter(person => {
+            const matchesSearch = person.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                person.id.toLowerCase().includes(searchQuery.toLowerCase());
+
+            const matchesStatus = statusFilter === 'all' || person.status.toLowerCase() === statusFilter.toLowerCase();
+
+            return matchesSearch && matchesStatus;
+        });
+    }, [displacedPersons, searchQuery, statusFilter]);
+
+    const EXPECTED_IMPORT_HEADERS = {
+        'Full Name of Household Head': 'name',
+        'Phone Number': 'phone',
+        'Current City/Village': 'currentLocation',
+        'Other Identifying Details': 'details',
+        'Current Location Type': 'householdLocationType',
+        'Staying Location': 'stayingLocation',
+        'Shelter Condition': 'shelterCondition',
+        'Displacement Cause': 'displacementCause',
+        'Total Household Size': 'total',
+        'Adults': 'adults',
+        'Children': 'children',
+        'Elderly': 'elderly',
+        'PWDs': 'pwds',
+        'Is Shelter Safe': 'isShelterSafe',
+        'Received Assistance': 'receivedAssistance',
+        'Weather Protection Issues': 'weatherProtection',
+        'Most Urgent Shelter Problem': 'urgentShelterProblem',
+        'Assistance Needed Most Urgently': 'assistanceNeeded',
+        'Status': 'status',
+        'Priority': 'priority',
+        'Gender': 'gender',
+        'State': 'state',
+        'Profile Image URL': 'image',
+        'Latitude': 'latitude',
+        'Longitude': 'longitude'
+    };
+
+    const handleDownloadTemplate = () => {
+        const headers = Object.keys(EXPECTED_IMPORT_HEADERS);
+        const sampleRow: any = {};
+
+        // Populate sample row based on headers
+        headers.forEach(header => {
+            switch (header) {
+                case 'Full Name of Household Head': sampleRow[header] = 'John Doe'; break;
+                case 'Phone Number': sampleRow[header] = '08012345678'; break;
+                case 'Gender': sampleRow[header] = 'Male'; break;
+                case 'State': sampleRow[header] = 'Borno'; break;
+                case 'Profile Image URL': sampleRow[header] = 'https://example.com/image.jpg'; break;
+                case 'Latitude': sampleRow[header] = '11.8333'; break;
+                case 'Longitude': sampleRow[header] = '13.1500'; break;
+                case 'Current City/Village': sampleRow[header] = 'Maiduguri'; break;
+                case 'Other Identifying Details': sampleRow[header] = 'Head of family'; break;
+                case 'Current Location Type': sampleRow[header] = 'Host community'; break;
+                case 'Staying Location': sampleRow[header] = 'Host community'; break;
+                case 'Shelter Condition': sampleRow[header] = 'Partially damaged'; break;
+                case 'Displacement Cause': sampleRow[header] = 'Flooding'; break;
+                case 'Total Household Size': sampleRow[header] = 5; break;
+                case 'Adults': sampleRow[header] = 2; break;
+                case 'Children': sampleRow[header] = 3; break;
+                case 'Elderly': sampleRow[header] = 0; break;
+                case 'PWDs': sampleRow[header] = 0; break;
+                case 'Is Shelter Safe': sampleRow[header] = 'No'; break;
+                case 'Received Assistance': sampleRow[header] = 'No'; break;
+                case 'Weather Protection Issues': sampleRow[header] = 'Rain, Wind'; break;
+                case 'Most Urgent Shelter Problem': sampleRow[header] = 'Leakage'; break;
+                case 'Assistance Needed Most Urgently': sampleRow[header] = 'Emergency shelter'; break;
+                case 'Status': sampleRow[header] = 'Needs Assistance'; break;
+                case 'Priority': sampleRow[header] = 'High Priority'; break;
+                default: sampleRow[header] = '';
+            }
+        });
+
+        const ws = XLSX.utils.json_to_sheet([sampleRow], { header: headers });
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Template");
+        XLSX.writeFile(wb, "Hopeline_Import_Template.xlsx");
+    };
 
     const handleOpenAssignDialog = (person: DisplacedPerson) => {
         setSelectedPerson(person);
         setIsAssignDialogOpen(true);
     };
 
-    const handleAssignmentComplete = () => {
-        setIsAssignDialogOpen(false);
-        setSelectedPerson(null);
-        fetchData(); // Refresh the list
-    }
+
+
 
 
     const handleExcelImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
-        setImportingExcel(true);
-        setExcelImportErrors([]);
+        const reader = new FileReader();
 
-        try {
-            const data = await file.arrayBuffer();
-            const workbook = XLSX.read(data);
-            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        reader.onload = (e) => {
+            try {
+                const data = e.target?.result;
+                const workbook = XLSX.read(data, { type: 'binary' });
+                const sheetName = workbook.SheetNames[0];
+                const sheet = workbook.Sheets[sheetName];
+                const rawData = XLSX.utils.sheet_to_json(sheet, {
+                    raw: true,
+                    header: 1, // Get array of arrays to check headers first
+                    defval: ''
+                });
 
-            if (jsonData.length === 0) {
-                toast({ title: "Import Failed", description: "No data found in the Excel file.", variant: "destructive" });
-                return;
-            }
+                if (rawData.length === 0) {
+                    toast({ title: "Error", description: "The file appears to be empty.", variant: "destructive" });
+                    return;
+                }
 
-            // Process and validate the data
-            const processedData: any[] = [];
-            const errors: string[] = [];
+                const fileHeaders = rawData[0] as string[];
+                const expectedHeaders = Object.keys(EXPECTED_IMPORT_HEADERS);
 
-            jsonData.forEach((row: any, index: number) => {
-                try {
-                    // Map Excel columns to survey fields
-                    const mappedData = {
-                        enumerator_name: row['Enumerator\'s Name'] || row['Enumerators Name'] || '',
-                        consent: true, // Assume consent for imported data - can be reviewed in preview
-                        state_of_origin: row['State of origin'] || '',
-                        lga: row['LGA'] || '',
-                        wards: row['Wards'] || '',
-                        community: row['Community'] || '',
-                        name_of_head_of_household: row['Name of Head of Household'] || '',
-                        name_of_spouse: row['Name of spouse'] || '',
-                        household_head_gender: row['Household Head Gender'] || '',
-                        age: parseInt(row['Age']) || 0,
-                        residency_status: row['Residency Status'] || '',
-                        phone_number: row['Phone number'] || '',
-                        marital_status: row['Marital Status'] || '',
-                        household_size: parseInt(row['Household Size']) || 1,
-                        hh_size_score: row['hh_size_score'] || 1,
-                        shelter_type: row['What type of shelter is your household currently living in?'] || '',
-                        displacement_duration: row['How long has your household been displaced from your original home?'] || '',
-                        affected_by_floods: (row['Was your household affected by recent floods?'] || '').toLowerCase() === 'yes',
-                        flood_impacts: [],
-                        flood_prone_area: (row['Do you currently live in a flood-prone area?'] || '').toLowerCase() === 'yes',
-                        access_to_water_and_toilet: (row['Does your household have regular access to clean drinking water and a functional toilet or latrine?'] || '').toLowerCase() === 'yes',
-                        regular_income: (row['Does your household have a regular source of income?'] || '').toLowerCase() === 'yes',
-                        food_frequency: row['How often does your household have enough food to eat?'] || '',
-                        basic_needs_frequency: row['How often is your household able to meet other basic needs such as clothing, transportation, and cooking fuel?'] || '',
-                        rcsi_relied_on_less_preferred: parseInt(row['Rely on less preferred and less expensive foods?']) || 0,
-                        rcsi_borrowed_food: parseInt(row['Borrow food or rely on help from a friend or relative?']) || 0,
-                        rcsi_limited_portion_size: parseInt(row['Limit portion size at mealtimes?']) || 0,
-                        rcsi_restricted_adults: parseInt(row['Restrict consumption by adults so that small children can eat?']) || 0,
-                        rcsi_reduced_meals: parseInt(row['Reduce the number of meals eaten in a day?']) || 0,
-                        access_to_farmland: (row['Does your household have access to farmland or fishing grounds?'] || '').toLowerCase() === 'yes',
-                        monthly_income: parseInt(row['What is your Household\'s Approximate monthly income (₦)']) || 0,
-                        regular_savings: (row['Do you currently save money regularly?'] || '').toLowerCase() === 'yes',
-                        interested_in_silc: (row['Are you interested in joining a SILC (Savings and Internal Lending Community)?'] || '').toLowerCase() === 'yes',
-                        financial_training: (row['Have you received any financial literacy or business training before?'] || '').toLowerCase() === 'yes',
-                        willing_to_attend_training: (row['Would you be willing to attend vocational or financial training to improve your livelihood?'] || '').toLowerCase() === 'yes',
-                        school_age_children_attend: (row['Do the school-age children in your household currently attend school?'] || '').toLowerCase() === 'yes',
-                        reported_gbv: (row['Are there reported cases of gender-based violence (GBV) in your household or community?'] || '').toLowerCase() === 'yes',
-                        gbv_services_available: (row['Are GBV response or support services available in your area?'] || '').toLowerCase() === 'yes, services are available and accessible',
-                        experienced_insecurity: (row['Have you or your household experienced any insecurity or violence in the past 6 months?'] || '').toLowerCase() === 'yes',
-                        feel_safe: (row['Do you feel safe in your community?'] || '').toLowerCase() === 'yes, i feel safe',
-                        access_to_health_facility: (row['Do you have access to a health facility or healthcare provider nearby?'] || '').toLowerCase() === 'yes',
-                        chronic_illness: (row['Does any member of your household have a chronic illness or disability?'] || '').toLowerCase() === 'yes',
-                        received_psychosocial_support: (row['Have you or any member of your household received psychosocial or counselling support in the past 12 months?'] || '').toLowerCase() === 'yes',
-                        willing_participate_awareness: (row['Would you be willing to participate in community awareness or prevention groups (e.g. GBV or peacebuilding)?'] || '').toLowerCase() === 'yes',
-                        main_energy_source: row['What is your household\'s main source of energy for cooking?'] || '',
-                        aware_clean_cooking: (row['Are you aware of energy-efficient or clean cooking methods (e.g., improved cookstoves, LPG)?'] || '').toLowerCase() === 'yes',
-                        disaster_training: (row['Have you ever received training on disaster preparedness, environmental safety, or flood control?'] || '').toLowerCase() === 'yes',
-                        willing_participate_environmental: (row['Would you be willing to participate in environmental safety or flood prevention activities in your community?'] || '').toLowerCase() === 'yes',
-                        flood_risks: (row['Are there flood risks in your area?'] || '').toLowerCase() === 'yes, high risk',
-                        prefer_self_collection: (row['If you are selected for assistance, do you prefer to come yourself?'] || '').toLowerCase() === 'yes',
-                        survey_date: row['Date'] || new Date().toISOString().split('T')[0],
-                        device_id: row['deviceid'] || '',
-                        submission_time: row['_submission_time'] || new Date().toISOString(),
-                        rowIndex: index + 1 // For tracking original row
+                // Basic validation: Check if required headers are present
+                const missingHeaders = expectedHeaders.filter(h => !fileHeaders.includes(h));
+                if (missingHeaders.length > 5) { // Allow some flexibility, but if too many match fail
+                    console.error("Missing headers:", missingHeaders);
+                    // Fallback to simple mapping if headers don't match, or show error
+                }
+
+                // Parse properly now using header: 0 to get object with keys
+                const jsonData = XLSX.utils.sheet_to_json(sheet);
+                const processedData: any[] = [];
+                const parsingErrors: string[] = [];
+                let missingPhones = 0;
+
+                jsonData.forEach((row: any, index: number) => {
+                    // Map row using EXPECTED_IMPORT_HEADERS
+                    let mappedData: any = {
+                        id: doc(collection(db, "displacedPersons")).id, // Generate ID client-side for keying
+                        lastUpdate: new Date().toLocaleString(),
+                        rowIndex: index + 2 // 1-based, +1 for header
                     };
 
-                    // Validate required fields
-                    if (!mappedData.name_of_head_of_household) {
-                        errors.push(`Row ${index + 1}: Missing head of household name`);
-                    }
+                    // Map fields
+                    Object.entries(EXPECTED_IMPORT_HEADERS).forEach(([header, field]) => {
+                        let value = row[header];
 
-                    processedData.push(mappedData);
-                } catch (error) {
-                    errors.push(`Row ${index + 1}: Error processing data - ${error}`);
+                        // Specific type conversions
+                        if (field === 'householdComposition') {
+                            // This is complex, flat structure in Excel -> object in model
+                        } else if (['total', 'adults', 'children', 'elderly', 'pwds'].includes(field)) {
+                            // Handle under householdComposition
+                            if (!mappedData.householdComposition) mappedData.householdComposition = { ...initialPersonState.householdComposition };
+                            mappedData.householdComposition[field] = parseInt(value) || 0;
+                        } else if (['weatherProtection', 'urgentShelterProblem', 'assistanceNeeded'].includes(field)) {
+                            mappedData[field] = typeof value === 'string' ? value.split(',').map(s => s.trim()) : [];
+                        } else if (field === 'isShelterSafe' || field === 'receivedAssistance') {
+                            mappedData[field] = value === 'Yes' || value === true || value === 'TRUE';
+                        } else {
+                            if (value !== undefined) mappedData[field] = value;
+                        }
+                    });
+
+                    // Fill defaults if missing
+                    mappedData = { ...initialPersonState, ...mappedData };
+
+                    // Validate required fields
+                    if (!mappedData.phone) {
+                        missingPhones++;
+                        // parsingErrors.push(`Row ${index + 2}: Missing Phone Number.`); // Don't push to errors if we just want a count shown separately?
+                        // Requirement: "show the number that would be skipped and not imported because of lack of phone number"
+                        // I'll skip pushing to `processedData` if phone is missing.
+                    } else if (!mappedData.name) {
+                        parsingErrors.push(`Row ${index + 2}: Missing Name.`);
+                    } else {
+                        processedData.push(mappedData);
+                    }
+                });
+
+                setExcelImportData(processedData);
+                setExcelImportErrors(parsingErrors);
+                setSkippedPhonesCount(missingPhones);
+                setIsExcelPreviewOpen(true);
+                setIsImportInstructionsOpen(false); // Close instructions
+
+            } catch (error) {
+                console.error("Error reading Excel file:", error);
+                toast({ title: "Error", description: "Failed to parse Excel file.", variant: "destructive" });
+            }
+        };
+
+        reader.readAsBinaryString(file);
+        // Reset input
+        event.target.value = '';
+    };
+
+    const handleConfirmExcelImport = async () => {
+        setImportingExcel(true);
+        try {
+            // 1. Extract users to create accounts for
+            const usersToCreate = excelImportData.map(p => ({
+                name: p.name,
+                phone: p.phone,
+                gender: p.gender,
+                state: p.state,
+                image: p.image,
+                latitude: p.latitude,
+                longitude: p.longitude
+            })).filter(u => u.name && u.phone);
+
+            // 2. Call Cloud Function to batch create accounts
+            let accountResults: any[] = [];
+            try {
+                const result: any = await createAccounts({ users: usersToCreate });
+                accountResults = result.data.results;
+            } catch (err) {
+                console.error("Failed to batch create accounts:", err);
+                toast({ title: "Warning", description: "Failed to create user accounts. Proceeding with data import.", variant: "destructive" });
+            }
+
+            // 3. Process results and map UIDs to data
+            let createdCount = 0;
+            const skipped: any[] = [];
+            const errors: any[] = [];
+
+            const processedData = excelImportData.map(person => {
+                const accountRes = accountResults.find(r => r.phone === person.phone);
+                if (accountRes) {
+                    if (accountRes.status === 'created') {
+                        createdCount++;
+                        return { ...person, userId: accountRes.uid };
+                    } else if (accountRes.status === 'skipped') {
+                        skipped.push({ name: person.name, phone: person.phone, reason: accountRes.reason });
+                    } else {
+                        errors.push({ name: person.name, phone: person.phone, reason: accountRes.reason });
+                    }
                 }
+                return person;
             });
 
-            if (errors.length > 0) {
-                setExcelImportErrors(errors);
+            if (skipped.length > 0) {
+                setCreationSummary({ created: createdCount, skipped, errors });
+            } else if (createdCount > 0) {
+                toast({ title: "Accounts Created", description: `Successfully created ${createdCount} user accounts.` });
             }
 
-            if (processedData.length > 0) {
-                setExcelImportData(processedData);
-                setIsExcelPreviewOpen(true);
-                toast({ title: "Import Successful", description: `Parsed ${processedData.length} records. ${errors.length > 0 ? `${errors.length} errors found.` : ''}` });
-            } else {
-                toast({ title: "Import Failed", description: "No valid data could be parsed from the file.", variant: "destructive" });
-            }
+            // 4. Save to Firestore
+            const batch = writeBatch(db);
+            processedData.forEach((person) => {
+                const docRef = doc(collection(db, "displacedPersons"));
+                // Clean up helper fields before saving
+                const { rowIndex, ...dataToSave } = person;
+                batch.set(docRef, {
+                    ...dataToSave,
+                    lastUpdate: new Date().toLocaleString()
+                });
+            });
+
+            await batch.commit();
+            toast({ title: "Success", description: `${excelImportData.length} records imported successfully.` });
+
+            // Cleanup
+            setIsExcelPreviewOpen(false);
+            setExcelImportData([]);
+            setImportingExcel(false);
+
+            // Refresh data (if necessary, though useAdminData might auto-update via listeners)
+            fetchData();
 
         } catch (error) {
-            console.error('Error importing Excel:', error);
-            toast({ title: "Import Failed", description: "Failed to read the Excel file. Please check the file format.", variant: "destructive" });
-        } finally {
+            console.error("Error importing data: ", error);
+            toast({ title: "Error", description: "Failed to import data.", variant: "destructive" });
             setImportingExcel(false);
-            // Reset file input
-            event.target.value = '';
         }
     };
 
@@ -905,70 +1384,102 @@ export default function DisplacedPersonsPage() {
         setExcelImportData(prev => prev.filter((_, i) => i !== index));
     };
 
-    const handleConfirmExcelImport = async () => {
-        if (excelImportData.length === 0) return;
+    const handleBulkCreateAccounts = async () => {
+        const withoutAccounts = displacedPersons?.filter(p => !p.userId && p.phone) || [];
+        if (withoutAccounts.length === 0) {
+            toast({ title: "No missing accounts", description: "All displaced persons already have associated accounts." });
+            return;
+        }
 
-        setImportingExcel(true);
+        setCreatingAccounts(true);
         try {
-            const batch = writeBatch(db);
-            let successCount = 0;
-            let errorCount = 0;
+            // 1. Extract users to create accounts for
+            const usersToCreate = withoutAccounts
+                .map(p => ({
+                    name: p.name,
+                    phone: p.phone,
+                    gender: p.gender,
+                    state: p.state,
+                    image: p.imageUrl,
+                    latitude: p.latitude,
+                    longitude: p.longitude
+                }))
+                .filter(u => u.name && u.phone);
 
-            for (const row of excelImportData) {
+            // 2. Process in batches to avoid timeouts
+            const BATCH_SIZE = 50;
+            const batches = [];
+            for (let i = 0; i < usersToCreate.length; i += BATCH_SIZE) {
+                batches.push(usersToCreate.slice(i, i + BATCH_SIZE));
+            }
+
+            let totalCreated = 0;
+            const allSkipped: any[] = [];
+            const allErrors: any[] = [];
+
+            for (let i = 0; i < batches.length; i++) {
+                const batchUsers = batches[i];
                 try {
-                    // Create displaced person record
-                    const personData = {
-                        name: row.name_of_head_of_household,
-                        phone: row.phone_number,
-                        details: `${row.age} years old, ${row.household_head_gender}`,
-                        status: 'Eligible for Shelter',
-                        currentLocation: `${row.community}, ${row.lga}, ${row.state_of_origin}`,
-                        destination: '',
-                        vulnerabilities: [],
-                        medicalNeeds: [],
-                        assistanceRequested: 'Imported from Excel survey',
-                        priority: row.rcsi_category === 'High coping' ? 'High Priority' :
-                            row.rcsi_category === 'Medium coping' ? 'Medium Priority' : 'Low Priority',
-                        lastUpdate: new Date().toLocaleString()
-                    };
+                    // Call Cloud Function for this batch
+                    const result: any = await createAccounts({ users: batchUsers });
+                    const accountResults = result.data.results;
 
-                    const personRef = doc(collection(db, 'displacedPersons'));
-                    batch.set(personRef, personData);
+                    // Update Firestore for this batch
+                    const batchWrite = writeBatch(db);
+                    let batchUpdatedCount = 0;
 
-                    // Create survey record
-                    const surveyRef = doc(collection(db, 'displacedPersonSurveys'));
-                    batch.set(surveyRef, {
-                        ...row,
-                        personId: personRef.id,
-                        submittedAt: new Date(),
-                        enumeratorId: 'excel-import'
+                    batchUsers.forEach(user => {
+                        const person = withoutAccounts.find(p => p.phone === user.phone);
+                        if (!person) return;
+
+                        const accountRes = accountResults.find((r: any) => r.phone === user.phone);
+                        if (accountRes && (accountRes.status === 'created' || accountRes.status === 'skipped') && accountRes.uid) {
+                            const docRef = doc(db, "displacedPersons", person.id);
+                            batchWrite.update(docRef, { userId: accountRes.uid, lastUpdate: new Date().toLocaleString() });
+                            batchUpdatedCount++;
+                            if (accountRes.status === 'created') totalCreated++;
+                            if (accountRes.status === 'skipped') {
+                                allSkipped.push({ name: person.name, phone: person.phone, reason: accountRes.reason });
+                            }
+                        } else if (accountRes?.status === 'error') {
+                            allErrors.push({ name: person.name, phone: person.phone, reason: accountRes.reason });
+                        }
                     });
 
-                    successCount++;
-                } catch (error) {
-                    console.error('Error adding row to batch:', error);
-                    errorCount++;
+                    if (batchUpdatedCount > 0) {
+                        await batchWrite.commit();
+                    }
+
+                    // Optional: Update progress or toast here if needed
+                    console.log(`Processed batch ${i + 1}/${batches.length}`);
+
+                } catch (batchError) {
+                    console.error(`Error processing batch ${i + 1}:`, batchError);
+                    toast({ title: "Batch Error", description: `Failed to process batch ${i + 1}. Continuing...`, variant: "destructive" });
                 }
             }
 
-            await batch.commit();
+            if (totalCreated > 0) {
+                toast({ title: "Accounts Updated", description: `Successfully linked/created ${totalCreated} user accounts.` });
+                fetchData();
+            }
 
-            toast({
-                title: "Import Completed",
-                description: `Successfully imported ${successCount} records. ${errorCount > 0 ? `${errorCount} failed.` : ''}`
-            });
-
-            setIsExcelPreviewOpen(false);
-            setExcelImportData([]);
-            setExcelImportErrors([]);
-            fetchData(); // Refresh the list
+            if (allSkipped.length > 0 || allErrors.length > 0) {
+                setCreationSummary({ created: totalCreated, skipped: allSkipped, errors: allErrors });
+            }
 
         } catch (error) {
-            console.error('Error importing to Firestore:', error);
-            toast({ title: "Import Failed", description: "Failed to save data to database.", variant: "destructive" });
+            console.error("Bulk account creation error:", error);
+            toast({ title: "Error", description: "Failed to create missing accounts.", variant: "destructive" });
         } finally {
-            setImportingExcel(false);
+            setCreatingAccounts(false);
         }
+    };
+
+    const handleAssignmentComplete = () => {
+        setIsAssignDialogOpen(false);
+        setSelectedPerson(null);
+        fetchData();
     };
 
     const handleAddNew = () => {
@@ -992,13 +1503,7 @@ export default function DisplacedPersonsPage() {
         setSelectedPerson(null);
     }
 
-    const handleContact = (person: DisplacedPerson) => {
-        toast({
-            title: "Contacting Person",
-            description: `Opening email client to contact ${person.name}.`,
-        });
-        window.location.href = `mailto:?subject=Message for ${person.name}&body=We are from the response team. Please reply to this message.`;
-    };
+
 
     const handleLogActivity = async (personId: string, action: string, notes?: string) => {
         const person = displacedPersons?.find(p => p.id === personId);
@@ -1052,8 +1557,22 @@ export default function DisplacedPersonsPage() {
         }
     };
 
-    const handleTrack = (location: string) => {
-        const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+    const handleNavigate = (person: DisplacedPerson) => {
+        if (person.latitude && person.longitude) {
+            window.open(`https://www.google.com/maps/search/?api=1&query=${person.latitude},${person.longitude}`, "_blank");
+        } else {
+            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(person.currentLocation)}`, "_blank");
+        }
+    }
+
+    const handleSatellite = (person: DisplacedPerson) => {
+        let googleMapsUrl;
+        if (person.latitude && person.longitude) {
+            // t=k forces satellite view, z=20 is high zoom
+            googleMapsUrl = `https://www.google.com/maps?q=${person.latitude},${person.longitude}&t=k&z=20`;
+        } else {
+            googleMapsUrl = `https://www.google.com/maps?q=${encodeURIComponent(person.currentLocation)}&t=k&z=20`;
+        }
         window.open(googleMapsUrl, "_blank");
     }
 
@@ -1065,10 +1584,14 @@ export default function DisplacedPersonsPage() {
 
     return (
         <div className="space-y-6">
+            <AccountCreationSummaryDialog
+                summary={creationSummary}
+                onClose={() => setCreationSummary(null)}
+            />
             <Dialog open={isFormOpen} onOpenChange={(isOpen) => { if (!isOpen) handleCancel(); else setIsFormOpen(true); }}>
                 <DialogContent className="sm:max-w-xl">
                     <DialogHeader>
-                        <DialogTitle>{selectedPerson ? "Edit Person Details" : "Add New Displaced Person"}</DialogTitle>
+                        <DialogTitle>{selectedPerson ? "Edit Person Details" : "Add New Beneficiary"}</DialogTitle>
                         <DialogDescription>
                             {selectedPerson ? "Update the information for this individual." : "Fill in the details for the new person."}
                         </DialogDescription>
@@ -1096,6 +1619,53 @@ export default function DisplacedPersonsPage() {
                 onLog={handleLogActivity}
             />
 
+            <Dialog open={isImportInstructionsOpen} onOpenChange={setIsImportInstructionsOpen}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Import Data Instructions</DialogTitle>
+                        <DialogDescription>
+                            Please ensure your Excel or CSV file includes the following headers. Data will be mapped automatically.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="my-4 p-4 bg-slate-50 border rounded-lg max-h-[40vh] overflow-y-auto">
+                        <h4 className="font-semibold text-sm mb-2">Required Headers:</h4>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                            {Object.keys(EXPECTED_IMPORT_HEADERS).map(header => (
+                                <div key={header} className="p-1 bg-white border rounded px-2">
+                                    {header}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-4 border-t pt-4">
+                            <Label htmlFor="file-upload" className="cursor-pointer bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded-md flex items-center gap-2">
+                                <Plus className="h-4 w-4" />
+                                Select File to Import
+                            </Label>
+                            <Input
+                                id="file-upload"
+                                type="file"
+                                accept=".xlsx,.xls,.csv"
+                                className="hidden"
+                                onChange={handleExcelImport}
+                                disabled={importingExcel}
+                            />
+                            {importingExcel && <span className="text-sm text-muted-foreground animate-pulse">Processing file...</span>}
+                        </div>
+                    </div>
+
+                    <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-between">
+                        <Button variant="secondary" onClick={handleDownloadTemplate} className="w-full sm:w-auto">
+                            <Download className="mr-2 h-4 w-4" /> Download Template
+                        </Button>
+                        <Button variant="outline" onClick={() => setIsImportInstructionsOpen(false)} className="w-full sm:w-auto">Cancel</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
 
             <Dialog open={isExcelPreviewOpen} onOpenChange={setIsExcelPreviewOpen}>
                 <DialogContent className="max-w-7xl max-h-[90vh]">
@@ -1103,9 +1673,14 @@ export default function DisplacedPersonsPage() {
                         <DialogTitle>Excel Import Preview</DialogTitle>
                         <DialogDescription>
                             Review the imported data before confirming the bulk import to the database.
+                            {skippedPhonesCount > 0 && (
+                                <span className="text-yellow-600 block mt-2 font-medium">
+                                    ⚠️ {skippedPhonesCount} rows will be skipped due to missing phone numbers.
+                                </span>
+                            )}
                             {excelImportErrors.length > 0 && (
                                 <span className="text-red-600 block mt-2">
-                                    {excelImportErrors.length} errors found. Please review and fix before importing.
+                                    {excelImportErrors.length} other errors found. Please review.
                                 </span>
                             )}
                         </DialogDescription>
@@ -1129,11 +1704,11 @@ export default function DisplacedPersonsPage() {
                                     <TableHead className="w-16">#</TableHead>
                                     <TableHead>Name</TableHead>
                                     <TableHead>Phone</TableHead>
-                                    <TableHead>Age</TableHead>
-                                    <TableHead>Gender</TableHead>
+                                    <TableHead>Details</TableHead>
+                                    <TableHead>Loc. Type</TableHead>
                                     <TableHead>Location</TableHead>
-                                    <TableHead>Household Size</TableHead>
-                                    <TableHead>Consent</TableHead>
+                                    <TableHead>Total HH</TableHead>
+                                    <TableHead>Valid</TableHead>
                                     <TableHead className="w-24">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -1141,12 +1716,12 @@ export default function DisplacedPersonsPage() {
                                 {excelImportData.map((row, index) => (
                                     <TableRow key={index}>
                                         <TableCell>{row.rowIndex}</TableCell>
-                                        <TableCell className="font-medium">{row.name_of_head_of_household}</TableCell>
-                                        <TableCell>{row.phone_number}</TableCell>
-                                        <TableCell>{row.age}</TableCell>
-                                        <TableCell>{row.household_head_gender}</TableCell>
-                                        <TableCell>{`${row.community}, ${row.lga}`}</TableCell>
-                                        <TableCell>{row.household_size}</TableCell>
+                                        <TableCell className="font-medium">{row.name}</TableCell>
+                                        <TableCell>{row.phone}</TableCell>
+                                        <TableCell>{row.details}</TableCell>
+                                        <TableCell>{row.householdLocationType}</TableCell>
+                                        <TableCell>{row.currentLocation}</TableCell>
+                                        <TableCell>{row.householdComposition?.total}</TableCell>
                                         <TableCell>
                                             <span className="text-green-600">
                                                 ✓
@@ -1169,7 +1744,7 @@ export default function DisplacedPersonsPage() {
                     </ScrollArea>
 
                     <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0">
-                        <Button variant="outline" onClick={() => setIsExcelPreviewOpen(false)} className="w-full sm:w-auto">
+                        <Button variant="outline" onClick={() => { setIsExcelPreviewOpen(false); setExcelImportData([]); }} className="w-full sm:w-auto">
                             Cancel
                         </Button>
                         <Button
@@ -1195,35 +1770,34 @@ export default function DisplacedPersonsPage() {
 
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold">Displaced Persons Monitoring</h1>
-                    <p className="text-muted-foreground text-sm sm:text-base">Real-time tracking and assistance coordination for displaced individuals</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold">Beneficiaries Monitoring</h1>
+                    <p className="text-muted-foreground text-sm sm:text-base">Real-time tracking and assistance coordination for beneficiaries</p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
                     <Button variant="outline" onClick={fetchData} disabled={loading} className="w-full sm:w-auto"><RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />Refresh</Button>
-                    <Button onClick={handleAddNew} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" />Add Person</Button>
+                    <Button onClick={handleAddNew} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" />Add Beneficiary</Button>
                     <div className="relative">
-                        <Input
-                            id="excel-import-main"
-                            type="file"
-                            accept=".xlsx,.xls"
-                            onChange={handleExcelImport}
-                            disabled={importingExcel}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        />
-                        <Button variant="outline" disabled={importingExcel} className="pointer-events-none w-full sm:w-auto">
-                            {importingExcel ? (
-                                <>
-                                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                                    Importing...
-                                </>
-                            ) : (
-                                <>
-                                    <Send className="mr-2 h-4 w-4" />
-                                    Import Excel Data
-                                </>
-                            )}
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsImportInstructionsOpen(true)}
+                            className="w-full sm:w-auto"
+                        >
+                            <Send className="mr-2 h-4 w-4" />
+                            Import Excel Data
                         </Button>
                     </div>
+                    {displacedPersons?.some(p => !p.userId && p.phone) && isSuperAdmin && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 w-full sm:w-auto"
+                            onClick={handleCreateMissingAccounts}
+                            disabled={creatingAccounts || displacedPersons.filter(p => !p.userId && p.phone).length === 0}
+                        >
+                            {creatingAccounts ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <User className="mr-2 h-4 w-4" />}
+                            Create Missing Accounts ({displacedPersons.filter(p => !p.userId && p.phone).length})
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -1278,18 +1852,23 @@ export default function DisplacedPersonsPage() {
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
                 <div className="relative flex-grow">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-                    <Input placeholder="Search by name or ID..." className="pl-10 h-9 sm:h-10" />
+                    <Input
+                        placeholder="Search by name or ID..."
+                        className="pl-10 h-9 sm:h-10"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
                 </div>
-                <Select>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="w-full sm:w-[180px] h-9 sm:h-10">
                         <SelectValue placeholder="All Statuses" />
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All Statuses</SelectItem>
                         <SelectItem value="safe">Safe</SelectItem>
-                        <SelectItem value="eligible">Eligible for Shelter</SelectItem>
-                        <SelectItem value="moving">Moving to Shelter</SelectItem>
-                        <SelectItem value="assistance">Needs Assistance</SelectItem>
+                        <SelectItem value="eligible for shelter">Eligible for Shelter</SelectItem>
+                        <SelectItem value="moving to shelter">Moving to Shelter</SelectItem>
+                        <SelectItem value="needs assistance">Needs Assistance</SelectItem>
                         <SelectItem value="emergency">Emergency</SelectItem>
                         <SelectItem value="resettled">Resettled</SelectItem>
                         <SelectItem value="homebound">Homebound</SelectItem>
@@ -1313,8 +1892,8 @@ export default function DisplacedPersonsPage() {
                     Array.from({ length: 4 }).map((_, i) => (
                         <Card key={i} className="max-w-[90vw] sm:max-w-full"><CardContent className="p-2 sm:p-4"><Skeleton className="h-64 sm:h-80 w-full" /></CardContent></Card>
                     ))
-                ) : displacedPersons.length > 0 ? (
-                    displacedPersons.map(person => {
+                ) : filteredPersons.length > 0 ? (
+                    filteredPersons.map(person => {
                         const statusInfo = getStatusInfo(person.status);
                         return (
                             <Card key={person.id} className={cn("transition-shadow hover:shadow-lg max-w-[90vw] sm:max-w-full", statusInfo.cardClass)}>
@@ -1327,6 +1906,53 @@ export default function DisplacedPersonsPage() {
                                         <Badge variant={statusInfo.badgeVariant} className="flex gap-1.5 items-center">
                                             {statusInfo.icon} {person.status}
                                         </Badge>
+                                    </div>
+                                    <div className="flex gap-2 pb-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 w-8 p-0 rounded-full border-blue-200 text-blue-600 hover:bg-blue-50"
+                                            onClick={() => handleCall(person.phone)}
+                                            title="Call"
+                                        >
+                                            <Phone className="h-3.5 w-3.5" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 w-8 p-0 rounded-full border-slate-200 text-slate-600 hover:bg-slate-50"
+                                            onClick={() => handleSMS(person.phone)}
+                                            title="SMS"
+                                        >
+                                            <MessageSquare className="h-3.5 w-3.5" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 w-8 p-0 rounded-full border-green-200 text-green-600 hover:bg-green-50"
+                                            onClick={() => handleWhatsApp(person.phone)}
+                                            title="WhatsApp"
+                                        >
+                                            <MessageCircle className="h-3.5 w-3.5" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 w-8 p-0 rounded-full border-orange-200 text-orange-600 hover:bg-orange-50"
+                                            onClick={() => handleChat(person.userId)}
+                                            title="In-App Chat"
+                                        >
+                                            <Send className="h-3.5 w-3.5" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 w-8 p-0 rounded-full border-purple-200 text-purple-600 hover:bg-purple-50"
+                                            onClick={() => handleNavigate(person)}
+                                            title="Navigate"
+                                        >
+                                            <Navigation className="h-3.5 w-3.5" />
+                                        </Button>
                                     </div>
                                     <div className="space-y-2 sm:space-y-3 text-xs sm:text-sm pl-2 border-l-2 ml-2">
                                         <div className="flex items-start gap-2 sm:gap-3">
@@ -1350,7 +1976,7 @@ export default function DisplacedPersonsPage() {
                                             <div>
                                                 <p className="font-medium text-xs text-muted-foreground">Vulnerabilities</p>
                                                 <div className="flex flex-wrap gap-1 mt-1">
-                                                    {person.vulnerabilities.map(v => <Badge key={v} variant="secondary" className="font-normal text-xs">{v}</Badge>)}
+                                                    {(person.vulnerabilities ?? []).map(v => <Badge key={v} variant="secondary" className="font-normal text-xs">{v}</Badge>)}
                                                 </div>
                                             </div>
                                         </div>
@@ -1374,7 +2000,7 @@ export default function DisplacedPersonsPage() {
                                             {person.activityLog && person.activityLog.length > 0 ? (
                                                 <ScrollArea className="max-h-24">
                                                     <div className="space-y-3 pr-2 pt-1">
-                                                        {person.activityLog.slice().reverse().map((log, idx) => (
+                                                        {(person.activityLog ?? []).slice().reverse().map((log, idx) => (
                                                             <div key={idx} className="relative pl-3 border-l-2 border-slate-200 ml-1">
                                                                 <div className="absolute -left-[5px] top-1 h-2 w-2 rounded-full bg-blue-500" />
                                                                 <div className="flex flex-col">
@@ -1398,7 +2024,7 @@ export default function DisplacedPersonsPage() {
                                                 <div>
                                                     <p className="font-medium text-xs text-muted-foreground">Medical Needs</p>
                                                     <div className="flex flex-wrap gap-1 mt-1">
-                                                        {person.medicalNeeds.map(m => <Badge key={m} variant="destructive" className="bg-red-50 text-red-700 font-normal text-xs">{m}</Badge>)}
+                                                        {(person.medicalNeeds ?? []).map(m => <Badge key={m} variant="destructive" className="bg-red-50 text-red-700 font-normal text-xs">{m}</Badge>)}
                                                     </div>
                                                 </div>
                                             </div>
@@ -1414,13 +2040,18 @@ export default function DisplacedPersonsPage() {
                                             <Clock className="h-3 w-3 sm:h-4 sm:w-4 mt-0.5 text-muted-foreground" />
                                             <div>
                                                 <p className="font-medium text-xs text-muted-foreground">Last update</p>
-                                                <p>{person.lastUpdate}</p>
+                                                <p>{formatTimestamp(person.lastUpdate)}</p>
                                             </div>
                                         </div>
                                     </div>
                                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-2 sm:pt-4 border-t gap-2">
                                         <div className="flex flex-wrap gap-1 sm:gap-2">
-                                            <Button size="sm" onClick={() => handleTrack(person.currentLocation)} className="h-8">Track</Button>
+                                            <Button size="sm" onClick={() => handleNavigate(person)} className="h-8 bg-blue-600 hover:bg-blue-700 text-white border-none">
+                                                <Navigation className="mr-1 h-3 w-3" /> Navigate
+                                            </Button>
+                                            <Button size="sm" variant="outline" onClick={() => handleSatellite(person)} className="h-8">
+                                                <Globe className="mr-1 h-3 w-3" /> Satellite
+                                            </Button>
                                             <Button size="sm" variant="outline" onClick={() => handleEdit(person)} className="h-8"><Edit className="mr-1 h-3 w-3" /> Edit</Button>
                                             {person.status === 'Safe' ? (
                                                 <div className="flex gap-1">
@@ -1437,7 +2068,7 @@ export default function DisplacedPersonsPage() {
                                                     variant="default"
                                                     className="bg-blue-600 hover:bg-blue-700 h-8"
                                                     onClick={() => handleOpenAssignDialog(person)}
-                                                    disabled={person.status === 'Safe' || person.status === 'Resettled' || person.status === 'Homebound'}
+                                                    disabled={person.status === 'Resettled' || person.status === 'Homebound'}
                                                 >
                                                     <BedDouble className="mr-2 h-3 w-3" /> Assign Shelter
                                                 </Button>

@@ -29,15 +29,15 @@ const firebaseConfig: FirebaseOptions = {
 // Initialize Firebase
 let app;
 if (!getApps().length) {
-    app = initializeApp(firebaseConfig);
+  app = initializeApp(firebaseConfig);
 } else {
-    app = getApp();
+  app = getApp();
 }
 
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 const messaging = getMessaging(app);
-const functions = getFunctions(app);
+const functions = getFunctions(app, 'us-central1');
 
 export { app, auth, db, storage, messaging, functions };

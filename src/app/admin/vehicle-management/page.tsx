@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAdminData } from "@/contexts/AdminDataProvider";
 import { Checkbox } from "@/components/ui/checkbox";
+import { NIGERIA_STATE_BOUNDS } from "@/lib/nigeria-geography";
 
 const getStatusInfo = (status: string) => {
     switch (status) {
@@ -71,6 +72,7 @@ const initialVehicleState: Partial<Vehicle> = {
     fuelType: 'Petrol',
     color: '',
     notes: '',
+    state: '',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
 };
@@ -83,19 +85,27 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
     const [uploadProgress, setUploadProgress] = useState(0);
     const [uploading, setUploading] = useState(false);
     const { toast } = useToast();
+    const { adminProfile } = useAdminData();
+    const role = adminProfile?.role?.toLowerCase() || '';
+    const isSuperAdmin = role.includes('super');
+    const adminState = adminProfile?.state || '';
+    const states = Object.keys(NIGERIA_STATE_BOUNDS).sort();
 
     useEffect(() => {
         if (vehicle) {
             setFormData(vehicle);
             setImagePreview(vehicle.imageUrl || null);
         } else {
-            setFormData(initialVehicleState);
+            setFormData({
+                ...initialVehicleState,
+                state: isSuperAdmin ? '' : adminState
+            });
             setImagePreview(null);
         }
         setImageFile(null);
         setUploadProgress(0);
         setUploading(false);
-    }, [vehicle]);
+    }, [vehicle, isSuperAdmin, adminState]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -234,7 +244,7 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
                 <div className="space-y-2">
                     <Label htmlFor="type">Type</Label>
                     <Select value={formData.type} onValueChange={(value) => handleSelectChange('type', value)}>
-                        <SelectTrigger id="type"><SelectValue/></SelectTrigger>
+                        <SelectTrigger id="type"><SelectValue /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="Car">Car</SelectItem>
                             <SelectItem value="Truck">Truck</SelectItem>
@@ -254,7 +264,7 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
                 <div className="space-y-2">
                     <Label htmlFor="fuelType">Fuel Type</Label>
                     <Select value={formData.fuelType} onValueChange={(value) => handleSelectChange('fuelType', value)}>
-                        <SelectTrigger id="fuelType"><SelectValue/></SelectTrigger>
+                        <SelectTrigger id="fuelType"><SelectValue /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="Petrol">Petrol</SelectItem>
                             <SelectItem value="Diesel">Diesel</SelectItem>
@@ -273,6 +283,30 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
                     <Label htmlFor="mileage">Mileage (km)</Label>
                     <Input id="mileage" name="mileage" type="number" value={formData.mileage} onChange={handleChange} />
                 </div>
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="state">Assigned State</Label>
+                <Select
+                    value={formData.state}
+                    onValueChange={(value) => handleSelectChange('state', value)}
+                    disabled={!isSuperAdmin}
+                >
+                    <SelectTrigger id="state">
+                        <SelectValue placeholder="Select a state" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {isSuperAdmin ? (
+                            states.map(s => (
+                                <SelectItem key={s} value={s}>{s}</SelectItem>
+                            ))
+                        ) : (
+                            <SelectItem value={adminState}>{adminState}</SelectItem>
+                        )}
+                    </SelectContent>
+                </Select>
+                {!isSuperAdmin && (
+                    <p className="text-[10px] text-muted-foreground">Admin: Restricted to your assigned state.</p>
+                )}
             </div>
             <div className="space-y-2">
                 <Label>Vehicle Image</Label>
@@ -332,7 +366,7 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
 
             <div className="space-y-2">
                 <Label htmlFor="notes">Notes</Label>
-                <Textarea id="notes" name="notes" value={formData.notes} onChange={handleChange} placeholder="Additional notes..."/>
+                <Textarea id="notes" name="notes" value={formData.notes} onChange={handleChange} placeholder="Additional notes..." />
             </div>
 
             <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0">
@@ -467,7 +501,7 @@ export default function VehicleManagementPage() {
 
     return (
         <div className="space-y-6">
-            <Dialog open={isFormOpen} onOpenChange={(isOpen) => { if (!isOpen) handleCancel(); else setIsFormOpen(true);}}>
+            <Dialog open={isFormOpen} onOpenChange={(isOpen) => { if (!isOpen) handleCancel(); else setIsFormOpen(true); }}>
                 <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>{selectedVehicle ? "Edit Vehicle Details" : "Add New Vehicle"}</DialogTitle>
@@ -485,9 +519,9 @@ export default function VehicleManagementPage() {
                     <p className="text-muted-foreground text-sm sm:text-base">Manage and track all vehicles in the fleet</p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
-                    <Button variant="outline" onClick={fetchData} disabled={loading} className="w-full sm:w-auto"><RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")}/>Refresh</Button>
-                    <Button variant="outline" onClick={() => exportData('vehicles')} className="w-full sm:w-auto"><Download className="mr-2 h-4 w-4"/>Export CSV</Button>
-                    <Button onClick={handleAddNew} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4"/>Add Vehicle</Button>
+                    <Button variant="outline" onClick={fetchData} disabled={loading} className="w-full sm:w-auto"><RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />Refresh</Button>
+                    <Button variant="outline" onClick={() => exportData('vehicles')} className="w-full sm:w-auto"><Download className="mr-2 h-4 w-4" />Export CSV</Button>
+                    <Button onClick={handleAddNew} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" />Add Vehicle</Button>
                 </div>
             </div>
 
@@ -612,7 +646,14 @@ export default function VehicleManagementPage() {
                                             />
                                             <div>
                                                 <p className="font-bold">{vehicle.make} {vehicle.model}</p>
-                                                <p className="text-xs text-muted-foreground">{vehicle.year} &middot; {vehicle.licensePlate}</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {vehicle.year} &middot; {vehicle.licensePlate}
+                                                    {vehicle.state && (
+                                                        <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-sm bg-slate-100 text-slate-600 font-bold uppercase text-[9px] tracking-tight">
+                                                            {vehicle.state}
+                                                        </span>
+                                                    )}
+                                                </p>
                                             </div>
                                         </div>
                                         <Badge variant={statusInfo.badgeVariant} className="flex gap-1.5 items-center">
@@ -660,7 +701,7 @@ export default function VehicleManagementPage() {
                         <h3 className="text-xl font-semibold">No vehicles found</h3>
                         <p className="text-muted-foreground mt-2">Click the "Add Vehicle" button to register a new vehicle.</p>
                     </div>
-                ) : null }
+                ) : null}
             </div>
 
             {totalPages > 1 && (

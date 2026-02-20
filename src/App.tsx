@@ -33,11 +33,14 @@ import UserManagementPage from './app/admin/user-management/page';
 import AdminProfilePage from './app/admin/profile/page';
 import VehicleManagementPage from './app/admin/vehicle-management/page';
 import SituationRoomPage from './app/admin/situation-room/page';
+import AdminChatsPage from './app/admin/chats/page';
+import TrainingCenterPage from './app/admin/training/page';
 import DriverLayout from './app/driver/layout';
 import DriverProfilePage from './app/driver/profile/page';
 import DriverSettingsPage from './app/driver/settings/page';
 import DriverHistoryPage from './app/driver/history/page';
 import DriverMapPage from './app/driver/map/page';
+import DriverChatsPage from './app/driver/chats/page';
 import SupportAgentLayout from './app/support-agent/layout';
 import SupportAgentDashboard from './app/support-agent/page';
 import SupportAgentChatsPage from './app/support-agent/chats/page';
@@ -48,13 +51,18 @@ import SupportAgentMapPage from './app/support-agent/map/page';
 import SupportAgentProfilePage from './app/support-agent/profile/page';
 import SupportAgentSettingsPage from './app/support-agent/settings/page';
 import SupportAgentNotificationsPage from './app/support-agent/notifications/page';
+import CallPage from './app/call/page';
+
+import { CallListener } from './components/call/call-listener';
 
 function App() {
   return (
     <TranslationProvider>
       <Router>
+        <CallListener />
         <Routes>
           <Route path="/" element={<RootLayout />}>
+            <Route path="call" element={<CallPage />} />
             <Route index element={<HomePage />} />
             <Route path="login" element={<LoginPage />} />
             <Route path="signup" element={<SignupPage />} />
@@ -97,6 +105,7 @@ function App() {
               <Route path="settings" element={<DriverSettingsPage />} />
               <Route path="history" element={<DriverHistoryPage />} />
               <Route path="map" element={<DriverMapPage />} />
+              <Route path="chats" element={<DriverChatsPage />} />
             </Route>
             <Route path="support-agent" element={<SupportAgentLayout />}>
               <Route index element={<SupportAgentDashboard />} />
@@ -120,6 +129,8 @@ function App() {
               <Route path="track-shelter" element={<TrackShelterPage />} />
               <Route path="user-management" element={<UserManagementPage />} />
               <Route path="vehicle-management" element={<VehicleManagementPage />} />
+              <Route path="chats" element={<AdminChatsPage />} />
+              <Route path="training" element={<TrainingCenterPage />} />
             </Route>
           </Route>
         </Routes>

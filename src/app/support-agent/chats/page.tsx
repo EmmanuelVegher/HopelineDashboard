@@ -7,33 +7,36 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import {
   MessageSquare,
   Send,
   Phone,
   MapPin,
   Globe,
-  Clock,
-  User,
   Loader2,
   Paperclip,
-  Mic,
-  Video,
-  MoreVertical,
   CheckCircle,
-  AlertCircle,
   File,
-  Download,
-  Image,
-  ExternalLink
+  ExternalLink,
+  Search,
+  Plus,
+  Video // ✅ Added Video import
 } from "lucide-react";
 import { collection, query, where, onSnapshot, orderBy, addDoc, doc, setDoc, getDoc, updateDoc, serverTimestamp, limit, getDocs } from "firebase/firestore";
 import { db, auth, functions } from "@/lib/firebase";
 import { httpsCallable } from "firebase/functions";
-import { translateText } from "@/ai/client";
 import { useToast } from "@/hooks/use-toast";
 import { MessageStatus } from "@/components/message-status";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useAdminData } from "@/contexts/AdminDataProvider";
+import { CallInterface } from "@/components/chat/call-interface";
+
+// generateChannelName is now defined locally, so no import needed. 
+// Actually generateChannelName might be in admin chats page, let's check if we can import it or need to duplicate/move it.
+// For now, let's assume we need to implement it or usage. AdminChats had it inline or imported? 
+// Let's check AdminChats imports. 
+// It was `import { generateChannelName } from "@/lib/utils";` (inferred). 
+// Let's just import CallInterface for now.
 
 interface ChatSession {
   id: string;
@@ -47,6 +50,7 @@ interface ChatSession {
   language: string;
   location?: string;
   userEmail: string;
+  participants?: string[];
 }
 
 interface Attachment {
@@ -77,12 +81,6 @@ interface SupportAgentSettings {
   autoTranslate: boolean;
 }
 
-interface PendingAttachment {
-  file: File;
-  type: 'image' | 'video' | 'audio' | 'document';
-  preview?: string;
-}
-
 export default function SupportAgentChatsPage() {
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
@@ -90,15 +88,28 @@ export default function SupportAgentChatsPage() {
   const [inputValue, setInputValue] = useState('');
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [userData, setUserData] = useState<Record<string, {firstName: string, lastName: string, image?: string}>>({});
+  const [userData, setUserData] = useState<Record<string, { firstName: string, lastName: string, image?: string }>>({});
   const [fetchedUsers, setFetchedUsers] = useState<Set<string>>(new Set());
   const [recentMessages, setRecentMessages] = useState<Record<string, Message[]>>({});
   const [settings, setSettings] = useState<SupportAgentSettings | null>(null);
-  const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
-  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
+  const [isNewChatOpen, setIsNewChatOpen] = useState(false);
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const { users: allUsers } = useAdminData();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const [activeCall, setActiveCall] = useState<{
+    callId: string;
+    chatId: string;
+    channelName: string;
+    recipientName: string;
+    recipientImage?: string;
+    callType: 'video' | 'voice';
+    isIncoming: boolean;
+  } | null>(null);
+
+  const generateChannelName = (uid1: string, uid2: string) => {
+    return [uid1, uid2].sort().join('_');
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -126,7 +137,6 @@ export default function SupportAgentChatsPage() {
         console.error("Error loading settings:", error);
       }
     };
-
     loadSettings();
   }, []);
 
@@ -147,9 +157,7 @@ export default function SupportAgentChatsPage() {
 
     const chatsQuery = query(
       collection(db, 'chats'),
-      where('agentId', '==', agentId),
-      where('status', 'in', ['active', 'waiting']),
-      orderBy('lastMessageTimestamp', 'desc')
+      where('status', 'in', ['active', 'waiting'])
     );
 
     const unsubscribe = onSnapshot(chatsQuery, async (snapshot) => {
@@ -173,9 +181,11 @@ export default function SupportAgentChatsPage() {
           }
         }
 
+        const otherUserId = data.participants?.find((id: string) => id !== auth.currentUser?.uid) || data.userId;
+
         sessions.push({
           id: chatDoc.id,
-          userId: data.userId,
+          userId: otherUserId,
           fullName: 'Unknown User',
           userImage: data.userImage,
           lastMessage: data.lastMessage || '',
@@ -184,7 +194,8 @@ export default function SupportAgentChatsPage() {
           status: data.status || 'active',
           language: language,
           location: data.location,
-          userEmail: data.userEmail || ''
+          userEmail: data.userEmail || '',
+          participants: data.participants
         });
       }
       setChatSessions(sessions);
@@ -222,8 +233,8 @@ export default function SupportAgentChatsPage() {
         });
         return newData;
       });
-      setFetchedUsers(prev => new Set([...prev, ...toFetch]));
     });
+    setFetchedUsers(new Set([...fetchedUsers, ...toFetch]));
   }, [chatSessions, fetchedUsers]);
 
   // Fetch recent messages for chat sessions
@@ -400,22 +411,126 @@ export default function SupportAgentChatsPage() {
     }
   };
 
-  const sessionsWithNames = chatSessions.map(session => ({
-    ...session,
-    fullName: userData[session.userId] ? `${userData[session.userId].firstName} ${userData[session.userId].lastName}`.trim() || 'Unknown User' : 'Unknown User',
-    userImage: userData[session.userId]?.image || session.userImage
-  }));
+  const startNewChat = async (user: any) => {
+    const agentId = auth.currentUser?.uid;
+    if (!agentId) return;
+
+    try {
+      // Deterministic Chat ID
+      const chatId = agentId < user.id ? `${agentId}_${user.id}` : `${user.id}_${agentId}`;
+      const chatDocRef = doc(db, 'chats', chatId);
+      const chatDocSnap = await getDoc(chatDocRef);
+
+      if (chatDocSnap.exists()) {
+        const chatData = chatDocSnap.data();
+        // If it's a waiting chat or doesn't have an agent, assign yourself
+        if (chatData.status === 'waiting' || !chatData.agentId) {
+          await updateDoc(chatDocRef, {
+            agentId: agentId,
+            status: 'active'
+          });
+        }
+      } else {
+        // Create new unified chat document
+        await setDoc(chatDocRef, {
+          agentId: agentId,
+          userId: user.id,
+          userEmail: user.email || '',
+          userImage: user.image || '',
+          userLanguage: user.language || 'English',
+          status: 'active',
+          createdAt: serverTimestamp(),
+          lastMessage: 'Conversation started',
+          lastMessageTimestamp: serverTimestamp(),
+          unreadCount: 0,
+          participants: [agentId, user.id],
+          participantInfo: {
+            [agentId]: {
+              email: auth.currentUser?.email || '',
+              name: 'Support Agent', // This could be better if we fetch own profile
+              role: 'support agent'
+            },
+            [user.id]: {
+              email: user.email || '',
+              name: `${user.firstName} ${user.lastName}`.trim(),
+              role: user.role || 'user'
+            }
+          }
+        });
+      }
+
+      setSelectedChatId(chatId);
+      setIsNewChatOpen(false);
+
+      // Add optimistic entry to userData
+      setUserData(prev => ({
+        ...prev,
+        [user.id]: {
+          firstName: user.firstName || '',
+          lastName: user.lastName || '',
+          image: user.image
+        }
+      }));
+
+      toast({ title: "Chat Started", description: `You can now message ${user.firstName}` });
+    } catch (error) {
+      console.error("Error starting chat:", error);
+      toast({ title: "Error", description: "Failed to start chat", variant: "destructive" });
+    }
+  };
+
+  const filteredUsers = allUsers?.filter(u =>
+    u.id !== auth.currentUser?.uid &&
+    (`${u.firstName} ${u.lastName}`.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+      u.email?.toLowerCase().includes(userSearchTerm.toLowerCase()))
+  ) || [];
+
+  const sessionsWithNames = chatSessions
+    .filter(session => {
+      // Show only my chats or waiting chats
+      return session.status === 'waiting' || (session.participants && session.participants.includes(auth.currentUser?.uid || ''));
+    })
+    .map(session => ({
+      ...session,
+      fullName: userData[session.userId] ? `${userData[session.userId].firstName} ${userData[session.userId].lastName}`.trim() || 'Unknown User' : 'Unknown User',
+      userImage: userData[session.userId]?.image || session.userImage
+    }))
+    .sort((a, b) => b.lastMessageTime.getTime() - a.lastMessageTime.getTime());
 
   const selectedChat = sessionsWithNames.find(chat => chat.id === selectedChatId);
+
+  // ✅ Render Call Interface if active
+  if (activeCall) {
+    return (
+      <CallInterface
+        callId={activeCall.callId}
+        channelName={activeCall.channelName}
+        recipientName={activeCall.recipientName}
+        recipientImage={activeCall.recipientImage}
+        userName={auth.currentUser?.displayName || 'Support Agent'}
+        userImage={auth.currentUser?.photoURL || ''}
+        isIncoming={activeCall.isIncoming}
+        onClose={() => setActiveCall(null)} // ✅ Changed onEndCall to onClose
+        callType={activeCall.callType}
+        chatId={activeCall.chatId}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-2">
-            Active Chat Sessions
-          </h1>
-          <p className="text-muted-foreground">Manage and respond to user support requests</p>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-2">
+              Active Chat Sessions
+            </h1>
+            <p className="text-muted-foreground">Manage and respond to user support requests</p>
+          </div>
+          <Button onClick={() => setIsNewChatOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            New Conversation
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -449,11 +564,10 @@ export default function SupportAgentChatsPage() {
                     {sessionsWithNames.map((chat) => (
                       <div
                         key={chat.id}
-                        className={`p-4 cursor-pointer hover:bg-muted/50 transition-colors border-l-4 ${
-                          selectedChatId === chat.id
-                            ? 'border-primary bg-muted/50'
-                            : 'border-transparent'
-                        }`}
+                        className={`p-4 cursor-pointer hover:bg-muted/50 transition-colors border-l-4 ${selectedChatId === chat.id
+                          ? 'border-primary bg-muted/50'
+                          : 'border-transparent'
+                          }`}
                         onClick={() => setSelectedChatId(chat.id)}
                       >
                         <div className="flex items-center gap-3">
@@ -483,11 +597,10 @@ export default function SupportAgentChatsPage() {
                               <div className="mt-2 space-y-1">
                                 {recentMessages[chat.id].slice(-2).map((msg, index) => (
                                   <div key={index} className="flex items-center gap-2">
-                                    <div className={`text-xs px-2 py-1 rounded-md max-w-[200px] break-words ${
-                                      msg.senderId === auth.currentUser?.uid
-                                        ? "bg-primary text-primary-foreground"
-                                        : "bg-muted text-muted-foreground"
-                                    }`}>
+                                    <div className={`text-xs px-2 py-1 rounded-md max-w-[200px] break-words ${msg.senderId === auth.currentUser?.uid
+                                      ? "bg-primary text-primary-foreground"
+                                      : "bg-muted text-muted-foreground"
+                                      }`}>
                                       {msg.content || (msg.attachments ? 'Attachment' : 'Message')}
                                     </div>
                                   </div>
@@ -532,26 +645,130 @@ export default function SupportAgentChatsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
- 
 
-  <div className="flex flex-col gap-2">
-  
-    <Button variant="outline" size="sm">
-      <Phone className="h-4 w-4 mr-2" />
-      Call
-    </Button>
 
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={() => handleCloseChat(selectedChat.id)}
-    >
-      <CheckCircle className="h-4 w-4 mr-2" />
-      Close Chat
-    </Button>
+                    <div className="flex flex-col gap-2">
 
-  </div>
-</div>
+
+                      <Button variant="outline" size="sm" onClick={() => {
+                        if (selectedChat && auth.currentUser) {
+                          const channelName = generateChannelName(auth.currentUser.uid, selectedChat.userId);
+                          const callDocRef = doc(collection(db, 'calls')); // Generate ID first
+
+                          // We'll treat this as starting call logic similar to Admin
+                          // But we need to actually create the call doc
+                          const startCall = async (type: 'voice' | 'video') => {
+                            try {
+                              await setDoc(callDocRef, {
+                                userId: selectedChat.userId,
+                                agentId: auth.currentUser!.uid,
+                                userName: selectedChat.fullName,
+                                userImage: selectedChat.userImage || '',
+                                agentName: 'Support Agent', // Should fetch profile
+                                agentImage: '',
+                                callType: type,
+                                chatId: selectedChat.id,
+                                channelName: channelName,
+                                callerId: auth.currentUser!.uid,
+                                status: 'ringing',
+                                startTime: serverTimestamp(),
+                                acceptedAt: null,
+                                endTime: null,
+                                duration: 0,
+                                language: 'en',
+                                location: '',
+                                priority: 'normal'
+                              });
+
+                              setActiveCall({
+                                callId: callDocRef.id,
+                                chatId: selectedChat.id,
+                                channelName: channelName,
+                                recipientName: selectedChat.fullName,
+                                recipientImage: selectedChat.userImage,
+                                callType: type,
+                                isIncoming: false
+                              });
+                            } catch (e) {
+                              console.error("Error starting call:", e);
+                              toast({ title: "Error", description: "Failed to start call", variant: "destructive" });
+                            }
+                          };
+
+                          startCall('voice');
+                        }
+                      }}>
+                        <Phone className="h-4 w-4 mr-2" />
+                        Call
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => {
+                        if (selectedChat && auth.currentUser) {
+                          const channelName = generateChannelName(auth.currentUser.uid, selectedChat.userId);
+                          const callDocRef = doc(collection(db, 'calls'));
+
+                          const startCall = async (type: 'voice' | 'video') => {
+                            try {
+                              await setDoc(callDocRef, {
+                                userId: selectedChat.userId,
+                                agentId: auth.currentUser!.uid,
+                                userName: selectedChat.fullName,
+                                userImage: selectedChat.userImage || '',
+                                agentName: 'Support Agent',
+                                agentImage: '',
+                                callType: type,
+                                chatId: selectedChat.id,
+                                channelName: channelName,
+                                callerId: auth.currentUser!.uid,
+                                status: 'ringing',
+                                startTime: serverTimestamp(),
+                                acceptedAt: null,
+                                endTime: null,
+                                duration: 0,
+                                language: 'en',
+                                location: '',
+                                priority: 'normal'
+                              });
+
+                              setActiveCall({
+                                callId: callDocRef.id,
+                                chatId: selectedChat.id,
+                                channelName: channelName,
+                                recipientName: selectedChat.fullName,
+                                recipientImage: selectedChat.userImage,
+                                callType: type,
+                                isIncoming: false
+                              });
+                            } catch (e) {
+                              console.error("Error starting call:", e);
+                              toast({ title: "Error", description: "Failed to start call", variant: "destructive" });
+                            }
+                          };
+
+                          startCall('video');
+                        }
+                      }}>
+                        { /* Video Icon - wait we need to import Video icon if not present, checking imports */}
+                        { /* It was not in the imports list I saw earlier (Phone, MapPin etc). Let's use Phone for now or just text "Video Call" if icon missing, 
+                           Actually I can see imports at top. `Phone` is there. `Video` is NOT there. 
+                           I'll add Video to imports in a separate step or just use text. 
+                           Wait, I can just add Video to imports in the first chunk if I knew. 
+                           I'll just use text "Video Call" for now or re-use Phone icon with different text to avoid breaking. 
+                           Or I can add Video to imports now? No, safely I'll use text. 
+                        */ }
+                        Video Call
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCloseChat(selectedChat.id)}
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Close Chat
+                      </Button>
+
+                    </div>
+                  </div>
 
                 </CardHeader>
                 <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 h-[400px]">
@@ -564,9 +781,8 @@ export default function SupportAgentChatsPage() {
                     messages.map((message) => (
                       <div
                         key={message.id}
-                        className={`flex items-end gap-2 ${
-                          message.senderId === auth.currentUser?.uid ? "justify-end" : "justify-start"
-                        }`}
+                        className={`flex items-end gap-2 ${message.senderId === auth.currentUser?.uid ? "justify-end" : "justify-start"
+                          }`}
                       >
                         {message.senderId !== auth.currentUser?.uid && (
                           <Avatar className="h-8 w-8">
@@ -575,11 +791,10 @@ export default function SupportAgentChatsPage() {
                           </Avatar>
                         )}
                         <div className="flex flex-col gap-1 items-start">
-                          <div className={`rounded-lg px-4 py-2 shadow-sm ${
-                            message.senderId === auth.currentUser?.uid
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted text-foreground"
-                          }`}>
+                          <div className={`rounded-lg px-4 py-2 shadow-sm ${message.senderId === auth.currentUser?.uid
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-foreground"
+                            }`}>
                             {message.attachments && message.attachments.length > 0 && (
                               <div className="space-y-2 mb-2">
                                 {message.attachments.map((attachment, index) => (
@@ -684,11 +899,10 @@ export default function SupportAgentChatsPage() {
                                         href={attachment.url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className={`flex items-center gap-2 p-2 rounded-lg border transition-colors ${
-                                          message.senderId === auth.currentUser?.uid
-                                            ? "border-primary bg-primary hover:bg-primary/90"
-                                            : "border-border bg-muted hover:bg-muted/80"
-                                        }`}
+                                        className={`flex items-center gap-2 p-2 rounded-lg border transition-colors ${message.senderId === auth.currentUser?.uid
+                                          ? "border-primary bg-primary hover:bg-primary/90"
+                                          : "border-border bg-muted hover:bg-muted/80"
+                                          }`}
                                       >
                                         <File className="h-4 w-4" />
                                         <div className="flex-1 min-w-0">
@@ -764,7 +978,7 @@ export default function SupportAgentChatsPage() {
                         className="h-8 w-8 rounded-full"
                         disabled={!inputValue.trim() || sending}
                       >
-                        {sending ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4"/>}
+                        {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                       </Button>
                     </div>
                   </div>
@@ -782,6 +996,52 @@ export default function SupportAgentChatsPage() {
           </Card>
         </div>
       </div>
+
+      {/* New Chat Dialog */}
+      <Dialog open={isNewChatOpen} onOpenChange={setIsNewChatOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>New Conversation</DialogTitle>
+            <DialogDescription>Search for a user or support agent to start a chat.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name or email..."
+                className="pl-9"
+                value={userSearchTerm}
+                onChange={(e) => setUserSearchTerm(e.target.value)}
+              />
+            </div>
+            <ScrollArea className="h-[300px] border rounded-md p-2">
+              <div className="space-y-1">
+                {filteredUsers.length === 0 ? (
+                  <p className="text-center text-xs text-muted-foreground py-8">No matching users found</p>
+                ) : (
+                  filteredUsers.map((user) => (
+                    <div
+                      key={user.id}
+                      className="flex items-center gap-3 p-2 hover:bg-slate-50 cursor-pointer rounded-md transition-colors"
+                      onClick={() => startNewChat(user)}
+                    >
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={user.image} />
+                        <AvatarFallback>{user.firstName?.[0] || 'U'}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold truncate">{user.firstName} {user.lastName}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
+                      </div>
+                      <Badge variant="outline" className="text-[9px] uppercase">{user.role}</Badge>
+                    </div>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

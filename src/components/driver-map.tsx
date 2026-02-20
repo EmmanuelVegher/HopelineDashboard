@@ -73,14 +73,16 @@ const createMarkerIcon = (status: Driver['status'], gpsStatus?: Driver['gpsStatu
 };
 
 // Component to handle map centering
-function MapController({ selectedDriver }: { selectedDriver?: Driver }) {
+function MapController({ selectedDriver, playbackPoint }: { selectedDriver?: Driver | null, playbackPoint?: any | null }) {
   const map = useMap();
 
   useEffect(() => {
-    if (selectedDriver && typeof selectedDriver.latitude === 'number' && typeof selectedDriver.longitude === 'number' && !isNaN(selectedDriver.latitude) && !isNaN(selectedDriver.longitude)) {
+    if (playbackPoint && typeof playbackPoint.latitude === 'number' && typeof playbackPoint.longitude === 'number') {
+      map.setView([playbackPoint.latitude, playbackPoint.longitude]); // Follow playback point
+    } else if (selectedDriver && typeof selectedDriver.latitude === 'number' && typeof selectedDriver.longitude === 'number' && !isNaN(selectedDriver.latitude) && !isNaN(selectedDriver.longitude)) {
       map.setView([selectedDriver.latitude, selectedDriver.longitude], 15);
     }
-  }, [selectedDriver, map]);
+  }, [selectedDriver?.latitude, selectedDriver?.longitude, playbackPoint?.latitude, playbackPoint?.longitude, map]);
 
   return null;
 }
@@ -174,6 +176,98 @@ function RoutingController({
   return null;
 }
 
+// Component to handle mission-specific road routing for playback
+function MissionRoutingController({
+  waypoints,
+  color = '#3b82f6', // Blue for mission routes
+  useGoogleDirections = false, // Toggle for OSRM vs Google
+  apiKey = ''
+}: {
+  waypoints: [number, number][];
+  color?: string;
+  useGoogleDirections?: boolean;
+  apiKey?: string;
+}) {
+  const map = useMap();
+  const [routingControl, setRoutingControl] = useState<L.routing.Control | null>(null);
+
+  useEffect(() => {
+    // Only update if we have enough points and they significantly changed
+    if (!waypoints || waypoints.length < 2) {
+      if (routingControl) {
+        map.removeControl(routingControl);
+        setRoutingControl(null);
+      }
+      return;
+    }
+
+    // Since this is for the FULL mission trail (not growing), we only want to run this once or when waypoints change significantly
+    // We already handle existing control removal below
+
+    try {
+      if (routingControl) {
+        map.removeControl(routingControl);
+      }
+
+      // Downsample waypoints if too many (Leaflet Routing Machine limit/performance)
+      let routeWaypoints = waypoints;
+      if (waypoints.length > 25) {
+        const sampled: [number, number][] = [waypoints[0]];
+        const step = (waypoints.length - 2) / 20;
+        for (let i = 1; i <= 20; i++) {
+          sampled.push(waypoints[Math.floor(i * step)]);
+        }
+        sampled.push(waypoints[waypoints.length - 1]);
+        routeWaypoints = sampled;
+      }
+
+      const control = L.routing.control({
+        waypoints: routeWaypoints.map(wp => L.latLng(wp[0], wp[1])),
+        router: useGoogleDirections && apiKey
+          ? (L.Routing as any).google(apiKey)
+          : L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
+        routeWhileDragging: false,
+        addWaypoints: false,
+        createMarker: () => null,
+        lineOptions: {
+          styles: [{ color: color, weight: 5, opacity: 0.6 }] // Slightly transparent for full route
+        },
+        show: false,
+        collapsible: false,
+      }).addTo(map);
+
+      setRoutingControl(control);
+    } catch (error) {
+      console.error('[DriverMap] Mission routing error:', error);
+      // Fallback to OSRM if Google fails
+      if (useGoogleDirections) {
+        console.log('[DriverMap] Attempting OSRM fallback...');
+        const fallbackControl = L.routing.control({
+          waypoints: routeWaypoints.map(wp => L.latLng(wp[0], wp[1])),
+          router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
+          routeWhileDragging: false,
+          addWaypoints: false,
+          createMarker: () => null,
+          lineOptions: {
+            styles: [{ color: color, weight: 5, opacity: 0.6 }]
+          },
+          show: false,
+          collapsible: false,
+        }).addTo(map);
+        setRoutingControl(fallbackControl);
+      }
+    }
+
+    return () => {
+      if (routingControl) {
+        map.removeControl(routingControl);
+      }
+    };
+  }, [waypoints, map, color, useGoogleDirections, apiKey]); // waypoints change will trigger re-calculation
+
+  return null;
+}
+
 interface LocationHistoryPoint {
   latitude: number;
   longitude: number;
@@ -205,6 +299,12 @@ interface DriverMapProps {
   locationHistory?: { [driverId: string]: LocationHistoryPoint[] };
   // Current driver location
   driverLocation?: DriverLocation | null;
+  // Playback / Simulation props
+  playbackPoint?: LocationHistoryPoint | null;
+  playbackTrail?: LocationHistoryPoint[];
+  fullMissionTrail?: LocationHistoryPoint[]; // New prop for static road route
+  useRoadsForPlayback?: boolean;
+  useEcoMode?: boolean; // New prop for cost-efficiency toggle
   // Default center for map
   defaultCenter?: [number, number];
 }
@@ -223,6 +323,11 @@ export default function DriverMap({
   showMovementTrails = false,
   locationHistory = {},
   driverLocation = null,
+  playbackPoint = null,
+  playbackTrail = [],
+  fullMissionTrail = [],
+  useRoadsForPlayback = true,
+  useEcoMode = true,
   defaultCenter
 }: DriverMapProps) {
 
@@ -276,12 +381,32 @@ export default function DriverMap({
     .map((driver) => ({
       positions: locationHistory[driver.id].map(point => [point.latitude, point.longitude] as [number, number]),
       color: driver.status === 'Available' ? '#10b981' :
-             driver.status === 'Emergency' ? '#ef4444' :
-             driver.status === 'En Route' || driver.status === 'Assisting' ? '#3b82f6' : '#6b7280',
+        driver.status === 'Emergency' ? '#ef4444' :
+          driver.status === 'En Route' || driver.status === 'Assisting' ? '#3b82f6' : '#6b7280',
       weight: 2,
       opacity: 0.6,
       dashArray: '5, 5', // Dashed line for trails
     })) : [];
+
+  // Filter and validate playback trail to avoid (0,0) jumps and invalid data
+  const validPlaybackTrail = (playbackTrail || [])
+    .filter(point =>
+      point &&
+      typeof point.latitude === 'number' &&
+      typeof point.longitude === 'number' &&
+      point.latitude !== 0 &&
+      point.longitude !== 0 &&
+      Math.abs(point.latitude) <= 90 &&
+      Math.abs(point.longitude) <= 180
+    );
+
+  // Create playback trail polyline
+  const playbackPolyline = validPlaybackTrail.length > 1 ? {
+    positions: validPlaybackTrail.map(point => [point.latitude, point.longitude] as [number, number]),
+    color: '#2563eb', // Professional blue for playback
+    weight: 4,
+    opacity: 0.9,
+  } : null;
 
   return (
     <div className={cn(className, "relative overflow-hidden")}>
@@ -297,7 +422,7 @@ export default function DriverMap({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        <MapController selectedDriver={selectedDriver} />
+        <MapController selectedDriver={selectedDriver} playbackPoint={playbackPoint} />
 
         <RoutingController
           enableRouting={enableRouting}
@@ -305,6 +430,16 @@ export default function DriverMap({
           destination={destination}
           onRoutingError={onRoutingError}
         />
+
+        {useRoadsForPlayback && fullMissionTrail.length > 1 && (
+          <MissionRoutingController
+            waypoints={fullMissionTrail
+              .filter(p => p.latitude !== 0 && p.longitude !== 0)
+              .map(p => [p.latitude, p.longitude] as [number, number])}
+            useGoogleDirections={!useEcoMode} // Invert Eco-Mode for Google precision
+            apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''}
+          />
+        )}
 
         {/* Current location marker */}
         {(() => {
@@ -426,14 +561,14 @@ export default function DriverMap({
                       fontWeight: '500',
                       backgroundColor:
                         driver.status === 'Available' ? '#d1fae5' :
-                        driver.status === 'Emergency' ? '#fee2e2' :
-                        driver.status === 'En Route' || driver.status === 'Assisting' ? '#dbeafe' :
-                        '#f3f4f6',
+                          driver.status === 'Emergency' ? '#fee2e2' :
+                            driver.status === 'En Route' || driver.status === 'Assisting' ? '#dbeafe' :
+                              '#f3f4f6',
                       color:
                         driver.status === 'Available' ? '#065f46' :
-                        driver.status === 'Emergency' ? '#991b1b' :
-                        driver.status === 'En Route' || driver.status === 'Assisting' ? '#1e40af' :
-                        '#374151'
+                          driver.status === 'Emergency' ? '#991b1b' :
+                            driver.status === 'En Route' || driver.status === 'Assisting' ? '#1e40af' :
+                              '#374151'
                     }}>
                       {driver.status}
                     </span>
@@ -441,7 +576,7 @@ export default function DriverMap({
                   <p><strong>Location:</strong> {driver.location}</p>
                   <p><strong>Task:</strong> {driver.task}</p>
                   <p><strong>Phone:</strong> {driver.phone}</p>
-                  <p><strong>Last Update:</strong> {typeof driver.lastUpdate === 'string' ? driver.lastUpdate : new Date(driver.lastUpdate?.seconds * 1000 || Date.now()).toLocaleTimeString()}</p>
+                  <p><strong>Last Update:</strong> {typeof driver.lastUpdate === 'string' ? driver.lastUpdate : new Date((driver.lastUpdate as any)?.seconds * 1000 || Date.now()).toLocaleTimeString()}</p>
                   {driver.locationAccuracy && (
                     <p><strong>Accuracy:</strong> ±{Math.round(driver.locationAccuracy)} meters</p>
                   )}
@@ -455,14 +590,14 @@ export default function DriverMap({
                         fontWeight: '500',
                         backgroundColor:
                           driver.trackingStatus === 'active' ? '#d1fae5' :
-                          driver.trackingStatus === 'offline' ? '#fed7d7' :
-                          driver.trackingStatus === 'error' ? '#fee2e2' :
-                          '#f3f4f6',
+                            driver.trackingStatus === 'offline' ? '#fed7d7' :
+                              driver.trackingStatus === 'error' ? '#fee2e2' :
+                                '#f3f4f6',
                         color:
                           driver.trackingStatus === 'active' ? '#065f46' :
-                          driver.trackingStatus === 'offline' ? '#9b2c2c' :
-                          driver.trackingStatus === 'error' ? '#991b1b' :
-                          '#374151'
+                            driver.trackingStatus === 'offline' ? '#9b2c2c' :
+                              driver.trackingStatus === 'error' ? '#991b1b' :
+                                '#374151'
                       }}>
                         {driver.trackingStatus}
                       </span>
@@ -478,14 +613,14 @@ export default function DriverMap({
                         fontWeight: '500',
                         backgroundColor:
                           driver.gpsStatus === 'good' ? '#d1fae5' :
-                          driver.gpsStatus === 'weak' ? '#fef3c7' :
-                          driver.gpsStatus === 'lost' ? '#fee2e2' :
-                          '#f3f4f6',
+                            driver.gpsStatus === 'weak' ? '#fef3c7' :
+                              driver.gpsStatus === 'lost' ? '#fee2e2' :
+                                '#f3f4f6',
                         color:
                           driver.gpsStatus === 'good' ? '#065f46' :
-                          driver.gpsStatus === 'weak' ? '#92400e' :
-                          driver.gpsStatus === 'lost' ? '#991b1b' :
-                          '#374151'
+                            driver.gpsStatus === 'weak' ? '#92400e' :
+                              driver.gpsStatus === 'lost' ? '#991b1b' :
+                                '#374151'
                       }}>
                         {driver.gpsStatus}
                       </span>
@@ -542,6 +677,53 @@ export default function DriverMap({
             }}
           />
         ))}
+
+        {/* Render playback trail - only if not using road routing */}
+        {!useRoadsForPlayback && playbackPolyline && (
+          <Polyline
+            positions={playbackPolyline.positions}
+            pathOptions={{
+              color: playbackPolyline.color,
+              weight: playbackPolyline.weight,
+              opacity: playbackPolyline.opacity,
+            }}
+          />
+        )}
+
+        {/* Render playback current point */}
+        {playbackPoint && typeof playbackPoint.latitude === 'number' && typeof playbackPoint.longitude === 'number' && (
+          <Marker
+            position={[playbackPoint.latitude, playbackPoint.longitude]}
+            icon={L.divIcon({
+              html: `
+                <div class="relative">
+                  <div class="absolute -top-4 -left-4 w-8 h-8 bg-blue-500 rounded-full opacity-30 animate-ping"></div>
+                  <div class="relative w-8 h-8 bg-blue-600 rounded-full border-2 border-white flex items-center justify-center shadow-lg">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2ZM12 11.5C10.62 11.5 9.5 10.38 9.5 9C9.5 7.62 10.62 6.5 12 6.5C13.38 6.5 14.5 7.62 14.5 9C14.5 10.38 13.38 11.5 12 11.5Z" fill="white"/>
+                    </svg>
+                  </div>
+                </div>
+              `,
+              className: 'playback-marker',
+              iconSize: [32, 32],
+              iconAnchor: [16, 16],
+            })}
+          >
+            <Popup>
+              <div className="p-2 min-w-[150px]">
+                <h4 className="font-bold text-blue-700">Playback Position</h4>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Time: {playbackPoint.timestamp ? new Date(playbackPoint.timestamp).toLocaleString() : 'N/A'}
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+                  <div>Lat: {playbackPoint.latitude?.toFixed(4) || '0.0000'}</div>
+                  <div>Lng: {playbackPoint.longitude?.toFixed(4) || '0.0000'}</div>
+                </div>
+              </div>
+            </Popup>
+          </Marker>
+        )}
       </MapContainer>
 
       {validDrivers.length === 0 && drivers.length > 0 && (

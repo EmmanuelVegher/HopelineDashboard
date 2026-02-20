@@ -23,10 +23,13 @@ import {
   LogOut,
   PhoneOutgoing,
   UserCheck,
-  Truck
+  Truck,
+  MessageSquare,
+  BookOpen
 } from "lucide-react";
 import { useLocation, useNavigate, Outlet } from "react-router-dom";
-import { AdminDataProvider } from "@/contexts/AdminDataProvider";
+import { AdminDataProvider, useAdminData } from "@/contexts/AdminDataProvider";
+import { EmergencySignalModal } from "@/components/situation-room/emergency-signal-modal";
 import { UserManagementProvider } from "@/components/user-management-provider";
 import { NavLink } from "@/components/nav-link";
 import { useLoading } from "@/contexts/LoadingProvider";
@@ -40,12 +43,14 @@ import { User } from "lucide-react";
 const navLinks = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { to: "/admin/profile", label: "Profile", icon: UserCheck },
-  { to: "/admin/track-drivers", label: "Drivers", icon: Car },
-  { to: "/admin/vehicle-management", label: "Vehicles", icon: Truck },
-  { to: "/admin/displaced-persons", label: "Displaced Persons", icon: Users },
+  { to: "/admin/track-drivers", label: "Fleet Drivers", icon: Car },
+  { to: "/admin/vehicle-management", label: "Fleet Vehicles", icon: Truck },
+  { to: "/admin/displaced-persons", label: "Beneficiaries", icon: Users },
   { to: "/admin/track-shelter", label: "Shelters", icon: Building },
-  { to: "/admin/user-management", label: "Users", icon: UserCog },
-  { to: "/admin/contact-management", label: "Contact Numbers", icon: PhoneOutgoing },
+  { to: "/admin/user-management", label: "User Management", icon: UserCog },
+  { to: "/admin/contact-management", label: "Contact Directory", icon: PhoneOutgoing },
+  { to: "/admin/chats", label: "Chat page", icon: MessageSquare },
+  { to: "/admin/training", label: "Training page", icon: BookOpen },
 ];
 
 function AdminSidebar({ adminProfile }: { adminProfile?: { firstName: string; lastName: string; image?: string } | null }) {
@@ -72,7 +77,7 @@ function AdminSidebar({ adminProfile }: { adminProfile?: { firstName: string; la
       <SidebarHeader>
         <div className="flex items-center gap-2">
           <img src="/shelter_logo.png" alt="Caritas Nigeria Logo" width={40} height={40} />
-          {state === 'expanded' && <h1 className="text-xl font-bold">CARITAS Hopeline Admin</h1>}
+          {state === 'expanded' && <h1 className="text-xl font-bold">Caritas Hopeline Tactical Command Center</h1>}
         </div>
       </SidebarHeader>
       <SidebarContent className="p-2">
@@ -136,6 +141,15 @@ function AdminSidebar({ adminProfile }: { adminProfile?: { firstName: string; la
     </Sidebar>
   );
 }
+function AdminModalWrapper() {
+  const { activeAlertModal, clearActiveAlert } = useAdminData();
+  return (
+    <EmergencySignalModal
+      alert={activeAlertModal}
+      onClose={clearActiveAlert}
+    />
+  );
+}
 
 
 export default function AdminLayout() {
@@ -143,7 +157,7 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const [authLoading, setAuthLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
-  const [adminProfile, setAdminProfile] = useState<{ firstName: string; lastName: string; image?: string } | null>(null);
+  const [adminProfile, setAdminProfile] = useState<{ firstName: string; lastName: string; image?: string; role: string; state?: string } | null>(null);
 
   useEffect(() => {
     setIsLoading(false);
@@ -168,8 +182,8 @@ export default function AdminLayout() {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           console.log("Admin layout: User role from Firestore:", userData.role);
-          if (userData.role === 'Admin') {
-            console.log("Admin layout: User authorized as admin");
+          if (userData.role === 'Admin' || userData.role === 'super-admin') {
+            console.log("Admin layout: User authorized as", userData.role);
             // Authorized admin
             setIsAuthorized(true);
           } else {
@@ -220,6 +234,8 @@ export default function AdminLayout() {
             firstName: userData.firstName || '',
             lastName: userData.lastName || '',
             image: userData.image || userData.profileImage || '',
+            role: userData.role || 'Admin',
+            state: userData.state || ''
           };
 
           console.log('Admin layout: Setting adminProfile:', profileData);
@@ -253,7 +269,7 @@ export default function AdminLayout() {
 
   return (
     <UserManagementProvider>
-      <AdminDataProvider>
+      <AdminDataProvider profile={adminProfile}>
         <SidebarProvider>
           <AdminSidebar adminProfile={adminProfile} />
           <SidebarInset>
@@ -268,6 +284,7 @@ export default function AdminLayout() {
               <Outlet />
             </main>
           </SidebarInset>
+          <AdminModalWrapper />
         </SidebarProvider>
       </AdminDataProvider>
     </UserManagementProvider>
