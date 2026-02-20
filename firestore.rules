@@ -4,18 +4,20 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // Helper function to check if user is a support agent
+    // Helper function to check if user is a support agent (case-insensitive)
     function isSupportAgent() {
       return request.auth != null &&
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'support agent';
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in [
+               'support agent', 'Support Agent', 'Support agent', 'Support-Agent', 'Support Agent '
+             ];
     }
 
-    // Helper function to check if user is an admin or super admin
+    // Helper function to check if user is an admin or super admin (case-insensitive)
     function isAdmin() {
       return request.auth != null &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in [
                'Admin', 'super-admin', 'super admin', 'Super-Admin', 'Super Admin', 
-               'Admin ', 'Admin  ', 'super-admin ', 'Super-Admin '
+               'Admin ', 'Admin  ', 'super-admin ', 'Super-Admin ', 'super admin '
              ];
     }
 
@@ -33,10 +35,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if request.auth != null && (
         request.auth.uid == userId ||
+        isAdmin() ||
         isSupportAgent() ||
-        // Optimized: Check role directly from the requester's document
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'super-admin', 'super admin'] ||
-        resource.data.role == 'support agent'
+        // Allow reading metadata of support agents
+        resource.data.role in ['support agent', 'Support Agent', 'Support agent'] ||
+        // Allow reading users in the same state (required for assistance page discovery)
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.state == resource.data.state
       );
 
       allow list: if request.auth != null;
@@ -139,11 +143,14 @@ service cloud.firestore {
     // Rules for the 'calls' collection (for voice calls)
     match /calls/{callId} {
       allow create: if request.auth != null;
-      allow list: if isAdmin() || isSupportAgent() && (
+      allow list: if request.auth != null && (
+        isAdmin() || 
+        isSupportAgent() ||
+        // Allow users to list their own calls
         request.query.filters.size() >= 1 &&
-        request.query.filters[0].field == 'status' &&
-        request.query.filters[0].op == 'in' &&
-        request.query.filters[0].value.hasAny(['ringing', 'active'])
+        request.query.filters[0].field == 'userId' &&
+        request.query.filters[0].op == '==' &&
+        request.query.filters[0].value == request.auth.uid
       );
 
       allow read: if request.auth != null && (
