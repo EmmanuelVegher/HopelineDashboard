@@ -23,6 +23,8 @@ import {
   User,
   Settings,
   LogOut,
+  GraduationCap,
+  Shield,
 } from "lucide-react";
 import { useLocation, useNavigate, Outlet } from "react-router-dom";
 import { NavLink } from "@/components/nav-link";
@@ -32,7 +34,8 @@ import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { LoadingSpinner } from "@/components/loading-spinner";
-import { TranslationProvider, useTranslation } from "@/contexts/TranslationContext";
+import { TranslationProvider } from "@/contexts/TranslationProvider";
+import { useTranslation } from "react-i18next";
 
 function DashboardContent({ userProfile }: { userProfile?: { firstName: string; lastName: string; image?: string } | null }) {
   const { t } = useTranslation();
@@ -50,6 +53,8 @@ function DashboardContent({ userProfile }: { userProfile?: { firstName: string; 
     { to: "/dashboard/weather", label: t('navigation.weather'), icon: Sun },
     { to: "/dashboard/profile", label: t('navigation.profile'), icon: User },
     { to: "/dashboard/settings", label: t('navigation.settings'), icon: Settings },
+    { to: "/dashboard/training", label: t('navigation.training'), icon: GraduationCap },
+    { to: "/privacy", label: t('navigation.privacy'), icon: Shield },
   ];
 
   const handleLogout = () => {
@@ -115,13 +120,13 @@ function DashboardContent({ userProfile }: { userProfile?: { firstName: string; 
               </div>
             </div>
             <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-              {userProfile ? `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || 'User' : 'Loading...'}
+              {userProfile ? `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || t('common.user') : t('common.loading')}
             </p>
           </div>
         </div>
         {state === 'expanded' && (
           <div className="text-center px-2 py-4 space-y-4">
-            <p className="text-xs text-sidebar-foreground/70">Supported By</p>
+            <p className="text-xs text-sidebar-foreground/70">{t('common.supportedBy')}</p>
             <div className="flex justify-center items-center gap-4">
               <img src="/caritas-logo.png" alt="Caritas Nigeria Logo" width={100} height={40} />
               <img src="/citi-logo.png" alt="CITI Foundation Logo" width={100} height={40} className="mx-auto" />
@@ -145,6 +150,7 @@ function DashboardContent({ userProfile }: { userProfile?: { firstName: string; 
 
 
 export default function DashboardLayout() {
+  const { t } = useTranslation();
   const { setIsLoading } = useLoading();
   const navigate = useNavigate();
   const [authLoading, setAuthLoading] = useState(true);
@@ -185,16 +191,21 @@ export default function DashboardLayout() {
 
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          console.log("Dashboard layout: User role from Firestore:", userData.role);
-          // Allow access for users with role "user" or no specific role (regular users)
-          if (userData.role === 'user' || userData.role === undefined || userData.role === null) {
-            console.log("Dashboard layout: User authorized as regular user");
-            setIsAuthorized(true);
-          } else if (userData.role === 'Admin' || userData.role === 'super-admin' || userData.role === 'support agent') {
-            console.log("Dashboard layout: User is staff, allowing access to dashboard as requested");
-            setIsAuthorized(true);
+          const role = userData.role?.toLowerCase();
+          console.log("Dashboard layout: User role from Firestore:", role);
+
+          if (role === 'admin' || role === 'super-admin' || role === 'super admin' || role === 'superadmin') {
+            console.log("Dashboard layout: User is admin, redirecting to admin dashboard");
+            navigate('/admin');
+          } else if (role === 'support agent') {
+            console.log("Dashboard layout: User is support agent, redirecting to support agent dashboard");
+            navigate('/support-agent');
+          } else if (['driver', 'pilot', 'responder', 'rider'].includes(role)) {
+            console.log("Dashboard layout: User is driver, redirecting to driver dashboard");
+            navigate('/driver/map');
           } else {
-            console.log("Dashboard layout: User has unrecognized role, allowing access as regular user");
+            // General user or no specific role
+            console.log("Dashboard layout: User authorized as regular user");
             setIsAuthorized(true);
           }
         } else {
@@ -283,7 +294,7 @@ export default function DashboardLayout() {
             <SidebarTrigger className="-ml-1" />
             <div className="flex items-center gap-2">
               <img src="/hopeline_red.png" alt="HopeLine Logo" width={32} height={32} />
-              <h1 className="text-lg font-semibold">HopeLine Dashboard</h1>
+              <h1 className="text-lg font-semibold">{t('dashboard.title')}</h1>
             </div>
           </header>
           <main className="flex flex-1 flex-col gap-4 p-4 sm:px-8 sm:py-6 bg-gray-50/50 dark:bg-gray-900/50 min-h-screen">

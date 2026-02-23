@@ -4,9 +4,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { AlarmClock, AlertTriangle, Building, LifeBuoy, MessageSquare, Send, Users, Wind, MapPin, Phone, Shield, Heart, Activity, Navigation, Clock } from "lucide-react"
+import { AlarmClock, AlertTriangle, Building, LifeBuoy, MessageSquare, Users, Wind, MapPin, Phone, Shield, Heart, Activity, Navigation, Clock } from "lucide-react"
 import { Link } from "react-router-dom"
-import { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, getDocs, query, where, doc, getDoc } from "firebase/firestore";
@@ -16,6 +17,7 @@ import { getWeather } from "@/ai/client";
 import { type GetWeatherOutput } from "@/ai/schemas/weather";
 
 export default function Home() {
+  const { t, i18n } = useTranslation();
   const [stats, setStats] = useState({ shelterCount: 0, peopleAssisted: 0 });
   const [ussdCodes, setUssdCodes] = useState<UssdCode[]>([]);
   const [emergencyContacts, setEmergencyContacts] = useState<UssdCode[]>([]);
@@ -30,9 +32,23 @@ export default function Home() {
     const fetchStats = async () => {
       setLoading(true);
       try {
+        let userState = "";
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+          if (userDoc.exists() && userDoc.data().state) {
+            userState = userDoc.data().state;
+          }
+        }
+
+        let ussdQuery = collection(db, "ussdCodes") as any;
+        if (userState) {
+          ussdQuery = query(collection(db, "ussdCodes"), where("state", "==", userState));
+        }
+
         const [shelterSnapshot, ussdSnapshot] = await Promise.all([
           getDocs(collection(db, "shelters")),
-          getDocs(collection(db, "ussdCodes"))
+          getDocs(ussdQuery)
         ]);
 
         const sheltersData = shelterSnapshot.docs.map(doc => doc.data() as Shelter);
@@ -42,9 +58,10 @@ export default function Home() {
         }, 0);
         setStats({ shelterCount, peopleAssisted });
 
-        const allCodes = ussdSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UssdCode));
-        const ussd = allCodes.filter(c => c.code.startsWith('*'));
-        const contacts = allCodes.filter(c => !c.code.startsWith('*'));
+        const allCodes = ussdSnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as object) } as UssdCode));
+        const ussd = allCodes.filter(c => c.code.toLowerCase().includes('*') || c.code.includes('#'));
+        const contacts = allCodes.filter(c => !c.code.toLowerCase().includes('*') && !c.code.includes('#'));
+
         setUssdCodes(ussd);
         setEmergencyContacts(contacts);
 
@@ -61,28 +78,11 @@ export default function Home() {
     const fetchWeather = async () => {
       setWeatherLoading(true);
       try {
-        // Try to get user's location first, fallback to Bayelsa/Adamawa region
-        let latitude = 5.0; // Default: Bayelsa/Adamawa region
-        let longitude = 6.0;
+        // Default: Bayelsa/Adamawa region to avoid Violation: Only request geolocation in response to a user gesture
+        let latitude = 9.0820;
+        let longitude = 8.6753;
 
-        if (navigator.geolocation) {
-          try {
-            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-              navigator.geolocation.getCurrentPosition(resolve, reject, {
-                enableHighAccuracy: false, // Quick location for dashboard
-                timeout: 5000,
-                maximumAge: 600000 // 10 minutes
-              });
-            });
-            latitude = position.coords.latitude;
-            longitude = position.coords.longitude;
-            console.log(`Dashboard using user location: ${latitude}, ${longitude}`);
-          } catch (locationError) {
-            console.log("Using default location for dashboard weather:", locationError);
-          }
-        }
-
-        const weather = await getWeather({ latitude, longitude }) as GetWeatherOutput;
+        const weather = await getWeather({ latitude, longitude, language: i18n.language || 'en' }) as GetWeatherOutput;
         setWeatherData(weather);
       } catch (error) {
         console.error("Error fetching weather data:", error);
@@ -91,7 +91,7 @@ export default function Home() {
     };
 
     fetchWeather();
-  }, []);
+  }, [i18n.language]);
 
   useEffect(() => {
     const fetchDisplacementRecord = async (uid: string) => {
@@ -127,14 +127,10 @@ export default function Home() {
     return () => unsubscribe();
   }, []);
 
-  const halfIndex = Math.ceil(emergencyContacts.length / 2);
-  const firstHalfContacts = emergencyContacts.slice(0, halfIndex);
-  const secondHalfContacts = emergencyContacts.slice(halfIndex);
-
   const quickActions = [
     {
-      title: "Emergency SOS",
-      description: "Send immediate emergency alert",
+      title: t('navigation.sos'),
+      description: t('auth.login.sosAlert'),
       icon: AlertTriangle,
       color: "destructive",
       href: "/sos",
@@ -144,8 +140,8 @@ export default function Home() {
       iconBg: "bg-red-100"
     },
     {
-      title: "Find Shelter",
-      description: "Locate nearby emergency shelters",
+      title: t('dashboard.findShelter'),
+      description: t('dashboard.findShelter'),
       icon: Building,
       color: "default",
       href: "/find-shelter",
@@ -155,8 +151,8 @@ export default function Home() {
       iconBg: "bg-blue-100"
     },
     {
-      title: "Get Assistance",
-      description: "Chat with support teams",
+      title: t('dashboard.getAssistance'),
+      description: t('dashboard.getAssistance'),
       icon: MessageSquare,
       color: "default",
       href: "/assistance",
@@ -169,16 +165,18 @@ export default function Home() {
 
   const secondaryActions = [
     {
-      title: "Route Navigation",
-      description: "Get safe directions to shelters",
+      title: t('dashboard.navigate'),
+      description: t('dashboard.navigate'),
       icon: MapPin,
-      href: "/navigate"
+      href: "/navigate",
+      buttonText: t('common.actions')
     },
     {
-      title: "Weather & Safety",
-      description: "Stay informed about alerts",
+      title: t('dashboard.checkWeather'),
+      description: t('dashboard.checkWeather'),
       icon: Wind,
-      href: "/weather"
+      href: "/weather",
+      buttonText: t('dashboard.checkWeather')
     }
   ];
 
@@ -186,28 +184,28 @@ export default function Home() {
     {
       icon: Building,
       value: stats.shelterCount,
-      label: "Active IDP Camps",
+      label: t('dashboard.stats.activeIdpCamps'),
       color: "text-blue-600",
       bgColor: "bg-blue-100"
     },
     {
       icon: Users,
       value: stats.peopleAssisted.toLocaleString(),
-      label: "People Assisted",
+      label: t('dashboard.stats.activeUsers'),
       color: "text-green-600",
       bgColor: "bg-green-100"
     },
     {
       icon: LifeBuoy,
       value: "24/7",
-      label: "CARITAS Support",
+      label: t('dashboard.stats.caritasSupport'),
       color: "text-blue-600",
       bgColor: "bg-blue-100"
     },
     {
       icon: AlarmClock,
       value: "< 15min",
-      label: "Response Time",
+      label: t('dashboard.stats.responseTime'),
       color: "text-purple-600",
       bgColor: "bg-purple-100"
     }
@@ -221,11 +219,11 @@ export default function Home() {
           <div className="inline-flex items-center gap-2 mb-4">
             <Heart className="h-8 w-8 text-red-500" />
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-black dark:text-white">
-              HopeLine Dashboard
+              {t('dashboard.title')}
             </h1>
           </div>
           <p className="text-muted-foreground text-center max-w-2xl mx-auto mb-8">
-            Your emergency assistance platform for finding shelter, getting help, and staying safe in disaster-affected regions. A project supported by the CITI Foundation.
+            {t('dashboard.description')}
           </p>
         </div>
 
@@ -234,7 +232,7 @@ export default function Home() {
           <Alert className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900 dark:to-cyan-900 border-blue-200/50 dark:border-blue-700/50 backdrop-blur-sm">
             <Wind className="h-4 w-4 text-blue-500" />
             <AlertTitle className="text-blue-800 dark:text-blue-200 font-semibold">
-              Loading Weather Information...
+              {t('common.loading')}
             </AlertTitle>
             <AlertDescription className="text-blue-700/90 dark:text-blue-300">
               <Skeleton className="h-4 w-full mt-1" />
@@ -258,7 +256,7 @@ export default function Home() {
             <Wind className="h-4 w-4 text-blue-500" />
             <AlertTitle className="text-blue-800 dark:text-blue-200 font-semibold flex items-center gap-2">
               <Shield className="h-4 w-4" />
-              Weather Update
+              {t('dashboard.weatherUpdate')}
             </AlertTitle>
             <AlertDescription className="text-blue-700/90 dark:text-blue-300">
               {weatherData.narrativeSummary}
@@ -284,7 +282,7 @@ export default function Home() {
             <div className="bg-blue-600 px-6 py-3 flex justify-between items-center text-white">
               <div className="flex items-center gap-2">
                 <Shield className="h-5 w-5" />
-                <h2 className="font-bold">Migration & Assistance Status</h2>
+                <h2 className="font-bold">{t('dashboard.migration.status')}</h2>
               </div>
               <Badge variant="outline" className="bg-white/20 text-white border-white/40">
                 {displacedRecord.status}
@@ -298,8 +296,8 @@ export default function Home() {
                       <MapPin className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold">Registered Current Location</p>
-                      <p className="text-sm text-muted-foreground">{displacedRecord.stayingLocation || 'Under Review'}</p>
+                      <p className="text-sm font-semibold">{t('dashboard.migration.registeredLocation')}</p>
+                      <p className="text-sm text-muted-foreground">{displacedRecord.stayingLocation || t('dashboard.migration.underReview')}</p>
                       <p className="text-xs text-muted-foreground mt-1">{displacedRecord.currentLocation}</p>
                     </div>
                   </div>
@@ -310,23 +308,23 @@ export default function Home() {
                         <Building className="h-5 w-5 text-green-600" />
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-semibold text-green-800">Assigned Transit Space</p>
+                        <p className="text-sm font-semibold text-green-800">{t('dashboard.migration.assignedShelter')}</p>
                         <p className="text-sm font-medium">{assignedShelter.name}</p>
                         <p className="text-xs text-green-700">{assignedShelter.location}</p>
                         {displacedRecord.allocatedResources?.bedNumber && (
                           <Badge variant="secondary" className="mt-2 bg-green-200 text-green-800 block w-fit">
-                            Room/Space: {displacedRecord.allocatedResources.bedNumber}
+                            {t('dashboard.migration.roomSpace', { number: displacedRecord.allocatedResources.bedNumber })}
                           </Badge>
                         )}
                         <div className="mt-3 flex gap-2">
                           <Link to={`/dashboard/navigate?lat=${assignedShelter.latitude || ''}&lng=${assignedShelter.longitude || ''}`}>
                             <Button size="sm" className="bg-green-600 hover:bg-green-700 h-8 text-xs">
-                              <Navigation className="h-3 w-3 mr-1" /> Get Directions
+                              <Navigation className="h-3 w-3 mr-1" /> {t('common.actions')}
                             </Button>
                           </Link>
                           <Link to="/dashboard/assistance">
                             <Button size="sm" variant="outline" className="h-8 text-xs border-green-200 text-green-700 hover:bg-green-100">
-                              Report Issue
+                              {t('dashboard.migration.reportIssue')}
                             </Button>
                           </Link>
                         </div>
@@ -338,8 +336,8 @@ export default function Home() {
                         <Building className="h-5 w-5 text-slate-400" />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-slate-600">Shelter Assignment</p>
-                        <p className="text-xs text-slate-500 mt-1">Your record is currently under review for transit space allocation. We will notify you once a space is assigned.</p>
+                        <p className="text-sm font-semibold text-slate-600">{t('dashboard.migration.shelterAssignment')}</p>
+                        <p className="text-xs text-slate-500 mt-1">{t('dashboard.migration.shelterAssignmentDesc')}</p>
                       </div>
                     </div>
                   )}
@@ -347,7 +345,7 @@ export default function Home() {
 
                 <div className="p-6 bg-slate-50/50">
                   <h3 className="text-sm font-bold flex items-center gap-2 mb-4 text-slate-700">
-                    <Clock className="h-4 w-4" /> Activity History
+                    <Clock className="h-4 w-4" /> {t('dashboard.migration.activityHistory')}
                   </h3>
                   {displacedRecord.activityLog && displacedRecord.activityLog.length > 0 ? (
                     <div className="space-y-4">
@@ -358,7 +356,7 @@ export default function Home() {
                           </div>
                           <div>
                             <p className="text-xs font-bold leading-none">{log.action}</p>
-                            <p className="text-[10px] text-muted-foreground mt-1">{log.date.split(',')[0]} &middot; {log.notes || 'Automated Update'}</p>
+                            <p className="text-[10px] text-muted-foreground mt-1">{log.date.split(',')[0]} &middot; {log.notes || t('dashboard.migration.automatedUpdate')}</p>
                           </div>
                         </div>
                       ))}
@@ -366,7 +364,7 @@ export default function Home() {
                   ) : (
                     <div className="flex flex-col items-center justify-center py-6 text-center">
                       <Activity className="h-8 w-8 text-slate-300 mb-2" />
-                      <p className="text-xs text-slate-400">No activity history yet.</p>
+                      <p className="text-xs text-slate-400">{t('dashboard.migration.noActivity')}</p>
                     </div>
                   )}
                 </div>
@@ -385,8 +383,7 @@ export default function Home() {
               <div className={`${action.iconBg} p-4 rounded-2xl mb-4 transition-all duration-300 hover:scale-110`}>
                 <action.icon className={`h-8 w-8 sm:h-10 sm:w-10 ${action.iconColor}`} />
               </div>
-              <CardTitle className={`text-lg sm:text-xl font-bold mb-2 text-center ${action.title === "Emergency SOS" || action.title === "Get Assistance" ? "text-black" : "text-foreground"
-                }`}>
+              <CardTitle className={`text-lg sm:text-xl font-bold mb-2 text-center text-foreground`}>
                 {action.title}
               </CardTitle>
               <CardDescription className="text-sm sm:text-base text-muted-foreground mb-6 text-center">
@@ -399,8 +396,7 @@ export default function Home() {
                     : 'bg-white hover:bg-slate-50 text-slate-800 border-2 border-slate-200 shadow-md hover:shadow-lg'
                     }`}
                 >
-                  {action.title === "Emergency SOS" ? "Send SOS Now" :
-                    action.title === "Find Shelter" ? "Find Nearest Shelter" : "Request Help"}
+                  {action.title}
                 </Button>
               </Link>
             </Card>
@@ -427,7 +423,7 @@ export default function Home() {
               <CardContent className="px-6 sm:px-8 pb-6 sm:pb-8">
                 <Link to={action.href}>
                   <Button variant="outline" className="w-full h-12 sm:h-14 text-sm sm:text-base font-medium border-2 border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 hover:scale-105">
-                    Open {action.title.split(' ')[0]}
+                    {action.buttonText}
                   </Button>
                 </Link>
               </CardContent>
@@ -469,14 +465,14 @@ export default function Home() {
                 </div>
                 <div>
                   <CardTitle className="text-lg sm:text-xl font-bold text-foreground">
-                    No Smartphone? No Wahala!
+                    {t('dashboard.ussdTitle')}
                   </CardTitle>
                   <CardDescription className="text-sm sm:text-base text-muted-foreground">
-                    Access emergency services using USSD codes on any mobile phone
+                    {t('dashboard.ussdSubtitle')}
                   </CardDescription>
                 </div>
                 <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 text-xs">
-                  MTN, Airtel, Glo, 9mobile
+                  {t('dashboard.ussdNetworks')}
                 </Badge>
               </div>
             </CardHeader>
@@ -496,7 +492,7 @@ export default function Home() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">USSD codes not available.</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">{t('dashboard.ussdNotAvailable')}</p>
                 )}
               </div>
             </CardContent>
@@ -511,14 +507,14 @@ export default function Home() {
                 </div>
                 <div>
                   <CardTitle className="text-lg sm:text-xl font-bold text-foreground">
-                    Emergency Contacts
+                    {t('dashboard.emergencyContactsTitle')}
                   </CardTitle>
                   <CardDescription className="text-sm sm:text-base text-muted-foreground">
-                    Important phone numbers for emergency situations
+                    {t('dashboard.emergencyContactsSubtitle')}
                   </CardDescription>
                 </div>
                 <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
-                  24/7 Available
+                  {t('dashboard.emergencyContactsAvailable')}
                 </Badge>
               </div>
             </CardHeader>
@@ -540,13 +536,13 @@ export default function Home() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">Emergency contacts not available.</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">{t('dashboard.emergencyContactsNotAvailable')}</p>
                 )}
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
-    </div>
+    </div >
   )
 }

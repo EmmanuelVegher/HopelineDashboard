@@ -73,7 +73,16 @@ export async function generateAgoraToken(input: { channelName: string; uid: stri
     const generateAgoraTokenFunction = httpsCallable(functions, 'generateAgoraToken');
     const result = await generateAgoraTokenFunction(input);
 
-    return result.data as { token: string };
+    // Some versions of the Firebase SDK or function implementation might return 
+    // the value directly or wrapped in an object.
+    const data = result.data as any;
+    const token = typeof data === 'string' ? data : data?.token;
+
+    if (!token) {
+      throw new Error('No token returned from server');
+    }
+
+    return { token };
   } catch (error) {
     console.error('Firebase Function error:', error);
     throw new Error('Failed to generate Agora token');

@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PhoneOff, Mic, MicOff, Video, VideoOff, Maximize2, Minimize2 } from "lucide-react";
 import { db, functions, auth } from "@/lib/firebase";
-import { doc, updateDoc, Timestamp, addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { doc, updateDoc, Timestamp, addDoc, collection, serverTimestamp, query, where, getDocs, limit, getDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import AgoraRTC, { IAgoraRTCClient, ICameraVideoTrack, IMicrophoneAudioTrack } from 'agora-rtc-sdk-ng';
 import { AGORA_APP_ID } from "@/lib/agora";
@@ -41,13 +41,46 @@ export function CallInterface({
     const [isVideoEnabled, setIsVideoEnabled] = useState(callType === 'video');
     const [isMinimized, setIsMinimized] = useState(false);
     const [connectionTime, setConnectionTime] = useState(0);
+    const [callData, setCallData] = useState<any>(null);
 
     const localVideoRef = useRef<HTMLDivElement>(null);
     const remoteVideoRef = useRef<HTMLDivElement>(null);
+    const ringbackAudioRef = useRef<HTMLAudioElement | null>(null);
 
     const clientRef = useRef<IAgoraRTCClient | null>(null);
     const localAudioTrackRef = useRef<IMicrophoneAudioTrack | null>(null);
     const localVideoTrackRef = useRef<ICameraVideoTrack | null>(null);
+
+    // Initial fetch of call data
+    useEffect(() => {
+        const fetchCall = async () => {
+            const docSnap = await getDoc(doc(db, 'calls', callId));
+            if (docSnap.exists()) {
+                setCallData(docSnap.data());
+            }
+        };
+        fetchCall();
+    }, [callId]);
+
+    // Handle Ringback Audio
+    useEffect(() => {
+        if (!isIncoming && (callStatus === 'calling' || callStatus === 'ringing')) {
+            if (!ringbackAudioRef.current && typeof Audio !== 'undefined') {
+                // Melodious Marimba for ringback
+                ringbackAudioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/607/607-preview.mp3');
+                ringbackAudioRef.current.loop = true;
+            }
+            ringbackAudioRef.current?.play().catch(err => console.log('[Call] Ringback play failed:', err));
+        } else {
+            ringbackAudioRef.current?.pause();
+            if (ringbackAudioRef.current) ringbackAudioRef.current.currentTime = 0;
+        }
+
+        return () => {
+            ringbackAudioRef.current?.pause();
+            if (ringbackAudioRef.current) ringbackAudioRef.current.currentTime = 0;
+        };
+    }, [callStatus, isIncoming]);
 
     useEffect(() => {
         let isMounted = true;
@@ -79,35 +112,13 @@ export function CallInterface({
                     throw new Error(`Invalid token format. Expected string, got: ${typeof token}`);
                 }
 
-                // Join channel with the extracted token
-                await client.join(AGORA_APP_ID, channelName, token, null);
+                if (!isMounted) return;
 
-                if (!isMounted) {
-                    await client.leave();
-                    return;
-                }
-
-                // Create and publish local tracks
-                if (callType === 'video') {
-                    const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
-                    localAudioTrackRef.current = audioTrack;
-                    localVideoTrackRef.current = videoTrack;
-
-                    // Play local video
-                    if (localVideoRef.current) {
-                        videoTrack.play(localVideoRef.current);
-                    }
-
-                    await client.publish([audioTrack, videoTrack]);
-                } else {
-                    const audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-                    localAudioTrackRef.current = audioTrack;
-                    await client.publish(audioTrack);
-                }
-
-                // Listen for remote users
+                // Listen for remote users (BEFORE joining for reliability)
                 client.on('user-published', async (user, mediaType) => {
+                    console.log(`[Agora] Remote user published: ${user.uid}, type: ${mediaType}`);
                     await client.subscribe(user, mediaType);
+                    console.log(`[Agora] Subscribed to remote user: ${user.uid}`);
 
                     if (mediaType === 'video' && remoteVideoRef.current) {
                         user.videoTrack?.play(remoteVideoRef.current);
@@ -118,23 +129,58 @@ export function CallInterface({
 
                     // Update status to connected when remote user joins
                     if (isMounted) {
+                        console.log(`[Agora] Connection established with user: ${user.uid}`);
                         setCallStatus('connected');
 
                         // Start timer
-                        timerInterval = setInterval(() => {
-                            setConnectionTime(prev => prev + 1);
-                        }, 1000);
+                        if (!timerInterval) {
+                            timerInterval = setInterval(() => {
+                                setConnectionTime(prev => prev + 1);
+                            }, 1000);
+                        }
                     }
                 });
 
-                client.on('user-unpublished', (user) => {
-                    console.log('Remote user unpublished:', user.uid);
+                client.on('user-joined', (user) => {
+                    console.log(`[Agora] Remote user joined: ${user.uid}`);
                 });
 
                 client.on('user-left', (user) => {
-                    console.log('Remote user left:', user.uid);
+                    console.log(`[Agora] Remote user left: ${user.uid}`);
                     endCall();
                 });
+
+                // Join channel with the extracted token
+                console.log(`[Agora] Joining channel: ${channelName} as Anonymous UID...`);
+                await client.join(AGORA_APP_ID, channelName, token, null);
+                console.log(`[Agora] Successfully joined channel: ${channelName}`);
+
+                if (!isMounted) {
+                    await client.leave();
+                    return;
+                }
+
+                // Create and publish local tracks
+                if (callType === 'video') {
+                    console.log(`[Agora] Creating camera and microphone tracks...`);
+                    const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+                    localAudioTrackRef.current = audioTrack;
+                    localVideoTrackRef.current = videoTrack;
+
+                    // Play local video
+                    if (localVideoRef.current) {
+                        videoTrack.play(localVideoRef.current);
+                    }
+
+                    await client.publish([audioTrack, videoTrack]);
+                    console.log(`[Agora] Published local video and audio tracks`);
+                } else {
+                    console.log(`[Agora] Creating microphone track...`);
+                    const audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+                    localAudioTrackRef.current = audioTrack;
+                    await client.publish(audioTrack);
+                    console.log(`[Agora] Published local audio track`);
+                }
 
             } catch (error) {
                 console.error('Error joining Agora channel:', error);
@@ -172,20 +218,19 @@ export function CallInterface({
 
         // ✅ Save "Call Ended" or "Missed Call" message to chat sub-collection
         try {
+            const receiverId = isIncoming ? callData?.agentId : callData?.userId;
             const messageData = {
                 timestamp: serverTimestamp(),
                 translationTimestamp: serverTimestamp(),
                 senderEmail: auth.currentUser?.email || '',
                 senderId: auth.currentUser?.uid,
-                receiverId: recipientName, // Ideally this should be passed as ID, but using name for now if ID not avail? Wait, we need receiverID.
-                // Let's check props. recipientName is name. We need IDs. 
-                // Actually sender is current user (agent). Receiver is the user we are calling. 
-                // We'll trust the caller provided valid IDs in the call doc, but here we just need to write to the chat.
-                // We'll use defaults for now since we might not have recipientId prop yet. 
-                // Wait, we need recipientId. Let's add it to props or fetch it? 
-                // Providing `chatId` allows us to write to the collection.
+                receiverId: receiverId || recipientName, // Use ID if available, otherwise name
                 status: 'read',
             };
+
+            const messagesRef = collection(db, `chats/${chatId}/messages`);
+            const q = query(messagesRef, where('callId', '==', callId), limit(1));
+            const querySnapshot = await getDocs(q);
 
             if (finalStatus === 'answered') {
                 const durationText = formatTime(connectionTime);
@@ -193,35 +238,53 @@ export function CallInterface({
                     ? `📞 Voice call ended (${durationText})`
                     : `📹 Video call ended (${durationText})`;
 
-                await addDoc(collection(db, `chats/${chatId}/messages`), {
-                    ...messageData,
-                    messageType: "call_status", // or "call"
-                    callType: callType,
-                    content: content,
-                    originalText: content,
-                    agentTranslatedText: content, // ✅ Added for localization consistency
-                    userTranslatedText: content,  // ✅ Added for localization consistency
-                });
+                if (!querySnapshot.empty) {
+                    await updateDoc(querySnapshot.docs[0].ref, {
+                        content: content,
+                        originalText: content,
+                        agentTranslatedText: content,
+                        userTranslatedText: content,
+                        timestamp: serverTimestamp(),
+                    });
+                } else {
+                    await addDoc(messagesRef, {
+                        ...messageData,
+                        messageType: "call",
+                        callType: callType,
+                        callId: callId,
+                        content: content,
+                        originalText: content,
+                        agentTranslatedText: content,
+                        userTranslatedText: content,
+                    });
+                }
             } else {
-                // Missed Call / Declined / Cancelled
-                // If it was outgoing and we cancelled it, maybe "Call cancelled"?
-                // If incoming and we didn't answer, "Missed call"?
-                // For now, let's treat non-connected calls as "Missed" or "No answer"
                 const content = callType === 'voice'
                     ? `📞 Missed voice call`
                     : `📹 Missed video call`;
 
-                await addDoc(collection(db, `chats/${chatId}/messages`), {
-                    ...messageData,
-                    messageType: "call_status",
-                    callType: callType,
-                    content: content,
-                    originalText: content,
-                    agentTranslatedText: content,
-                    userTranslatedText: content,
-                });
+                if (!querySnapshot.empty) {
+                    await updateDoc(querySnapshot.docs[0].ref, {
+                        content: content,
+                        originalText: content,
+                        agentTranslatedText: content,
+                        userTranslatedText: content,
+                        timestamp: serverTimestamp(),
+                        status: 'read'
+                    });
+                } else {
+                    await addDoc(messagesRef, {
+                        ...messageData,
+                        messageType: "call",
+                        callType: callType,
+                        callId: callId,
+                        content: content,
+                        originalText: content,
+                        agentTranslatedText: content,
+                        userTranslatedText: content,
+                    });
+                }
             }
-
         } catch (error) {
             console.error("Error saving call status message:", error);
         }
@@ -262,7 +325,7 @@ export function CallInterface({
                 <div className="flex items-center gap-2">
                     <Avatar className="h-8 w-8">
                         <AvatarImage src={recipientImage} />
-                        <AvatarFallback>{recipientName[0]}</AvatarFallback>
+                        <AvatarFallback>{recipientName ? recipientName[0] : 'U'}</AvatarFallback>
                     </Avatar>
                     <span className="text-sm font-semibold capitalize">{callStatus}</span>
                     {callStatus === 'connected' && (
@@ -281,7 +344,7 @@ export function CallInterface({
                     <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10 border-2 border-white/20">
                             <AvatarImage src={recipientImage} />
-                            <AvatarFallback>{recipientName[0]}</AvatarFallback>
+                            <AvatarFallback>{recipientName ? recipientName[0] : 'U'}</AvatarFallback>
                         </Avatar>
                         <div>
                             <h3 className="font-semibold">{recipientName}</h3>

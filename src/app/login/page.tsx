@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,8 +13,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertTriangle, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { auth, db } from "@/lib/firebase";
+import { auth, db, functions } from "@/lib/firebase";
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { httpsCallable } from "firebase/functions";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import type { AdminUser } from "@/lib/data";
 import { Separator } from "@/components/ui/separator";
@@ -30,6 +32,7 @@ const SLIDE_IMAGES = [
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -141,10 +144,24 @@ export default function LoginPage() {
     console.log("Login attempt for:", trimmedEmail);
     let loginEmail = trimmedEmail;
 
-    // Virtual email logic for phone-style logins
+    // Phone number resolution logic
     if (trimmedEmail && !trimmedEmail.includes('@')) {
-      loginEmail = `${trimmedEmail}@hopeline.app`;
-      console.log("Transformed to virtual email:", loginEmail);
+      try {
+        console.log("Looking up genuine email for phone number:", trimmedEmail);
+        const getUserEmail = httpsCallable(functions, 'getUserEmailByPhone');
+        const result = await getUserEmail({ phoneNumber: trimmedEmail });
+
+        if (result.data && (result.data as any).email) {
+          loginEmail = (result.data as any).email;
+          console.log("Resolved real email mapped to phone number.");
+        } else {
+          // Fallback legacy logic for older test accounts that explicitly used @hopeline.app
+          loginEmail = `${trimmedEmail}@hopeline.app`;
+        }
+      } catch (err) {
+        console.error("Failed to query getUserEmailByPhone via callable, failing gracefully:", err);
+        loginEmail = `${trimmedEmail}@hopeline.app`;
+      }
     }
 
     if (trimmedEmail === "admin@hopeline.com" && password === "admin123") {
@@ -174,6 +191,9 @@ export default function LoginPage() {
         } else if (['driver', 'pilot', 'responder', 'rider'].includes(role)) {
           toast({ title: "Login Successful", description: "Redirecting to driver dashboard..." });
           navigate("/driver/map");
+        } else if (role === 'support agent') {
+          toast({ title: "Login Successful", description: "Redirecting to support agent dashboard..." });
+          navigate("/support-agent");
         } else {
           toast({ title: "Login Successful", description: "Redirecting to your dashboard..." });
           navigate("/dashboard");
@@ -289,8 +309,8 @@ export default function LoginPage() {
               <CardContent className="relative p-2 sm:p-3 lg:p-4">
                 <div className="space-y-3 sm:space-y-4">
                   <div className="text-center mb-3 sm:mb-4 animate-slide-in-right">
-                    <h2 className="text-lg sm:text-xl font-bold text-foreground mb-1">Welcome Back</h2>
-                    <p className="text-muted-foreground text-xs sm:text-sm">Sign in to access your dashboard</p>
+                    <h2 className="text-lg sm:text-xl font-bold text-foreground mb-1">{t('auth.login.title')}</h2>
+                    <p className="text-muted-foreground text-xs sm:text-sm">{t('auth.login.subtitle')}</p>
                   </div>
 
                   <div className="space-y-2 sm:space-y-3">
@@ -299,7 +319,7 @@ export default function LoginPage() {
                         <svg className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
                         </svg>
-                        Email or Phone Number
+                        {t('auth.login.emailLabel')}
                       </Label>
                       <div className="relative group">
                         <Input
@@ -320,7 +340,7 @@ export default function LoginPage() {
                         <svg className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
-                        Password
+                        {t('auth.login.passwordLabel')}
                       </Label>
                       <div className="relative group">
                         <Input
@@ -350,7 +370,7 @@ export default function LoginPage() {
               <CardFooter className="flex-col gap-1 sm:gap-2 p-2 sm:p-3 lg:p-4 bg-slate-50/50">
                 <Button className="w-full h-8 sm:h-10 text-xs sm:text-sm" onClick={handleLogin} disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {loading ? "Signing In..." : "Sign In"}
+                  {loading ? t('auth.login.signingIn') : t('auth.login.signIn')}
                 </Button>
 
                 <div className="relative w-full">
@@ -358,7 +378,7 @@ export default function LoginPage() {
                     <span className="w-full border-t border-slate-300" />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-muted px-2 text-muted-foreground font-medium">Or continue with</span>
+                    <span className="bg-muted px-2 text-muted-foreground font-medium">{t('auth.login.orContinueWith')}</span>
                   </div>
                 </div>
 
@@ -387,19 +407,19 @@ export default function LoginPage() {
                       d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                     />
                   </svg>
-                  {googleLoading ? "Signing in..." : "Sign in with Google"}
+                  {googleLoading ? t('auth.login.signingIn') : t('auth.login.googleSignIn')}
                 </Button>
 
                 <div className="text-xs sm:text-sm text-center space-y-1">
                   <div>
-                    Don't have an account?{" "}
+                    {t('auth.login.noAccount')}{" "}
                     <Link to="/signup" className="underline font-medium text-primary dark:text-black">
-                      Sign up
+                      {t('auth.login.createAccount')}
                     </Link>
                   </div>
                   <div>
                     <Link to="/forgot-password" className="underline font-medium text-primary dark:text-black">
-                      Forgot Password?
+                      {t('auth.login.forgotPassword')}
                     </Link>
                   </div>
                 </div>
@@ -407,10 +427,10 @@ export default function LoginPage() {
                 <AnonymousSosDialog>
                   <Button variant="destructive" className="w-full h-8 sm:h-10 text-xs sm:text-sm">
                     <AlertTriangle className="mr-2 h-4 w-4" />
-                    Emergency SOS
+                    {t('auth.login.sosAlert')}
                   </Button>
                 </AnonymousSosDialog>
-                <p className="text-xs text-center text-white mt-1 px-2">Use the SOS button for emergencies without logging in.</p>
+                <p className="text-xs text-center text-white mt-1 px-2">{t('auth.login.anonymousSos')}</p>
                 <div className="w-full text-center space-y-2 sm:space-y-3 pt-1">
                   <Separator />
                   <p className="text-xs text-white px-2">Supported By</p>

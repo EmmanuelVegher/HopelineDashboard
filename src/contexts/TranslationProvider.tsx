@@ -14,6 +14,25 @@ interface TranslationContextType {
 
 const TranslationContext = createContext<TranslationContextType | undefined>(undefined);
 
+const LANGUAGE_MAP: Record<string, string> = {
+  'English': 'en',
+  'Hausa': 'ha',
+  'Yoruba': 'yo',
+  'Igbo': 'ig',
+  'French': 'fr',
+  'Spanish': 'es',
+  'Arabic': 'ar',
+  'Pidgin': 'pcm'
+};
+
+const getLanguageCode = (lang: string) => {
+  if (!lang) return 'en';
+  if (LANGUAGE_MAP[lang]) return LANGUAGE_MAP[lang];
+  const lowerLang = lang.toLowerCase();
+  if (Object.values(LANGUAGE_MAP).includes(lowerLang)) return lowerLang;
+  return 'en';
+};
+
 export const useTranslationContext = () => {
   const context = useContext(TranslationContext);
   if (!context) {
@@ -44,9 +63,12 @@ export const TranslationProvider: React.FC<TranslationProviderProps> = ({ childr
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          const userLanguage = userData.settings?.language || 'en';
-          setCurrentLanguage(userLanguage);
-          await i18n.changeLanguage(userLanguage);
+          // Check root language first, then settings.language
+          const rawLanguage = userData.language || userData.settings?.language || 'en';
+          const userLanguageCode = getLanguageCode(rawLanguage);
+
+          setCurrentLanguage(userLanguageCode);
+          await i18n.changeLanguage(userLanguageCode);
         }
       } catch (error) {
         console.error('Error loading user language:', error);
@@ -71,11 +93,10 @@ export const TranslationProvider: React.FC<TranslationProviderProps> = ({ childr
       if (user) {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         if (userDoc.exists()) {
-          const userData = userDoc.data();
-          const currentSettings = userData.settings || {};
           await updateDoc(doc(db, 'users', user.uid), {
+            language: language, // Save to root level
             settings: {
-              ...currentSettings,
+              ...(userDoc.data().settings || {}),
               language: language
             },
             updatedAt: new Date()

@@ -1,17 +1,16 @@
 "use client"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { MapPin, CheckCircle, Info, Loader2, LocateFixed, Navigation, Route, Shield, Clock, Map, ArrowRight, Target, AlertTriangle, Building } from "lucide-react"
+import { MapPin, CheckCircle, Info, Loader2, LocateFixed, Navigation, Route, Shield, Clock, Map, Target, AlertTriangle, Building } from "lucide-react"
 import { useState, useEffect, useCallback } from "react"
 import type { Shelter } from "@/lib/data"
 import { collection, getDocs } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useTranslation } from "react-i18next"
 
 type UserLocation = {
     latitude: number;
@@ -28,6 +27,7 @@ export default function NavigatePage() {
     const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
     const [locationLoading, setLocationLoading] = useState(false);
     const { toast } = useToast();
+    const { t } = useTranslation();
 
     useEffect(() => {
         const fetchShelters = async () => {
@@ -38,17 +38,17 @@ export default function NavigatePage() {
                 setShelters(sheltersData);
             } catch (error) {
                 console.error("Error fetching shelters: ", error);
-                toast({ title: "Error", description: "Could not fetch shelter data.", variant: "destructive"});
+                toast({ title: t('navigate.toasts.errorTitle'), description: t('navigate.toasts.fetchShelterError'), variant: "destructive" });
             }
             setLoadingShelters(false);
         };
         fetchShelters();
     }, [toast]);
-    
+
     const handleGetCurrentLocation = useCallback(() => {
         setLocationLoading(true);
         if (!navigator.geolocation) {
-            toast({ title: "Geolocation Not Supported", variant: "destructive" });
+            toast({ title: t('navigate.toasts.geoNotSupported'), variant: "destructive" });
             setLocationLoading(false);
             return;
         }
@@ -56,11 +56,12 @@ export default function NavigatePage() {
         navigator.geolocation.getCurrentPosition(
             async (position) => {
                 const { latitude, longitude, accuracy } = position.coords;
-                let address = "Address not found";
+                let address = t('navigate.toasts.couldNotDetermineAddress');
                 try {
-                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                    // Added email param as per Nominatim Usage Policy
+                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&email=support@hopeline.ng`);
                     const data = await response.json();
-                    address = data.display_name || "Could not determine address";
+                    address = data.display_name || t('navigate.toasts.couldNotDetermineAddress');
                 } catch (e) {
                     console.error("Reverse geocoding failed", e);
                 }
@@ -68,19 +69,19 @@ export default function NavigatePage() {
                 setLocationLoading(false);
             },
             (error) => {
-                toast({ title: "Location Error", description: error.message, variant: "destructive" });
+                toast({ title: t('navigate.toasts.errorTitle'), description: error.message, variant: "destructive" });
                 setLocationLoading(false);
             }
         );
     }, [toast]);
 
     useEffect(() => {
-        handleGetCurrentLocation();
+        // Require user interaction to fetch location to avoid rate limiting
     }, [handleGetCurrentLocation]);
 
     const handleFindRoutes = () => {
         if (!userLocation) {
-            toast({ title: "Location needed", description: "Please get your current location first.", variant: "destructive" });
+            toast({ title: t('navigate.toasts.locationNeeded'), description: t('navigate.toasts.getLocationFirst'), variant: "destructive" });
             return;
         }
 
@@ -93,7 +94,7 @@ export default function NavigatePage() {
         } else if (customDestination) {
             destinationQuery = encodeURIComponent(customDestination);
         } else {
-            toast({ title: "Destination needed", description: "Please select a shelter or enter a custom destination.", variant: "destructive" });
+            toast({ title: t('navigate.toasts.destinationNeeded'), description: t('navigate.toasts.selectDestination'), variant: "destructive" });
             return;
         }
 
@@ -110,10 +111,10 @@ export default function NavigatePage() {
                         <Navigation className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
                     </div>
                     <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-3 sm:mb-4">
-                        Route Navigation
+                        {t('navigate.title')}
                     </h1>
                     <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base lg:text-lg leading-relaxed max-w-2xl mx-auto">
-                        Get safe, step-by-step directions to shelters and emergency locations in Bayelsa and Adamawa states
+                        {t('navigate.subtitle')}
                     </p>
                 </div>
 
@@ -125,8 +126,8 @@ export default function NavigatePage() {
                                 <Target className="h-6 w-6 text-blue-600" />
                             </div>
                             <div>
-                                <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-200">Choose Your Destination</CardTitle>
-                                <CardDescription className="text-sm sm:text-base text-slate-600 dark:text-slate-300">Select a shelter or enter a custom destination</CardDescription>
+                                <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-200">{t('navigate.chooseDestination')}</CardTitle>
+                                <CardDescription className="text-sm sm:text-base text-slate-600 dark:text-slate-300">{t('navigate.chooseDestinationDesc')}</CardDescription>
                             </div>
                         </div>
                     </CardHeader>
@@ -135,11 +136,11 @@ export default function NavigatePage() {
                         <div className="space-y-3">
                             <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                                 <MapPin className="h-4 w-4 text-blue-500" />
-                                Select Shelter
+                                {t('navigate.selectShelter')}
                             </label>
                             <Select value={selectedShelterId} onValueChange={setSelectedShelterId} disabled={loadingShelters}>
                                 <SelectTrigger className="h-12 sm:h-14 border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20">
-                                    <SelectValue placeholder={loadingShelters ? "Loading shelters..." : "Choose a shelter..."} />
+                                    <SelectValue placeholder={loadingShelters ? t('navigate.loadingShelters') : t('navigate.chooseShelter')} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {shelters.map(shelter => (
@@ -159,36 +160,33 @@ export default function NavigatePage() {
                             </Select>
                         </div>
 
-                        {/* Divider */}
                         <div className="flex items-center gap-4">
                             <div className="flex-grow border-t border-slate-200"></div>
-                            <span className="text-slate-500 text-sm font-medium bg-white px-3 py-1 rounded-full">or</span>
+                            <span className="text-slate-500 text-sm font-medium bg-white px-3 py-1 rounded-full">{t('navigate.or')}</span>
                             <div className="flex-grow border-t border-slate-200"></div>
                         </div>
 
-                        {/* Custom Destination */}
                         <div className="space-y-3">
                             <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
                                 <Route className="h-4 w-4 text-green-500" />
-                                Custom Destination
+                                {t('navigate.customDestination')}
                             </label>
-                            <Input 
-                                placeholder="Enter address or location..." 
+                            <Input
+                                placeholder={t('navigate.customDestinationPlaceholder')}
                                 value={customDestination}
                                 onChange={(e) => setCustomDestination(e.target.value)}
                                 className="h-12 sm:h-14 border-2 border-slate-200 focus:border-green-500 focus:ring-4 focus:ring-green-500/20 text-sm sm:text-base"
                             />
                         </div>
-                        
-                        {/* Find Routes Button */}
-                        <Button 
-                            className="w-full h-12 sm:h-14 text-base sm:text-lg font-semibold bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105" 
-                            size="lg" 
-                            onClick={handleFindRoutes} 
+
+                        <Button
+                            className="w-full h-12 sm:h-14 text-base sm:text-lg font-semibold bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+                            size="lg"
+                            onClick={handleFindRoutes}
                             disabled={!userLocation}
                         >
                             <Navigation className="mr-2 h-5 w-5" />
-                            Find Routes
+                            {t('navigate.findRoutes')}
                         </Button>
                     </CardContent>
                 </Card>
@@ -201,8 +199,8 @@ export default function NavigatePage() {
                                 <CheckCircle className="h-6 w-6 text-green-600" />
                             </div>
                             <div>
-                                <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-200">Your Current Location</CardTitle>
-                                <CardDescription className="text-sm sm:text-base text-slate-600 dark:text-slate-300">Your starting point for navigation</CardDescription>
+                                <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-200">{t('navigate.currentLocation')}</CardTitle>
+                                <CardDescription className="text-sm sm:text-base text-slate-600 dark:text-slate-300">{t('navigate.currentLocationDesc')}</CardDescription>
                             </div>
                         </div>
                     </CardHeader>
@@ -217,35 +215,34 @@ export default function NavigatePage() {
                             <div className="space-y-3">
                                 <div className="p-4 bg-green-50/50 rounded-lg border border-green-200/50">
                                     <p className="font-semibold text-green-800 mb-1">{userLocation.address}</p>
-                                    <p className="text-sm text-green-600">Coordinates: {userLocation.latitude.toFixed(4)}° N, {userLocation.longitude.toFixed(4)}° E</p>
-                                    <p className="text-sm text-green-600">Accuracy: ±{userLocation.accuracy.toFixed(0)} meters</p>
+                                    <p className="text-sm text-green-600">{t('navigate.coordinates', { lat: userLocation.latitude.toFixed(4), lng: userLocation.longitude.toFixed(4) })}</p>
+                                    <p className="text-sm text-green-600">{t('navigate.accuracy', { acc: userLocation.accuracy.toFixed(0) })}</p>
                                 </div>
                             </div>
                         ) : (
                             <div className="p-4 bg-red-50/50 rounded-lg border border-red-200/50">
-                                <p className="text-red-700 font-medium">Could not determine location. Please enable location services.</p>
+                                <p className="text-red-700 font-medium">{t('navigate.couldNotDetermineLocation')}</p>
                             </div>
                         )}
                         <div className="pt-2">
-                            <Button 
-                                variant="outline" 
-                                onClick={handleGetCurrentLocation} 
+                            <Button
+                                variant="outline"
+                                onClick={handleGetCurrentLocation}
                                 disabled={locationLoading}
                                 className="border-2 border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 hover:scale-105"
                             >
-                                {locationLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <LocateFixed className="mr-2 h-4 w-4"/>}
-                                {locationLoading ? 'Updating...' : 'Update Location'}
+                                {locationLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LocateFixed className="mr-2 h-4 w-4" />}
+                                {locationLoading ? t('navigate.updating') : t('navigate.updateLocation')}
                             </Button>
                         </div>
                     </CardContent>
                 </Card>
 
-                {/* Safety Tips */}
                 <Card className="bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900 dark:to-yellow-900 border-orange-200/50 dark:border-orange-700/50 backdrop-blur-sm shadow-lg" data-safety-tips>
                     <CardHeader className="text-center sm:text-left">
                         <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                             <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-orange-600" />
-                            Safety Tips for Navigation
+                            {t('navigate.safetyTips')}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -255,45 +252,44 @@ export default function NavigatePage() {
                                     <div className="bg-orange-100 p-2 rounded-lg">
                                         <Map className="h-4 w-4 text-orange-600" />
                                     </div>
-                                    <span className="font-medium text-orange-800">Safe Routes</span>
+                                    <span className="font-medium text-orange-800">{t('navigate.safeRoutes')}</span>
                                 </div>
-                                <p className="text-sm text-orange-700">Stay on well-lit, populated roads when possible</p>
+                                <p className="text-sm text-orange-700">{t('navigate.safeRoutesDesc')}</p>
                             </div>
                             <div className="bg-white/60 p-4 rounded-lg border border-orange-200/50">
                                 <div className="flex items-center gap-2 mb-2">
                                     <div className="bg-orange-100 p-2 rounded-lg">
                                         <Clock className="h-4 w-4 text-orange-600" />
                                     </div>
-                                    <span className="font-medium text-orange-800">Stay Connected</span>
+                                    <span className="font-medium text-orange-800">{t('navigate.stayConnected')}</span>
                                 </div>
-                                <p className="text-sm text-orange-700">Keep your phone charged and accessible</p>
+                                <p className="text-sm text-orange-700">{t('navigate.stayConnectedDesc')}</p>
                             </div>
                             <div className="bg-white/60 p-4 rounded-lg border border-orange-200/50">
                                 <div className="flex items-center gap-2 mb-2">
                                     <div className="bg-orange-100 p-2 rounded-lg">
                                         <Shield className="h-4 w-4 text-orange-600" />
                                     </div>
-                                    <span className="font-medium text-orange-800">Share Location</span>
+                                    <span className="font-medium text-orange-800">{t('navigate.shareLocation')}</span>
                                 </div>
-                                <p className="text-sm text-orange-700">Share your route with emergency contacts</p>
+                                <p className="text-sm text-orange-700">{t('navigate.shareLocationDesc')}</p>
                             </div>
                             <div className="bg-white/60 p-4 rounded-lg border border-orange-200/50">
                                 <div className="flex items-center gap-2 mb-2">
                                     <div className="bg-orange-100 p-2 rounded-lg">
                                         <AlertTriangle className="h-4 w-4 text-orange-600" />
                                     </div>
-                                    <span className="font-medium text-orange-800">Emergency Ready</span>
+                                    <span className="font-medium text-orange-800">{t('navigate.emergencyReady')}</span>
                                 </div>
-                                <p className="text-sm text-orange-700">If you feel unsafe, use the emergency SOS feature immediately</p>
+                                <p className="text-sm text-orange-700">{t('navigate.emergencyReadyDesc')}</p>
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                {/* Quick Actions */}
                 <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-2xl">
                     <CardContent className="p-6">
-                        <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-4 text-center">Quick Actions</h3>
+                        <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-4 text-center">{t('navigate.quickActions')}</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <Button
                                 variant="outline"
@@ -303,12 +299,12 @@ export default function NavigatePage() {
                                         const googleMapsUrl = `https://www.google.com/maps/@${userLocation.latitude},${userLocation.longitude},15z`;
                                         window.open(googleMapsUrl, "_blank");
                                     } else {
-                                        toast({ title: "Location needed", description: "Please get your current location first.", variant: "destructive" });
+                                        toast({ title: t('navigate.toasts.locationNeeded'), description: t('navigate.toasts.getLocationFirst'), variant: "destructive" });
                                     }
                                 }}
                             >
                                 <Map className="mr-2 h-4 w-4" />
-                                View Map
+                                {t('navigate.viewMap')}
                             </Button>
                             <Button
                                 variant="outline"
@@ -316,11 +312,11 @@ export default function NavigatePage() {
                                 onClick={() => {
                                     // Scroll to the route finding section
                                     document.querySelector('[data-route-section]')?.scrollIntoView({ behavior: 'smooth' });
-                                    toast({ title: "Safe Routes", description: "Use the route finder above to get safe directions to shelters." });
+                                    toast({ title: t('navigate.toasts.safeRoutesToastTitle'), description: t('navigate.toasts.safeRoutesToastDesc') });
                                 }}
                             >
                                 <Route className="mr-2 h-4 w-4" />
-                                Safe Routes
+                                {t('navigate.safeRoutes')}
                             </Button>
                             <Button
                                 variant="outline"
@@ -328,11 +324,11 @@ export default function NavigatePage() {
                                 onClick={() => {
                                     // Scroll to the safety tips section
                                     document.querySelector('[data-safety-tips]')?.scrollIntoView({ behavior: 'smooth' });
-                                    toast({ title: "Help & Tips", description: "Check the safety tips below for navigation guidance." });
+                                    toast({ title: t('navigate.toasts.helpTipsToastTitle'), description: t('navigate.toasts.helpTipsToastDesc') });
                                 }}
                             >
                                 <Info className="mr-2 h-4 w-4" />
-                                Help & Tips
+                                {t('navigate.helpTips')}
                             </Button>
                         </div>
                     </CardContent>

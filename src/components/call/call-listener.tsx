@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from 'react';
-import { collection, query, where, onSnapshot, doc, updateDoc, Timestamp, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useState, useEffect, useRef } from 'react';
+import { collection, query, where, onSnapshot, doc, updateDoc, Timestamp, addDoc, serverTimestamp, getDocs, limit } from 'firebase/firestore';
+import { onAuthStateChanged, User } from 'firebase/auth';
 import { db, auth } from "@/lib/firebase";
 import { IncomingCallDialog } from './incoming-call-dialog';
 import { useNavigate } from 'react-router-dom';
@@ -19,6 +20,9 @@ interface CallData {
     callerId: string;
     status: string;
     chatId?: string;
+    callerName?: string;
+    callerAvatar?: string;
+    participants: string[];
 }
 
 /**
@@ -31,55 +35,92 @@ export function CallListener() {
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
     useEffect(() => {
-        const currentUser = auth.currentUser;
-        if (!currentUser) return;
+        const unsubscribeAuth = onAuthStateChanged(auth, (user: User | null) => {
+            if (!user) {
+                setIncomingCall(null);
+                stopRingtone();
+                return;
+            }
 
-        // Determine which field to listen to based on user role
-        // For now, we'll listen to both userId and agentId
-        // In production, you'd check the user's role from their profile
-        const userDoc = currentUser;
+            const handleCalls = (snapshot: any, source: string) => {
+                const now = Date.now();
+                const twoMinutesAgo = now - 120000;
 
-        // Listen for calls where current user is the recipient
-        const q1 = query(
-            collection(db, 'calls'),
-            where('userId', '==', currentUser.uid),
-            where('status', '==', 'ringing')
-        );
+                snapshot.docs.forEach((docSnap: any) => {
+                    const data = docSnap.data();
+                    const callData = { id: docSnap.id, ...data } as CallData;
 
-        const q2 = query(
-            collection(db, 'calls'),
-            where('agentId', '==', currentUser.uid),
-            where('status', '==', 'ringing')
-        );
+                    const startTimeMillis = data.startTime?.toMillis?.() || 0;
+                    const isFresh = startTimeMillis > twoMinutesAgo;
 
-        const unsubscribe1 = onSnapshot(q1, (snapshot) => {
-            snapshot.docs.forEach((docSnap) => {
-                const callData = { id: docSnap.id, ...docSnap.data() } as CallData;
+                    console.log(`Call detection (${source}):`, {
+                        id: callData.id,
+                        status: callData.status,
+                        startTime: new Date(startTimeMillis).toLocaleTimeString(),
+                        isFresh,
+                        caller: callData.callerId,
+                        channel: callData.channelName
+                    });
 
-                // Only show dialog if I didn't initiate the call
-                if (callData.callerId !== currentUser.uid) {
-                    setIncomingCall(callData);
-                    playRingtone();
-                }
-            });
+                    // Only show dialog if I didn't initiate the call AND it's a fresh signal
+                    // If we already have an incomingCall, we only replace it if this one is NEWER
+                    if (callData.callerId !== user.uid && isFresh) {
+                        setIncomingCall(prev => {
+                            if (!prev) return callData;
+                            const prevStart = (prev as any).startTime?.toMillis?.() || 0;
+                            return startTimeMillis > prevStart ? callData : prev;
+                        });
+                        playRingtone();
+                    }
+                });
+            };
+
+            // New Standard: Listen for any call where I am a participant
+            const qStandard = query(
+                collection(db, 'calls'),
+                where('participants', 'array-contains', user.uid),
+                where('status', '==', 'ringing')
+            );
+
+            // Fallback 1: Listen for calls via receiverId
+            const qFallback1 = query(
+                collection(db, 'calls'),
+                where('receiverId', '==', user.uid),
+                where('status', '==', 'ringing')
+            );
+
+            // Fallback 2: Listen for calls via userId (Common legacy mobile pattern)
+            const qFallback2 = query(
+                collection(db, 'calls'),
+                where('userId', '==', user.uid),
+                where('status', '==', 'ringing')
+            );
+
+            // Fallback 3: Listen for calls via agentId (Alternative legacy pattern)
+            const qFallback3 = query(
+                collection(db, 'calls'),
+                where('agentId', '==', user.uid),
+                where('status', '==', 'ringing')
+            );
+
+            const handleError = (error: any, source: string) => {
+                console.error(`Call listener error (${source}):`, error);
+            };
+
+            const unsubscribeStandard = onSnapshot(qStandard, (s) => handleCalls(s, 'standard'), (e) => handleError(e, 'standard'));
+            const unsubscribeF1 = onSnapshot(qFallback1, (s) => handleCalls(s, 'f1-receiverId'), (e) => handleError(e, 'f1-receiverId'));
+            const unsubscribeF2 = onSnapshot(qFallback2, (s) => handleCalls(s, 'f2-userId'), (e) => handleError(e, 'f2-userId'));
+            const unsubscribeF3 = onSnapshot(qFallback3, (s) => handleCalls(s, 'f3-agentId'), (e) => handleError(e, 'f3-agentId'));
+
+            return () => {
+                unsubscribeStandard();
+                unsubscribeF1();
+                unsubscribeF2();
+                unsubscribeF3();
+            };
         });
 
-        const unsubscribe2 = onSnapshot(q2, (snapshot) => {
-            snapshot.docs.forEach((docSnap) => {
-                const callData = { id: docSnap.id, ...docSnap.data() } as CallData;
-
-                // Only show dialog if I didn't initiate the call
-                if (callData.callerId !== currentUser.uid) {
-                    setIncomingCall(callData);
-                    playRingtone();
-                }
-            });
-        });
-
-        return () => {
-            unsubscribe1();
-            unsubscribe2();
-        };
+        return () => unsubscribeAuth();
     }, []);
 
     // Monitor call status changes to auto-close dialog
@@ -104,12 +145,12 @@ export function CallListener() {
     }, [incomingCall]);
 
     const playRingtone = () => {
-        // Create audio element for ringtone
-        if (!audioRef.current) {
-            audioRef.current = new Audio('/ringtone.mp3'); // Add ringtone file to public folder
+        if (!audioRef.current && typeof Audio !== 'undefined') {
+            // Using a more professional and melodious Zen bell ringtone
+            audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
             audioRef.current.loop = true;
         }
-        audioRef.current.play().catch(err => console.log('Ringtone play failed:', err));
+        audioRef.current?.play().catch(err => console.log('Ringtone play failed:', err));
     };
 
     const stopRingtone = () => {
@@ -127,7 +168,9 @@ export function CallListener() {
     const handleAccept = async () => {
         if (!incomingCall) return;
 
-        // Update call status to 'active'
+        console.log(`[Call] Accepting call: ${incomingCall.id}, Status: active`);
+
+        // Update call status to 'active' (standard for connection)
         await updateDoc(doc(db, 'calls', incomingCall.id), {
             status: 'active',
             acceptedAt: Timestamp.now()
@@ -136,12 +179,12 @@ export function CallListener() {
         stopRingtone();
 
         // Navigate to call page
-        const recipientName = incomingCall.callerId === incomingCall.agentId
+        const recipientName = incomingCall.callerName || (incomingCall.callerId === incomingCall.agentId
             ? incomingCall.agentName
-            : incomingCall.userName;
-        const recipientImage = incomingCall.callerId === incomingCall.agentId
+            : incomingCall.userName) || 'Unknown User';
+        const recipientImage = incomingCall.callerAvatar || (incomingCall.callerId === incomingCall.agentId
             ? incomingCall.agentImage
-            : incomingCall.userImage;
+            : incomingCall.userImage);
 
         // Store call info in sessionStorage for the call page
         sessionStorage.setItem('activeCall', JSON.stringify({
@@ -163,44 +206,63 @@ export function CallListener() {
     const handleDecline = async () => {
         if (!incomingCall) return;
 
-        // Update call status to 'declined'
-        await updateDoc(doc(db, 'calls', incomingCall.id), {
-            status: 'declined',
-            endTime: Timestamp.now()
-        });
+        try {
+            // Update call status to 'declined'
+            await updateDoc(doc(db, 'calls', incomingCall.id), {
+                status: 'declined',
+                endTime: Timestamp.now()
+            });
 
-        // ✅ Log message if chatId exists
-        if (incomingCall.chatId) {
-            try {
-                await addDoc(collection(db, `chats/${incomingCall.chatId}/messages`), {
-                    content: `📞 Missed ${incomingCall.callType} call (Declined)`,
-                    messageType: 'call_status',
-                    callType: incomingCall.callType,
-                    originalText: `Missed ${incomingCall.callType} call`,
-                    agentTranslatedText: `Missed ${incomingCall.callType} call`, // ✅ Added for localization consistency
-                    userTranslatedText: `Missed ${incomingCall.callType} call`,  // ✅ Added for localization consistency
-                    receiverId: incomingCall.callerId,
-                    senderEmail: auth.currentUser?.email || '',
-                    senderId: auth.currentUser?.uid,
-                    timestamp: serverTimestamp(),
-                    status: 'read'
-                });
-            } catch (e) {
-                console.error("Error logging declined call:", e);
+            // ✅ Log message if chatId exists
+            if (incomingCall.chatId) {
+                const messagesRef = collection(db, `chats/${incomingCall.chatId}/messages`);
+                const q = query(messagesRef, where('callId', '==', incomingCall.id), limit(1));
+                const querySnapshot = await getDocs(q);
+
+                const content = `📞 Missed ${incomingCall.callType} call (Declined)`;
+
+                if (!querySnapshot.empty) {
+                    await updateDoc(querySnapshot.docs[0].ref, {
+                        content: content,
+                        originalText: `Missed ${incomingCall.callType} call`,
+                        agentTranslatedText: content,
+                        userTranslatedText: content,
+                        timestamp: serverTimestamp(),
+                        status: 'read'
+                    });
+                } else {
+                    await addDoc(messagesRef, {
+                        content: content,
+                        messageType: 'call',
+                        callType: incomingCall.callType,
+                        callId: incomingCall.id,
+                        originalText: `Missed ${incomingCall.callType} call`,
+                        agentTranslatedText: content,
+                        userTranslatedText: content,
+                        receiverId: incomingCall.callerId,
+                        senderEmail: auth.currentUser?.email || '',
+                        senderId: auth.currentUser?.uid,
+                        timestamp: serverTimestamp(),
+                        status: 'read'
+                    });
+                }
             }
+        } catch (e) {
+            console.error("Error logging declined call:", e);
         }
 
-        closeDialog();
+        setIncomingCall(null);
     };
 
     if (!incomingCall) return null;
 
-    const displayName = incomingCall.callerId === incomingCall.agentId
+    const displayName = incomingCall.callerName || (incomingCall.callerId === incomingCall.agentId
         ? incomingCall.agentName
-        : incomingCall.userName;
-    const displayImage = incomingCall.callerId === incomingCall.agentId
+        : incomingCall.userName) || 'Unknown User';
+
+    const displayImage = incomingCall.callerAvatar || (incomingCall.callerId === incomingCall.agentId
         ? incomingCall.agentImage
-        : incomingCall.userImage;
+        : incomingCall.userImage);
 
     return (
         <IncomingCallDialog

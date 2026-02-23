@@ -13,15 +13,16 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Languages, Bell } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { useTranslation } from "react-i18next";
 
 const languages = [
-    "English",
-    "Hausa",
-    "Igbo",
-    "Yoruba",
-    "Tiv",
-    "Kanuri",
-    "Nigerian Pidgin"
+  "English",
+  "Hausa",
+  "Igbo",
+  "Yoruba",
+  "Tiv",
+  "Kanuri",
+  "Nigerian Pidgin"
 ];
 
 export default function SettingsPage() {
@@ -29,6 +30,7 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const [language, setLanguage] = useState("");
   const [pushNotifications, setPushNotifications] = useState(false);
@@ -60,7 +62,7 @@ export default function SettingsPage() {
   const handleSave = async () => {
     if (!user) return;
     setIsSaving(true);
-    
+
     try {
       const userDocRef = doc(db, "users", user.uid);
       await updateDoc(userDocRef, {
@@ -68,23 +70,23 @@ export default function SettingsPage() {
         pushNotifications,
         emailNotifications
       });
-      toast({ title: "Settings Saved", description: "Your preferences have been updated." });
+      toast({ title: t('settings.toasts.settingsSaved'), description: t('settings.toasts.settingsSavedDesc') });
     } catch (error) {
-      toast({ title: "Failed to update settings", variant: "destructive" });
+      toast({ title: t('settings.toasts.updateFailed'), variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
   };
-  
+
   if (loading || authLoading) {
     return (
-        <Card>
-            <CardHeader><Skeleton className="h-8 w-48" /></CardHeader>
-            <CardContent className="space-y-4">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-            </CardContent>
-        </Card>
+      <Card>
+        <CardHeader><Skeleton className="h-8 w-48" /></CardHeader>
+        <CardContent className="space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </CardContent>
+      </Card>
     )
   }
 
@@ -92,7 +94,7 @@ export default function SettingsPage() {
     return (
       <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-2xl">
         <CardContent className="p-6 text-center">
-          <p>You must be logged in to view your settings.</p>
+          <p>{t('settings.authRequired')}</p>
         </CardContent>
       </Card>
     );
@@ -101,69 +103,69 @@ export default function SettingsPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-slate-800 dark:text-slate-200">Settings</CardTitle>
-        <CardDescription className="text-slate-600 dark:text-slate-300">Manage your application preferences.</CardDescription>
+        <CardTitle className="text-slate-800 dark:text-slate-200">{t('settings.title')}</CardTitle>
+        <CardDescription className="text-slate-600 dark:text-slate-300">{t('settings.description')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
         <div className="space-y-4">
-            <div className="flex items-start gap-4">
-                <Languages className="h-6 w-6 text-primary mt-1" />
-                <div>
-                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Language</h3>
-                    <p className="text-muted-foreground text-sm">Choose the language for application text and chat translation.</p>
-                </div>
+          <div className="flex items-start gap-4">
+            <Languages className="h-6 w-6 text-primary mt-1" />
+            <div>
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">{t('settings.languageTitle')}</h3>
+              <p className="text-muted-foreground text-sm">{t('settings.languageDesc')}</p>
             </div>
-            <div className="pl-10">
-                <Label htmlFor="language" className="sr-only">Language</Label>
-                <Select value={language} onValueChange={setLanguage}>
-                    <SelectTrigger id="language" className="w-full md:w-1/2">
-                        <SelectValue placeholder="Select a language" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {languages.map(lang => (
-                              <SelectItem key={lang} value={lang}>{lang}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
+          </div>
+          <div className="pl-10">
+            <Label htmlFor="language" className="sr-only">{t('settings.languageTitle')}</Label>
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger id="language" className="w-full md:w-1/2">
+                <SelectValue placeholder={t('settings.languagePlaceholder')} />
+              </SelectTrigger>
+              <SelectContent>
+                {languages.map(lang => (
+                  <SelectItem key={lang} value={lang}>{t(`settings.languageOptions.${lang}`)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="space-y-4">
-            <div className="flex items-start gap-4">
-                <Bell className="h-6 w-6 text-primary mt-1" />
-                <div>
-                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Notifications</h3>
-                    <p className="text-muted-foreground text-sm">Manage how you receive notifications.</p>
-                </div>
+          <div className="flex items-start gap-4">
+            <Bell className="h-6 w-6 text-primary mt-1" />
+            <div>
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">{t('settings.notificationsTitle')}</h3>
+              <p className="text-muted-foreground text-sm">{t('settings.notificationsDesc')}</p>
             </div>
-            <div className="pl-10 space-y-4">
-                  <div className="flex items-center justify-between rounded-lg border p-3">
-                    <Label htmlFor="push-notifications" className="font-normal">
-                        Push Notifications
-                    </Label>
-                    <Switch
-                      id="push-notifications"
-                      checked={pushNotifications}
-                      onCheckedChange={setPushNotifications}
-                    />
-                </div>
-                  <div className="flex items-center justify-between rounded-lg border p-3">
-                      <Label htmlFor="email-notifications" className="font-normal">
-                        Email Notifications
-                      </Label>
-                      <Switch
-                        id="email-notifications"
-                        checked={emailNotifications}
-                        onCheckedChange={setEmailNotifications}
-                      />
-                </div>
+          </div>
+          <div className="pl-10 space-y-4">
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <Label htmlFor="push-notifications" className="font-normal">
+                {t('settings.pushNotifications')}
+              </Label>
+              <Switch
+                id="push-notifications"
+                checked={pushNotifications}
+                onCheckedChange={setPushNotifications}
+              />
             </div>
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <Label htmlFor="email-notifications" className="font-normal">
+                {t('settings.emailNotifications')}
+              </Label>
+              <Switch
+                id="email-notifications"
+                checked={emailNotifications}
+                onCheckedChange={setEmailNotifications}
+              />
+            </div>
+          </div>
         </div>
       </CardContent>
       <CardFooter>
         <Button onClick={handleSave} disabled={isSaving}>
           {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          {isSaving ? "Saving..." : "Save Changes"}
+          {isSaving ? t('settings.buttons.saving') : t('settings.buttons.saveChanges')}
         </Button>
       </CardFooter>
     </Card>

@@ -7,20 +7,13 @@ import SignupPage from './app/signup/page';
 import ForgotPasswordPage from './app/forgot-password/page';
 import DashboardLayout from './app/dashboard/layout';
 import DashboardPage from './app/dashboard/page';
-import AssistanceLayout from './app/assistance/layout';
 import AssistancePage from './app/assistance/page';
-import FindShelterLayout from './app/find-shelter/layout';
 import FindShelterPage from './app/find-shelter/page';
-import NavigateLayout from './app/navigate/layout';
 import NavigatePage from './app/navigate/page';
-import ProfileLayout from './app/profile/layout';
 import ProfilePage from './app/profile/page';
 import DashboardProfilePage from './app/dashboard/profile/page';
-import SettingsLayout from './app/settings/layout';
 import SettingsPage from './app/settings/page';
-import SosLayout from './app/sos/layout';
 import SosPage from './app/sos/page';
-import WeatherLayout from './app/weather/layout';
 import WeatherPage from './app/weather/page';
 import ShelterPage from './app/shelter/[id]/page';
 import AdminLayout from './app/admin/layout';
@@ -51,7 +44,11 @@ import SupportAgentMapPage from './app/support-agent/map/page';
 import SupportAgentProfilePage from './app/support-agent/profile/page';
 import SupportAgentSettingsPage from './app/support-agent/settings/page';
 import SupportAgentNotificationsPage from './app/support-agent/notifications/page';
+import SupportAgentTrainingPage from './app/support-agent/training/page';
+import DriverTrainingPage from './app/driver/training/page';
+import UserTrainingPage from './app/dashboard/training/page';
 import CallPage from './app/call/page';
+import PrivacyPage from './app/privacy/page';
 
 import { CallListener } from './components/call/call-listener';
 
@@ -76,6 +73,7 @@ function App() {
               <Route path="settings" element={<SettingsPage />} />
               <Route path="sos" element={<SosPage />} />
               <Route path="weather" element={<WeatherPage />} />
+              <Route path="training" element={<UserTrainingPage />} />
             </Route>
             {/* Keep individual routes for backward compatibility */}
             <Route path="assistance" element={<DashboardLayout />}>
@@ -106,6 +104,7 @@ function App() {
               <Route path="history" element={<DriverHistoryPage />} />
               <Route path="map" element={<DriverMapPage />} />
               <Route path="chats" element={<DriverChatsPage />} />
+              <Route path="training" element={<DriverTrainingPage />} />
             </Route>
             <Route path="support-agent" element={<SupportAgentLayout />}>
               <Route index element={<SupportAgentDashboard />} />
@@ -117,6 +116,7 @@ function App() {
               <Route path="profile" element={<SupportAgentProfilePage />} />
               <Route path="settings" element={<SupportAgentSettingsPage />} />
               <Route path="notifications" element={<SupportAgentNotificationsPage />} />
+              <Route path="training" element={<SupportAgentTrainingPage />} />
             </Route>
             <Route path="shelter/:id" element={<ShelterPage />} />
             <Route path="admin" element={<AdminLayout />}>
@@ -132,6 +132,7 @@ function App() {
               <Route path="chats" element={<AdminChatsPage />} />
               <Route path="training" element={<TrainingCenterPage />} />
             </Route>
+            <Route path="privacy" element={<PrivacyPage />} />
           </Route>
         </Routes>
       </Router>

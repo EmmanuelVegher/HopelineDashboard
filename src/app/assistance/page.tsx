@@ -15,6 +15,7 @@ import { collection, query, where, getDocs, addDoc, onSnapshot, orderBy, serverT
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import { useToast } from "@/hooks/use-toast"
 import { useAuthState } from "react-firebase-hooks/auth"
+import { useTranslation } from "react-i18next"
 import type { UserProfile } from "@/lib/data"
 import { CallInterface } from "@/components/chat/call-interface"
 
@@ -39,12 +40,12 @@ type Message = {
 }
 
 const assistanceTypes = [
-    { title: "Psychological Support", description: "Mental health and trauma counseling", icon: HeartHandshake, color: "bg-blue-100 text-blue-600" },
-    { title: "Transportation", description: "Safe transport to shelters or medical facilities", icon: Bus, color: "bg-green-100 text-green-600" },
-    { title: "Legal Aid", description: "Legal assistance and documentation support", icon: FileText, color: "bg-purple-100 text-purple-600" },
-    { title: "Shelter Support", description: "Help finding and accessing safe shelters", icon: Home, color: "bg-orange-100 text-orange-600" },
-    { title: "Food & Water", description: "Emergency food distribution and clean water", icon: Utensils, color: "bg-red-100 text-red-600" },
-    { title: "Medical Assistance", description: "Emergency medical care and health services", icon: HeartPulse, color: "bg-teal-100 text-teal-600" },
+    { key: "psychological", icon: HeartHandshake, color: "bg-blue-100 text-blue-600" },
+    { key: "transportation", icon: Bus, color: "bg-green-100 text-green-600" },
+    { key: "legal", icon: FileText, color: "bg-purple-100 text-purple-600" },
+    { key: "shelter", icon: Home, color: "bg-orange-100 text-orange-600" },
+    { key: "food", icon: Utensils, color: "bg-red-100 text-red-600" },
+    { key: "medical", icon: HeartPulse, color: "bg-teal-100 text-teal-600" },
 ]
 
 export default function AssistancePage() {
@@ -56,12 +57,12 @@ export default function AssistancePage() {
     const [chatId, setChatId] = useState<string | null>(null);
     const [chatLoading, setChatLoading] = useState(true);
     const [sending, setSending] = useState(false);
+    const { t } = useTranslation();
 
     // Core state for UI switching
     const [activeTab, setActiveTab] = useState("chat");
     const [supportAgent, setSupportAgent] = useState<UserProfile | null>(null);
 
-    const [agentsLoading, setAgentsLoading] = useState(true);
     const [availableAgents, setAvailableAgents] = useState<UserProfile[]>([]);
     const [availableUsers, setAvailableUsers] = useState<UserProfile[]>([]);
     const [availableAdmins, setAvailableAdmins] = useState<UserProfile[]>([]);
@@ -135,11 +136,11 @@ export default function AssistancePage() {
                     setSupportAgent(null);
                     setActiveTab("group");
                 } else {
-                    toast({ title: "Error", description: "Could not join your community group.", variant: "destructive" });
+                    toast({ title: t('common.error'), description: t('assistance.errors.couldNotJoin'), variant: "destructive" });
                 }
             }
         } else {
-            toast({ title: "Error", description: "Could not determine your community group.", variant: "destructive" });
+            toast({ title: t('common.error'), description: t('assistance.errors.couldNotDetermine'), variant: "destructive" });
         }
     };
 
@@ -220,8 +221,8 @@ export default function AssistancePage() {
             console.error("Chat message listener error:", error);
             if (error.code === 'permission-denied') {
                 toast({
-                    title: "Access Restricted",
-                    description: "You may not be a participant in this chat yet. Please wait or try refreshing.",
+                    title: t('assistance.errors.accessRestricted'),
+                    description: t('assistance.errors.notParticipant'),
                     variant: "destructive"
                 });
             }
@@ -311,15 +312,36 @@ export default function AssistancePage() {
                     setUsersLoading(true);
                     setAdminsLoading(true);
 
-                    // 1. Fetch all potentially relevant users in the same state
-                    const usersRef = collection(db, 'users');
-                    const personQuery = query(
-                        usersRef,
-                        where('state', '==', userProfile.state),
-                        limit(500)
-                    );
-                    const snapshot = await getDocs(personQuery);
-                    const allPeople = snapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as UserProfile));
+                    let allPeople: UserProfile[] = [];
+                    const isStaff = userProfile.role?.toLowerCase().includes('admin') || userProfile.role?.toLowerCase().includes('support agent');
+
+                    try {
+                        // 1. Fetch all potentially relevant users in the same state
+                        const usersRef = collection(db, 'users');
+                        let personQuery;
+
+                        if (isStaff) {
+                            personQuery = query(
+                                usersRef,
+                                where('state', '==', userProfile.state || ''),
+                                limit(500)
+                            );
+                        } else {
+                            // Regular users might not have permission to read all users. 
+                            // We use 'in' query to fetch support agents which is allowed by rules.
+                            personQuery = query(
+                                usersRef,
+                                where('role', 'in', ['support agent', 'Support Agent', 'Support agent']),
+                                limit(50)
+                            );
+                        }
+
+                        const snapshot = await getDocs(personQuery);
+                        allPeople = snapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as UserProfile));
+                    } catch (permError: any) {
+                        console.error('Permission error or query failed:', permError);
+                        // If it fails, allPeople remains empty
+                    }
 
                     // 2. Fetch lastMessage for all relevant chats in one go (only chats where user is participant)
                     const chatsRef = collection(db, 'chats');
@@ -431,6 +453,9 @@ export default function AssistancePage() {
             const channelName = [user.uid, supportAgent.uid].sort().join('_');
             const callDocRef = doc(collection(db, 'calls'));
 
+            const callerName = userProfile ? `${userProfile.firstName} ${userProfile.lastName}`.trim() : 'User';
+            const callerAvatar = userProfile?.image || '';
+
             await setDoc(callDocRef, {
                 userId: user.uid,
                 agentId: supportAgent.uid,
@@ -438,10 +463,14 @@ export default function AssistancePage() {
                 userImage: userProfile?.image || '',
                 agentName: supportAgent.displayName || 'Support Agent',
                 agentImage: supportAgent.image || '',
+                callerName: callerName,
+                callerAvatar: callerAvatar,
                 callType: type,
                 chatId: chatId || 'temp-id',
                 channelName: channelName,
                 callerId: user.uid,
+                receiverId: supportAgent.uid,
+                isGroupCall: false,
                 status: 'ringing',
                 startTime: serverTimestamp(),
                 acceptedAt: null,
@@ -449,7 +478,33 @@ export default function AssistancePage() {
                 duration: 0,
                 language: 'en',
                 location: '',
-                priority: 'normal'
+                priority: 'normal',
+                participants: [user.uid, supportAgent.uid]
+            });
+
+            // ✅ Log call initiation to chat
+            const currentChatId = chatId || `${user.uid}_${supportAgent.uid}`;
+            const callEmoji = type === 'video' ? '📹' : '📞';
+            const callText = type === 'video' ? 'Video call' : 'Voice call';
+
+            await addDoc(collection(db, 'chats', currentChatId, 'messages'), {
+                content: `${callEmoji} ${callText}`,
+                messageType: 'call',
+                callType: type,
+                callId: callDocRef.id,
+                originalText: callText,
+                agentTranslatedText: `${callEmoji} ${callText}`,
+                userTranslatedText: `${callEmoji} ${callText}`,
+                receiverId: supportAgent.uid,
+                senderEmail: user.email!,
+                senderId: user.uid,
+                timestamp: serverTimestamp(),
+                status: 'sent'
+            });
+
+            await updateDoc(doc(db, 'chats', currentChatId), {
+                lastMessage: `${callEmoji} ${callText}`,
+                lastMessageTimestamp: serverTimestamp()
             });
 
             setCallType(type);
@@ -646,7 +701,7 @@ export default function AssistancePage() {
                         </>
                     ) : (
                         <>
-                            <Send className="w-3.5 h-3.5 mr-1.5" /> Start Chat
+                            <Send className="w-3.5 h-3.5 mr-1.5" /> {t('assistance.interface.startChat')}
                         </>
                     )}
                 </Button>
@@ -665,7 +720,7 @@ export default function AssistancePage() {
         // Determine display details based on activeTab
         const isGroup = activeTab === 'group';
         const displayImage = isGroup ? undefined : (supportAgent?.image || (supportAgent as any)?.imageUrl || (supportAgent as any)?.profileImage || (supportAgent as any)?.photoURL || (supportAgent as any)?.photoUrl || (supportAgent as any)?.avatar); // Use undefined for group to trigger fallback icon
-        const displayName = isGroup ? `${userProfile?.state || 'State'} Community Group` : (supportAgent?.displayName || (supportAgent?.firstName ? `${supportAgent.firstName} ${supportAgent.lastName || ''}`.trim() : 'Support Agent'));
+        const displayName = isGroup ? `${userProfile?.state || 'State'} ${t('assistance.interface.communityGroup')}` : (supportAgent?.displayName || (supportAgent?.firstName ? `${supportAgent.firstName} ${supportAgent.lastName || ''}`.trim() : t('assistance.interface.supportAgent')));
 
         return (
             <Card className="h-[80vh] flex flex-col shadow-lg border-t-4 border-t-primary">
@@ -688,15 +743,15 @@ export default function AssistancePage() {
                         </div>
                         <div>
                             <p className="font-semibold">{displayName}</p>
-                            <p className="text-xs text-muted-foreground">{isGroup ? `${userProfile?.state} • ${(userProfile?.role as string) === 'displaced_person' ? 'Beneficiaries' : 'Residents'}` : "Online - Support Agent"}</p>
+                            <p className="text-xs text-muted-foreground">{isGroup ? `${userProfile?.state} • ${(userProfile?.role as string) === 'displaced_person' ? t('assistance.interface.beneficiaries') : t('assistance.interface.residents')}` : t('assistance.interface.onlineSupport')}</p>
                         </div>
                     </div>
                     {!isGroup && (
                         <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="icon" onClick={() => startCall('video')} title="Video Call">
+                            <Button variant="ghost" size="icon" onClick={() => startCall('video')} title={t('assistance.call.videoBtn')}>
                                 <Video className="h-5 w-5 text-gray-600" />
                             </Button>
-                            <Button variant="ghost" size="icon" onClick={() => startCall('voice')} title="Voice Call">
+                            <Button variant="ghost" size="icon" onClick={() => startCall('voice')} title={t('assistance.call.voiceBtn')}>
                                 <Phone className="h-5 w-5 text-gray-600" />
                             </Button>
                         </div>
@@ -706,7 +761,7 @@ export default function AssistancePage() {
                 <CardContent className="flex-1 overflow-y-auto p-4 space-y-6 bg-slate-50">
                     {messages.length === 0 && !chatLoading && (
                         <div className="text-center text-muted-foreground mt-10">
-                            <p>Start a conversation with {supportAgent?.displayName}</p>
+                            <p>{t('assistance.interface.startConversation', { name: supportAgent?.displayName })}</p>
                         </div>
                     )}
                     {messages.map(message => {
@@ -723,7 +778,7 @@ export default function AssistancePage() {
                             const displayName = profile?.displayName || '';
 
                             return {
-                                name: fullName || displayName || info?.name || 'User',
+                                name: fullName || displayName || info?.name || t('common.user'),
                                 image: profile?.image || (profile as any)?.imageUrl || (profile as any)?.profileImage || (profile as any)?.photoURL || (profile as any)?.photoUrl || (profile as any)?.avatar || info?.avatar || ''
                             };
                         })();
@@ -736,7 +791,7 @@ export default function AssistancePage() {
                                 </Avatar>
 
                                 <div className={cn("flex flex-col max-w-[80%] gap-1", isMe ? "items-end" : "items-start")}>
-                                    <span className="text-[11px] font-semibold text-slate-500 px-1">{isMe ? 'You' : resolvedSenderInfo.name}</span>
+                                    <span className="text-[11px] font-semibold text-slate-500 px-1">{isMe ? t('assistance.interface.you') : resolvedSenderInfo.name}</span>
                                     <div className={cn("rounded-2xl px-4 py-2 shadow-sm",
                                         isMe ? "bg-blue-600 text-white rounded-tr-none" : "bg-white text-gray-800 border rounded-tl-none")}>
                                         {message.messageType === 'call_status' ? (
@@ -745,7 +800,7 @@ export default function AssistancePage() {
                                             <>
                                                 <p className="text-sm">{message.userTranslatedText || message.content}</p>
                                                 {message.originalText !== message.content && (
-                                                    <p className="text-[10px] opacity-70 mt-1 border-t pt-1">Original: {message.originalText}</p>
+                                                    <p className="text-[10px] opacity-70 mt-1 border-t pt-1">{t('assistance.interface.original')} {message.originalText}</p>
                                                 )}
                                                 {message.attachments?.map((att, i) => (
                                                     <div key={i} className="mt-2 rounded overflow-hidden">
@@ -774,15 +829,15 @@ export default function AssistancePage() {
                             </PopoverTrigger>
                             <PopoverContent className="w-40 p-0" align="start">
                                 <div className="flex flex-col">
-                                    <Button variant="ghost" onClick={handleImageCapture} className="justify-start"><Camera className="mr-2 h-4 w-4" /> Camera</Button>
+                                    <Button variant="ghost" onClick={handleImageCapture} className="justify-start"><Camera className="mr-2 h-4 w-4" /> {t('assistance.interface.camera')}</Button>
                                     <Button variant="ghost" onClick={isRecording ? stopVoiceRecording : startVoiceRecording} className="justify-start">
-                                        {isRecording ? <span className="text-red-500 flex items-center"><Pause className="mr-2 h-4 w-4" /> Stop</span> : <span className="flex items-center"><Mic className="mr-2 h-4 w-4" /> Voice</span>}
+                                        {isRecording ? <span className="text-red-500 flex items-center"><Pause className="mr-2 h-4 w-4" /> {t('assistance.interface.stop')}</span> : <span className="flex items-center"><Mic className="mr-2 h-4 w-4" /> {t('assistance.interface.voice')}</span>}
                                     </Button>
                                 </div>
                             </PopoverContent>
                         </Popover>
                         <Input
-                            placeholder="Type a message..."
+                            placeholder={t('assistance.interface.typeMessage')}
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
@@ -809,9 +864,9 @@ export default function AssistancePage() {
                         callId={currentCallId || 'temp-id'}
                         chatId={chatId}
                         channelName={channelName}
-                        recipientName={supportAgent ? `${supportAgent.firstName} ${supportAgent.lastName}` : "Community Group"}
+                        recipientName={supportAgent ? `${supportAgent.firstName} ${supportAgent.lastName}` : t('assistance.interface.communityGroup')}
                         recipientImage={supportAgent?.image || undefined}
-                        userName={userProfile?.firstName || 'User'}
+                        userName={userProfile?.firstName || t('common.user')}
                         userImage={userProfile?.image}
                         callType={callType}
                         isIncoming={false}
@@ -829,14 +884,14 @@ export default function AssistancePage() {
         <div className="space-y-8 p-6 max-w-7xl mx-auto bg-slate-50 min-h-screen">
 
             <div className="text-center space-y-2">
-                <h1 className="text-3xl font-bold">Get Assistance</h1>
-                <p className="text-muted-foreground">Connect with our support teams via chat or phone for immediate assistance</p>
+                <h1 className="text-3xl font-bold">{t('assistance.title')}</h1>
+                <p className="text-muted-foreground">{t('assistance.subtitle')}</p>
             </div>
 
             <Card className="border-0 shadow-sm bg-transparent">
                 <CardHeader className="px-0 pb-4">
-                    <CardTitle>What kind of assistance do you need?</CardTitle>
-                    <CardDescription>Select the type of help you need for faster assistance</CardDescription>
+                    <CardTitle>{t('assistance.whatKindTitle')}</CardTitle>
+                    <CardDescription>{t('assistance.whatKindDesc')}</CardDescription>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-0">
                     {assistanceTypes.map((item, index) => (
@@ -845,8 +900,8 @@ export default function AssistancePage() {
                                 <item.icon className="h-8 w-8" />
                             </div>
                             <div>
-                                <h3 className="font-bold text-gray-900">{item.title}</h3>
-                                <p className="text-sm text-muted-foreground mt-1 leading-tight">{item.description}</p>
+                                <h3 className="font-bold text-gray-900">{t(`assistance.types.${item.key}.title`)}</h3>
+                                <p className="text-sm text-muted-foreground mt-1 leading-tight">{t(`assistance.types.${item.key}.desc`)}</p>
                             </div>
                         </Card>
                     ))}
@@ -857,13 +912,13 @@ export default function AssistancePage() {
                 <div className="bg-white rounded-3xl p-2 shadow-sm border flex justify-center gap-2 max-w-md mx-auto mb-8">
                     <TabsList className="w-full bg-transparent p-0 h-auto grid grid-cols-3 gap-2">
                         <TabsTrigger value="chat" className="rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-600 h-10">
-                            <MessageSquare className="mr-2 h-5 w-5" /> Live Chat
+                            <MessageSquare className="mr-2 h-5 w-5" /> {t('assistance.tabs.liveChat')}
                         </TabsTrigger>
                         <TabsTrigger value="group" onClick={handleGroupChatSelect} className="rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-600 h-10">
-                            <Users className="mr-2 h-5 w-5" /> Group Chat
+                            <Users className="mr-2 h-5 w-5" /> {t('assistance.tabs.groupChat')}
                         </TabsTrigger>
                         <TabsTrigger value="call" className="rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-600 h-10">
-                            <Phone className="mr-2 h-5 w-5" /> Voice Call
+                            <Phone className="mr-2 h-5 w-5" /> {t('assistance.tabs.voiceCall')}
                         </TabsTrigger>
                     </TabsList>
                 </div>
@@ -877,23 +932,23 @@ export default function AssistancePage() {
                     {!supportAgent ? (
                         <Card className="shadow-lg">
                             <CardHeader>
-                                <CardTitle>Connect with People in Your State</CardTitle>
-                                <CardDescription>Chat with support agents, other users, or admins in {userProfile?.state}</CardDescription>
+                                <CardTitle>{t('assistance.chat.connectTitle')}</CardTitle>
+                                <CardDescription>{t('assistance.chat.connectDesc', { state: userProfile?.state })}</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 {/* Category Tabs */}
                                 <Tabs value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as 'agents' | 'users' | 'admins')} className="w-full">
                                     <TabsList className="grid w-full grid-cols-2 mb-6">
-                                        <TabsTrigger value="agents">Support Agents</TabsTrigger>
+                                        <TabsTrigger value="agents">{t('assistance.chat.supportAgents')}</TabsTrigger>
                                         {/* <TabsTrigger value="users">Users</TabsTrigger> */}
-                                        <TabsTrigger value="admins">Admins</TabsTrigger>
+                                        <TabsTrigger value="admins">{t('assistance.chat.admins')}</TabsTrigger>
                                     </TabsList>
 
                                     {/* Support Agents Tab */}
                                     <TabsContent value="agents">
                                         <div className="mb-4">
                                             <Input
-                                                placeholder="Search by name, phone, or email..."
+                                                placeholder={t('assistance.chat.searchPlaceholder')}
                                                 value={agentSearch}
                                                 onChange={(e) => setAgentSearch(e.target.value)}
                                                 className="max-w-md"
@@ -919,17 +974,17 @@ export default function AssistancePage() {
                                         ) : agentSearch.trim() ? (
                                             <div className="text-center py-12">
                                                 <MessageSquare className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                                                <h3 className="text-lg font-semibold mb-2">No Results Found</h3>
+                                                <h3 className="text-lg font-semibold mb-2">{t('assistance.chat.noResults')}</h3>
                                                 <p className="text-muted-foreground">
-                                                    No support agents match "{agentSearch}"
+                                                    {t('assistance.chat.noAgentsMatch', { search: agentSearch })}
                                                 </p>
                                             </div>
                                         ) : (
                                             <div className="text-center py-12">
                                                 <MessageSquare className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                                                <h3 className="text-lg font-semibold mb-2">No Support Agents Available</h3>
+                                                <h3 className="text-lg font-semibold mb-2">{t('assistance.chat.noAgentsAvailable')}</h3>
                                                 <p className="text-muted-foreground">
-                                                    All support agents in {userProfile?.state} are currently offline. Please try again later.
+                                                    {t('assistance.chat.offlineAgents', { state: userProfile?.state })}
                                                 </p>
                                             </div>
                                         )}
@@ -986,7 +1041,7 @@ export default function AssistancePage() {
                                     <TabsContent value="admins">
                                         <div className="mb-4">
                                             <Input
-                                                placeholder="Search by name, phone, or email..."
+                                                placeholder={t('assistance.chat.searchPlaceholder')}
                                                 value={adminSearch}
                                                 onChange={(e) => setAdminSearch(e.target.value)}
                                                 className="max-w-md"
@@ -1012,17 +1067,17 @@ export default function AssistancePage() {
                                         ) : adminSearch.trim() ? (
                                             <div className="text-center py-12">
                                                 <MessageSquare className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                                                <h3 className="text-lg font-semibold mb-2">No Results Found</h3>
+                                                <h3 className="text-lg font-semibold mb-2">{t('assistance.chat.noResults')}</h3>
                                                 <p className="text-muted-foreground">
-                                                    No admins match "{adminSearch}"
+                                                    {t('assistance.chat.noAdminsMatch', { search: adminSearch })}
                                                 </p>
                                             </div>
                                         ) : (
                                             <div className="text-center py-12">
                                                 <MessageSquare className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                                                <h3 className="text-lg font-semibold mb-2">No Admins Available</h3>
+                                                <h3 className="text-lg font-semibold mb-2">{t('assistance.chat.noAdminsAvailable')}</h3>
                                                 <p className="text-muted-foreground">
-                                                    No admins found in {userProfile?.state}.
+                                                    {t('assistance.chat.noAdminsFound', { state: userProfile?.state })}
                                                 </p>
                                             </div>
                                         )}
@@ -1040,8 +1095,8 @@ export default function AssistancePage() {
                     {/* ORIGINAL VOICE CALL TAB CONTENT */}
                     <Card className="h-[calc(100vh-32rem)] flex flex-col items-center justify-center shadow-lg p-6 text-center">
                         <CardHeader>
-                            <CardTitle>Voice & Video Call Support</CardTitle>
-                            <CardDescription>Our support agents are ready to assist you via voice or video call.</CardDescription>
+                            <CardTitle>{t('assistance.call.voiceVideoSupport')}</CardTitle>
+                            <CardDescription>{t('assistance.call.voiceVideoDesc')}</CardDescription>
                         </CardHeader>
                         <CardContent className="flex flex-col items-center gap-6">
                             <div className="flex gap-4">
@@ -1052,7 +1107,7 @@ export default function AssistancePage() {
                                     className="px-8"
                                 >
                                     <Phone className="mr-2 h-5 w-5" />
-                                    Voice Call
+                                    {t('assistance.call.voiceBtn')}
                                 </Button>
                                 <Button
                                     size="lg"
@@ -1062,11 +1117,11 @@ export default function AssistancePage() {
                                     className="px-8"
                                 >
                                     <Video className="mr-2 h-5 w-5" />
-                                    Video Call
+                                    {t('assistance.call.videoBtn')}
                                 </Button>
                             </div>
                             {!supportAgent && availableAgents.length > 0 && (
-                                <p className="text-sm text-muted-foreground">Select an agent in the Live Chat tab first, or click above to call the next available agent.</p>
+                                <p className="text-sm text-muted-foreground">{t('assistance.call.selectAgentFirst')}</p>
                             )}
                         </CardContent>
                     </Card>
@@ -1074,8 +1129,8 @@ export default function AssistancePage() {
                     {callHistory.length > 0 && (
                         <Card className="mt-6">
                             <CardHeader>
-                                <CardTitle>Call History</CardTitle>
-                                <CardDescription>Your recent calls</CardDescription>
+                                <CardTitle>{t('assistance.call.callHistory')}</CardTitle>
+                                <CardDescription>{t('assistance.call.recentCalls')}</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4">
@@ -1089,7 +1144,7 @@ export default function AssistancePage() {
                                                     }`} />
                                                 <div>
                                                     <p className="font-medium">
-                                                        {call.callType === 'video' ? '📹 Video Call' : '📞 Voice Call'}
+                                                        {call.callType === 'video' ? `📹 ${t('assistance.call.videoBtn')}` : `📞 ${t('assistance.call.voiceBtn')}`}
                                                     </p>
                                                     <p className="text-sm text-muted-foreground">
                                                         {call.startTime ? new Date(call.startTime).toLocaleString() : 'Unknown time'}
@@ -1103,14 +1158,14 @@ export default function AssistancePage() {
                                                             call.status === 'missed' ? 'destructive' :
                                                                 'outline'
                                                 }>
-                                                    {call.status === 'active' ? 'Active' :
-                                                        call.status === 'ended' ? 'Completed' :
-                                                            call.status === 'missed' ? 'Missed' :
-                                                                'Ringing'}
+                                                    {call.status === 'active' ? t('assistance.call.active') :
+                                                        call.status === 'ended' ? t('assistance.call.completed') :
+                                                            call.status === 'missed' ? t('assistance.call.missed') :
+                                                                t('assistance.call.ringing')}
                                                 </Badge>
                                                 {call.duration && (
                                                     <p className="text-xs text-muted-foreground mt-1">
-                                                        {formatDuration(call.duration)} duration
+                                                        {formatDuration(call.duration)} {t('assistance.call.duration')}
                                                     </p>
                                                 )}
                                             </div>
@@ -1127,7 +1182,7 @@ export default function AssistancePage() {
             <div className="pt-8 border-t text-center space-y-6">
                 <div className="flex items-center justify-center gap-2 text-sm text-gray-600 bg-gray-100 py-2 rounded-full inline-block px-6 mx-auto w-full max-w-3xl">
                     <span className="h-2 w-2 rounded-full bg-green-500 inline-block"></span>
-                    24/7 Emergency Support Available • Average response time: <span className="font-semibold text-blue-600">2 mins</span>
+                    {t('assistance.footer.supportAvailable')} <span className="font-semibold text-blue-600">{t('assistance.footer.mins')}</span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1137,11 +1192,11 @@ export default function AssistancePage() {
                                 <AlertTriangle className="h-6 w-6" />
                             </div>
                             <div className="text-left">
-                                <h4 className="font-bold text-red-900">Immediate Danger?</h4>
-                                <p className="text-xs text-red-700">Contact local authorities immediately</p>
+                                <h4 className="font-bold text-red-900">{t('assistance.footer.immediateDanger')}</h4>
+                                <p className="text-xs text-red-700">{t('assistance.footer.contactAuthorities')}</p>
                             </div>
                         </div>
-                        <Button variant="destructive" className="bg-red-600 hover:bg-red-700 font-bold">CALL NOW</Button>
+                        <Button variant="destructive" className="bg-red-600 hover:bg-red-700 font-bold">{t('assistance.footer.callNow')}</Button>
                     </div>
 
                     <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-center justify-between">
@@ -1150,11 +1205,11 @@ export default function AssistancePage() {
                                 <HelpCircle className="h-6 w-6" />
                             </div>
                             <div className="text-left">
-                                <h4 className="font-bold text-blue-900">FAQs & Resources</h4>
-                                <p className="text-xs text-blue-700">Find answers to common questions</p>
+                                <h4 className="font-bold text-blue-900">{t('assistance.footer.faqsTitle')}</h4>
+                                <p className="text-xs text-blue-700">{t('assistance.footer.faqsDesc')}</p>
                             </div>
                         </div>
-                        <Button variant="outline" className="bg-white text-blue-600 border-blue-200 hover:bg-blue-50 font-semibold">Browse Help</Button>
+                        <Button variant="outline" className="bg-white text-blue-600 border-blue-200 hover:bg-blue-50 font-semibold">{t('assistance.footer.browseHelp')}</Button>
                     </div>
                 </div>
             </div>

@@ -8,6 +8,8 @@ import es from './locales/es.json';
 import ar from './locales/ar.json';
 import ha from './locales/ha.json';
 import yo from './locales/yo.json';
+import ig from './locales/ig.json';
+import pcm from './locales/pcm.json';
 
 const resources = {
   en: { translation: en },
@@ -16,6 +18,8 @@ const resources = {
   ar: { translation: ar },
   ha: { translation: ha },
   yo: { translation: yo },
+  ig: { translation: ig },
+  pcm: { translation: pcm },
 };
 
 i18n

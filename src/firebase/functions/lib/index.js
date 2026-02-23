@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createTeamMember = exports.trackDriverLocationHistory = exports.createDisplacedPersonAccounts = exports.generateAgoraToken = exports.translateText = exports.sendSos = exports.initializeGlobalGroups = exports.onTrainingPublished = exports.syncUserGroups = exports.getWeather = exports.sendTaskAssignmentNotification = exports.processapprovedusers = exports.translateNewMessage = void 0;
+exports.registerUser = exports.getUserEmailByPhone = exports.createTeamMember = exports.trackDriverLocationHistory = exports.createDisplacedPersonAccounts = exports.generateAgoraToken = exports.translateText = exports.sendSos = exports.initializeGlobalGroups = exports.onTrainingPublished = exports.syncUserGroups = exports.getWeather = exports.sendTaskAssignmentNotification = exports.processapprovedusers = exports.translateNewMessage = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const agora_token_1 = require("agora-token");
@@ -855,6 +855,140 @@ exports.createTeamMember = functions.https.onCall(async (data, context) => {
     catch (error) {
         console.error("Error creating team member:", error);
         throw new functions.https.HttpsError(error.code || 'internal', error.message || 'Failed to create team member');
+    }
+});
+/**
+ * Callable function to get a user's email by their phone number
+ * This enables phone-based login without requiring Firebase Phone Auth OTP.
+ */
+exports.getUserEmailByPhone = functions.https.onCall(async (data, context) => {
+    const { phoneNumber } = data;
+    if (!phoneNumber || typeof phoneNumber !== 'string') {
+        throw new functions.https.HttpsError('invalid-argument', 'A valid phone number is required');
+    }
+    try {
+        const db = admin.firestore();
+        // Format phone number to E.164 (+234 standard) for matching
+        let cleanPhone = phoneNumber.replace(/\s+/g, '').replace(/[^0-9+]/g, '');
+        if (cleanPhone.startsWith('0')) {
+            cleanPhone = cleanPhone.substring(1);
+        }
+        let formattedPhone = cleanPhone;
+        if (!cleanPhone.startsWith('+')) {
+            formattedPhone = `+234${cleanPhone}`;
+        }
+        // Check if the user exists with this mobile number
+        const usersRef = db.collection("users");
+        const snapshot = await usersRef.where("mobile", "==", formattedPhone).get();
+        if (snapshot.empty) {
+            return { email: null };
+        }
+        let bestEmail = snapshot.docs[0].data().email;
+        if (snapshot.size > 1) {
+            for (const doc of snapshot.docs) {
+                const email = doc.data().email;
+                if (email && !email.endsWith('@hopeline.app')) {
+                    bestEmail = email;
+                    break;
+                }
+            }
+        }
+        return { email: bestEmail };
+    }
+    catch (error) {
+        console.error("Error fetching user by phone:", error);
+        throw new functions.https.HttpsError('internal', 'Internal server error while resolving phone number');
+    }
+});
+/**
+ * Callable function to register a new user with both Email and Phone Number.
+ * This bypasses the need for client-side SMS verification to attach a phone provider natively.
+ */
+exports.registerUser = functions.https.onCall(async (data, context) => {
+    const { email, password, fullName, mobile, state, language } = data;
+    if (!password || !fullName || !mobile || !state) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing required registration fields.');
+    }
+    try {
+        // 1. Format phone number to E.164 (+234 standard)
+        let cleanPhone = mobile.replace(/\s+/g, '').replace(/[^0-9+]/g, '');
+        if (cleanPhone.startsWith('0')) {
+            cleanPhone = cleanPhone.substring(1);
+        }
+        let formattedPhone = cleanPhone;
+        if (!cleanPhone.startsWith('+')) {
+            formattedPhone = `+234${cleanPhone}`;
+        }
+        // 2. Generate virtual email if none provided
+        const finalEmail = email || `${formattedPhone.replace('+', '')}@hopeline.app`;
+        // 3. Double check if phone or email already exists in Auth/Firestore
+        const db = admin.firestore();
+        const phoneMappingRef = db.collection("phone_mappings").doc(formattedPhone);
+        const existingMapping = await phoneMappingRef.get();
+        if (existingMapping.exists) {
+            throw new functions.https.HttpsError('already-exists', 'A user with this phone number is already registered in our database.');
+        }
+        try {
+            await admin.auth().getUserByEmail(finalEmail);
+            throw new functions.https.HttpsError('already-exists', 'A user with this email already exists.');
+        }
+        catch (e) {
+            if (e.code !== 'auth/user-not-found')
+                throw e;
+        }
+        try {
+            await admin.auth().getUserByPhoneNumber(formattedPhone);
+            throw new functions.https.HttpsError('already-exists', 'A user with this phone number already exists in Auth service.');
+        }
+        catch (e) {
+            if (e.code !== 'auth/user-not-found')
+                throw e;
+        }
+        // 4. Create the user in Firebase Auth with both email and phone linked immediately
+        const userRecord = await admin.auth().createUser({
+            email: finalEmail,
+            password: password,
+            phoneNumber: formattedPhone,
+            displayName: fullName,
+            emailVerified: false,
+        });
+        const splitName = fullName.trim().split(" ");
+        const firstName = splitName[0] || "";
+        const lastName = splitName.slice(1).join(" ");
+        // 5. Create the Firestore profile and mapping atomically
+        const batch = db.batch();
+        // Create the main user document
+        const userRef = db.collection("users").doc(userRecord.uid);
+        batch.set(userRef, {
+            uid: userRecord.uid,
+            email: finalEmail,
+            role: 'user', // Default role 
+            accountStatus: 'active',
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            isOnline: false,
+            displayName: fullName,
+            firstName: firstName,
+            lastName: lastName,
+            gender: '',
+            image: '',
+            mobile: formattedPhone,
+            profileCompleted: 0,
+            language: language || 'English',
+            state: state,
+        });
+        // Create the unique phone mapping document
+        batch.set(phoneMappingRef, {
+            uid: userRecord.uid,
+            email: finalEmail,
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        await batch.commit();
+        // Return success to the client
+        return { success: true, uid: userRecord.uid, email: finalEmail };
+    }
+    catch (error) {
+        console.error("Registration error:", error);
+        throw new functions.https.HttpsError(error.code || 'internal', error.message || 'Failed to register user.');
     }
 });
 //# sourceMappingURL=index.js.map

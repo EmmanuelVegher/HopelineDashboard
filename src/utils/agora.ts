@@ -1,7 +1,8 @@
 import AgoraRTC, { IAgoraRTCClient, ILocalVideoTrack, ILocalAudioTrack, IRemoteVideoTrack, IRemoteAudioTrack } from 'agora-rtc-sdk-ng';
+import { AGORA_APP_ID } from '@/lib/agora';
 
 // Agora configuration
-export const AGORA_APP_ID = '8bb7364b135e43d0b936e3cb53dc69fe'; // From the sample code
+// No longer hardcoded here to maintain consistency with environment variables
 
 export interface AgoraCallState {
   client: IAgoraRTCClient | null;
@@ -33,11 +34,13 @@ export class AgoraManager {
     return this.client;
   }
 
-  async joinChannel(channelName: string, token: string | null, uid?: string | number): Promise<void> {
+  async joinChannel(channelName: string, token: string | null = null, uid?: string | number): Promise<void> {
     if (!this.client) throw new Error('Client not initialized');
 
     try {
-      const result = await this.client.join(AGORA_APP_ID, channelName, token, uid);
+      // Ensure token is null if undefined is passed
+      const finalToken = token || null;
+      const result = await this.client.join(AGORA_APP_ID, channelName, finalToken, uid || null);
       this.isJoined = true;
       console.log('Joined channel:', result);
     } catch (error) {

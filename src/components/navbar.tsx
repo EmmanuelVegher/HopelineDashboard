@@ -5,7 +5,7 @@
 import React, { useEffect, useRef, useMemo } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Home, Building, AlertTriangle, MessageSquare, Navigation, Sun, LogOut, Menu, User, Settings } from "lucide-react";
+import { Home, Building, AlertTriangle, MessageSquare, Navigation, Sun, LogOut, Menu, User, Settings, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose, SheetDescription } from "@/components/ui/sheet";
 import { Separator } from "./ui/separator";
@@ -27,6 +27,7 @@ const navLinks: NavLinkItem[] = [
   { href: "/weather", label: "Weather", icon: Sun },
   { href: "/profile", label: "Profile", icon: User },
   { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/privacy", label: "Privacy", icon: Shield },
 ];
 
 const NavLinks = React.memo(() => {

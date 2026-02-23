@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useTranslation } from "react-i18next";
 
 
 const iconMap = {
@@ -27,7 +28,7 @@ const iconMap = {
 };
 
 const getAlertCardClass = (severity: 'Severe' | 'Moderate' | 'Minor') => {
-    switch(severity) {
+    switch (severity) {
         case 'Severe': return 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200/50';
         case 'Moderate': return 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-200/50';
         case 'Minor': return 'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200/50';
@@ -36,14 +37,14 @@ const getAlertCardClass = (severity: 'Severe' | 'Moderate' | 'Minor') => {
 }
 
 const getAlertIcon = (severity: 'Severe' | 'Moderate' | 'Minor') => {
-    switch(severity) {
+    switch (severity) {
         case 'Severe': return <AlertTriangle className="h-5 w-5 text-red-600" />;
         case 'Moderate': return <CloudDrizzle className="h-5 w-5 text-yellow-600" />;
-        default: return <Cloud className="h-5 w-5 text-blue-600"/>
+        default: return <Cloud className="h-5 w-5 text-blue-600" />
     }
 }
 
-const renderCurrentConditions = (loading: boolean, weatherData: GetWeatherOutput | null) => {
+const renderCurrentConditions = (loading: boolean, weatherData: GetWeatherOutput | null, t: any) => {
     if (loading) {
         return Array.from({ length: 4 }).map((_, i) => (
             <Card key={i} className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
@@ -59,12 +60,12 @@ const renderCurrentConditions = (loading: boolean, weatherData: GetWeatherOutput
 
     const { humidity, windSpeed, visibility, uvIndex } = weatherData.currentConditions;
     const weatherStats = [
-        { value: humidity, label: "Humidity", icon: Droplets, color: "text-cyan-600", bgColor: "bg-cyan-100", unit: "%" },
-        { value: windSpeed, label: "Wind Speed", icon: Wind, color: "text-green-600", bgColor: "bg-green-100", unit: "km/h" },
-        { value: visibility, label: "Visibility", icon: Eye, color: "text-purple-600", bgColor: "bg-purple-100", unit: "km" },
-        { value: uvIndex, label: "UV Index", icon: Sun, color: "text-orange-600", bgColor: "bg-orange-100", unit: "" },
+        { value: humidity, label: t('weather.stats.humidity'), icon: Droplets, color: "text-cyan-600", bgColor: "bg-cyan-100", unit: "%" },
+        { value: windSpeed, label: t('weather.stats.windSpeed'), icon: Wind, color: "text-green-600", bgColor: "bg-green-100", unit: "km/h" },
+        { value: visibility, label: t('weather.stats.visibility'), icon: Eye, color: "text-purple-600", bgColor: "bg-purple-100", unit: "km" },
+        { value: uvIndex, label: t('weather.stats.uvIndex'), icon: Sun, color: "text-orange-600", bgColor: "bg-orange-100", unit: "" },
     ];
-    
+
     return weatherStats.map((stat) => (
         <Card key={stat.label} className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
             <CardContent className="p-4 sm:p-6 flex flex-col items-center text-center">
@@ -78,10 +79,10 @@ const renderCurrentConditions = (loading: boolean, weatherData: GetWeatherOutput
     ));
 };
 
-const renderForecast = (loading: boolean, weatherData: GetWeatherOutput | null) => {
-     if (loading) {
+const renderForecast = (loading: boolean, weatherData: GetWeatherOutput | null, t: any) => {
+    if (loading) {
         return (
-             <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
+            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
                 <CardContent className="p-4 sm:p-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
                     {Array.from({ length: 5 }).map((_, i) => (
                         <Card key={i} className="p-4 flex flex-col items-center gap-3 bg-slate-50/50">
@@ -99,20 +100,20 @@ const renderForecast = (loading: boolean, weatherData: GetWeatherOutput | null) 
 
     return (
         <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
-             <CardHeader className="text-center sm:text-left">
+            <CardHeader className="text-center sm:text-left">
                 <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                     <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
-                    5-Day Forecast
+                    {t('weather.fiveDayForecast')}
                 </CardTitle>
             </CardHeader>
             <CardContent className="p-4 sm:p-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
                 {weatherData.forecast.map((day: any) => {
                     const Icon = iconMap[day.icon as keyof typeof iconMap] || Cloud;
                     return (
-                         <Card key={day.day} className="p-4 flex flex-col items-center gap-3 bg-slate-50/50 hover:bg-slate-100/50 transition-all duration-200 hover:scale-105">
+                        <Card key={day.day} className="p-4 flex flex-col items-center gap-3 bg-slate-50/50 hover:bg-slate-100/50 transition-all duration-200 hover:scale-105">
                             <p className="font-bold text-sm sm:text-base text-slate-800 dark:text-slate-200">{day.day}</p>
                             <div className="bg-blue-100 dark:bg-blue-900 p-3 rounded-2xl">
-                                <Icon className="h-8 w-8 text-blue-600 dark:text-blue-400"/>
+                                <Icon className="h-8 w-8 text-blue-600 dark:text-blue-400" />
                             </div>
                             <p className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-200">{day.temp}</p>
                             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 capitalize text-center leading-tight">{day.description}</p>
@@ -126,10 +127,11 @@ const renderForecast = (loading: boolean, weatherData: GetWeatherOutput | null) 
 
 
 export default function WeatherPage() {
+    const { t } = useTranslation();
     const [weatherData, setWeatherData] = useState<GetWeatherOutput | null>(null);
     const [loading, setLoading] = useState(true);
     const [locationName, setLocationName] = useState("your location");
-    const [currentCoords, setCurrentCoords] = useState<{latitude: number, longitude: number} | null>(null);
+    const [currentCoords, setCurrentCoords] = useState<{ latitude: number, longitude: number } | null>(null);
     const [locationError, setLocationError] = useState<string | null>(null);
     const [showManualLocation, setShowManualLocation] = useState(false);
     const { toast } = useToast();
@@ -142,8 +144,8 @@ export default function WeatherPage() {
         } catch (error) {
             console.error("Failed to fetch weather data:", error);
             toast({
-                title: "Error",
-                description: "Could not fetch weather data. Please ensure your API key is correct and has access to the OneCall API.",
+                title: t('weather.errors.title'),
+                description: t('weather.errors.fetchFailed'),
                 variant: "destructive",
             });
         } finally {
@@ -157,10 +159,10 @@ export default function WeatherPage() {
 
         // Check for HTTPS requirement
         if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
-            const errorMsg = "Location services require HTTPS. Please access this site over a secure connection.";
+            const errorMsg = t('weather.errors.httpsRequiredDesc');
             setLocationError(errorMsg);
             toast({
-                title: "HTTPS Required",
+                title: t('weather.errors.httpsRequiredTitle'),
                 description: errorMsg,
                 variant: "destructive"
             });
@@ -169,10 +171,10 @@ export default function WeatherPage() {
         }
 
         if (!navigator.geolocation) {
-            const errorMsg = "Geolocation is not supported by this browser.";
+            const errorMsg = t('weather.errors.geoNotSupportedDesc');
             setLocationError(errorMsg);
             toast({
-                title: "Geolocation Not Supported",
+                title: t('weather.errors.geoNotSupportedTitle'),
                 description: errorMsg,
                 variant: "destructive"
             });
@@ -217,27 +219,25 @@ export default function WeatherPage() {
             },
             (error) => {
                 console.error("Geolocation error:", error);
-                let errorMsg = "Could not get your location.";
-                let actionText = "Try Again";
+                let errorMsg = t('weather.errors.couldNotGetLocation');
 
-                switch(error.code) {
+                switch (error.code) {
                     case error.PERMISSION_DENIED:
-                        errorMsg = "Location access denied. Please enable location permissions in your browser or device settings.";
-                        actionText = "Enable Location";
+                        errorMsg = t('weather.errors.permissionDenied');
                         break;
                     case error.POSITION_UNAVAILABLE:
-                        errorMsg = "Location information is unavailable. Please check your GPS settings and ensure you're outdoors with a clear view of the sky.";
+                        errorMsg = t('weather.errors.positionUnavailable');
                         break;
                     case error.TIMEOUT:
-                        errorMsg = "Location request timed out. This can happen indoors or in areas with poor GPS signal.";
+                        errorMsg = t('weather.errors.timeout');
                         break;
                     default:
-                        errorMsg = `Location error: ${error.message}`;
+                        errorMsg = t('weather.errors.generalError', { message: error.message });
                 }
 
                 setLocationError(errorMsg);
                 toast({
-                    title: "Location Access Required",
+                    title: t('weather.locationAccessTitle'),
                     description: errorMsg,
                     variant: "destructive"
                 });
@@ -268,13 +268,13 @@ export default function WeatherPage() {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
                         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                            Weather Alerts & Forecast
+                            {t('weather.title')}
                         </h1>
                         <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base lg:text-lg mt-2 flex items-center gap-2">
                             <MapPin className="h-4 w-4 text-blue-500" />
-                            Conditions for {locationName}
+                            {t('weather.conditionsFor', { location: locationName })}
                             {locationError && (
-                                <span className="text-red-500 text-xs">(Location access required)</span>
+                                <span className="text-red-500 text-xs">{t('weather.locationRequiredNote')}</span>
                             )}
                         </p>
                     </div>
@@ -282,7 +282,7 @@ export default function WeatherPage() {
                         {weatherData && !loading && (
                             <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-500 bg-white/60 px-3 py-2 rounded-lg">
                                 <Clock className="h-4 w-4" />
-                                <span>Last updated: {weatherData.lastUpdated}</span>
+                                <span>{t('weather.lastUpdated', { time: weatherData.lastUpdated })}</span>
                             </div>
                         )}
                         {locationError && (
@@ -293,7 +293,7 @@ export default function WeatherPage() {
                                 className="border-red-300 text-red-700 hover:bg-red-50"
                             >
                                 <MapPin className="mr-2 h-4 w-4" />
-                                Enable Location
+                                {t('weather.enableLocation')}
                             </Button>
                         )}
                         <Button
@@ -302,21 +302,20 @@ export default function WeatherPage() {
                             className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
                         >
                             <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-                            Refresh
+                            {t('weather.refresh')}
                         </Button>
                     </div>
                 </div>
 
-                {/* Location Error Alert */}
                 {locationError && (
                     <Alert className="bg-red-50 border-red-200">
                         <AlertTriangle className="h-4 w-4 text-red-600" />
-                        <AlertTitle className="text-red-800">Location Access Required</AlertTitle>
+                        <AlertTitle className="text-red-800">{t('weather.locationAccessTitle')}</AlertTitle>
                         <AlertDescription className="text-red-700">
                             <div className="space-y-3">
                                 <p>{locationError}</p>
                                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
-                                    <strong>Mobile/iOS Users:</strong> Ensure location services are enabled in Settings → Privacy → Location Services, and grant permission when prompted. For best results, use the app outdoors with GPS signal.
+                                    <strong>{t('weather.mobileUsersHint').split(':')[0]}:</strong> {t('weather.mobileUsersHint').split(':')[1]}
                                 </div>
                                 <div className="flex flex-col sm:flex-row gap-3">
                                     <Button
@@ -326,7 +325,7 @@ export default function WeatherPage() {
                                         className="border-red-300 text-red-700 hover:bg-red-50"
                                     >
                                         <MapPin className="h-4 w-4 mr-2" />
-                                        Enter Location Manually
+                                        {t('weather.enterLocationManually')}
                                     </Button>
                                     <Button
                                         onClick={() => {
@@ -341,7 +340,7 @@ export default function WeatherPage() {
                                         size="sm"
                                         className="border-red-300 text-red-700 hover:bg-red-50"
                                     >
-                                        Use Default Location (Abuja)
+                                        {t('weather.useDefaultLocation')}
                                     </Button>
                                     <Button
                                         onClick={fetchLocationAndWeather}
@@ -349,7 +348,7 @@ export default function WeatherPage() {
                                         className="bg-red-600 hover:bg-red-700 text-white"
                                     >
                                         <RefreshCw className="h-4 w-4 mr-2" />
-                                        Try Again
+                                        {t('weather.tryAgain')}
                                     </Button>
                                 </div>
                             </div>
@@ -357,23 +356,22 @@ export default function WeatherPage() {
                     </Alert>
                 )}
 
-                {/* Manual Location Input */}
                 {showManualLocation && (
                     <Card className="bg-blue-50 border-blue-200">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-blue-800">
                                 <MapPin className="h-5 w-5" />
-                                Enter Location Manually
+                                {t('weather.enterLocationManually')}
                             </CardTitle>
                             <CardDescription className="text-blue-700">
-                                Enter coordinates or search for a city to get weather information.
+                                {t('weather.enterLocationDesc')}
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="text-sm font-medium text-blue-800">Latitude</label>
+                                        <label className="text-sm font-medium text-blue-800">{t('weather.latitude')}</label>
                                         <Input
                                             type="number"
                                             step="0.0001"
@@ -390,7 +388,7 @@ export default function WeatherPage() {
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-sm font-medium text-blue-800">Longitude</label>
+                                        <label className="text-sm font-medium text-blue-800">{t('weather.longitude')}</label>
                                         <Input
                                             type="number"
                                             step="0.0001"
@@ -420,13 +418,13 @@ export default function WeatherPage() {
                                         className="bg-blue-600 hover:bg-blue-700"
                                         disabled={!currentCoords || !currentCoords.latitude || !currentCoords.longitude}
                                     >
-                                        Get Weather
+                                        {t('weather.getWeatherBtn')}
                                     </Button>
                                     <Button
                                         onClick={() => setShowManualLocation(false)}
                                         variant="outline"
                                     >
-                                        Cancel
+                                        {t('weather.cancelBtn')}
                                     </Button>
                                 </div>
                             </div>
@@ -439,7 +437,7 @@ export default function WeatherPage() {
                     <CardContent className="p-6 sm:p-8 lg:p-12">
                         <div className="flex flex-col lg:flex-row items-center justify-between gap-6 lg:gap-8">
                             {loading ? (
-                                 <div className="flex flex-col items-center text-center lg:items-start lg:text-left flex-1">
+                                <div className="flex flex-col items-center text-center lg:items-start lg:text-left flex-1">
                                     <Skeleton className="h-6 w-40 mb-4" />
                                     <Skeleton className="h-20 w-32 mb-4" />
                                     <Skeleton className="h-8 w-full max-w-md" />
@@ -452,7 +450,7 @@ export default function WeatherPage() {
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center text-center lg:items-start lg:text-left flex-1">
-                                    <p className="text-slate-500 text-lg">Could not load weather data.</p>
+                                    <p className="text-slate-500 text-lg">{t('weather.couldNotLoad')}</p>
                                 </div>
                             )}
                             {loading ? (
@@ -468,10 +466,10 @@ export default function WeatherPage() {
                             )}
                         </div>
                     </CardContent>
-                    
+
                     {/* Current Conditions Grid */}
                     <CardContent className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 px-6 pb-6">
-                        {renderCurrentConditions(loading, weatherData)}
+                        {renderCurrentConditions(loading, weatherData, t)}
                     </CardContent>
                 </Card>
 
@@ -480,118 +478,117 @@ export default function WeatherPage() {
                     <TabsList className="grid w-full grid-cols-3 h-12 bg-slate-100 p-1 rounded-lg">
                         <TabsTrigger value="forecast" className="text-sm sm:text-base font-medium transition-all duration-200 data-[state=active]:bg-white data-[state=active]:shadow-md">
                             <Calendar className="h-4 w-4 mr-2" />
-                            5-Day Forecast
+                            {t('weather.fiveDayForecast')}
                         </TabsTrigger>
                         <TabsTrigger value="alerts" className="text-sm sm:text-base font-medium transition-all duration-200 data-[state=active]:bg-white data-[state=active]:shadow-md">
                             <AlertTriangle className="h-4 w-4 mr-2" />
-                            Active Alerts
+                            {t('weather.activeAlertsTab')}
                         </TabsTrigger>
                         <TabsTrigger value="impact" className="text-sm sm:text-base font-medium transition-all duration-200 data-[state=active]:bg-white data-[state=active]:shadow-md">
                             <Briefcase className="h-4 w-4 mr-2" />
-                            Shelter Impact
+                            {t('weather.shelterImpactTab')}
                         </TabsTrigger>
                     </TabsList>
-                    
+
                     <TabsContent value="forecast" className="mt-6">
-                        {renderForecast(loading, weatherData)}
+                        {renderForecast(loading, weatherData, t)}
                     </TabsContent>
-                    
+
                     <TabsContent value="alerts" className="mt-6">
-                         <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
+                        <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
                             <CardHeader className="text-center sm:text-left">
                                 <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                                     <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-red-600" />
-                                    Active Weather Alerts for {locationName}
+                                    {t('weather.activeAlertsFor', { location: locationName })}
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                            {loading ? (
-                                <Card className="bg-slate-50/50"><CardContent className="p-4 sm:p-6"><Skeleton className="h-24 w-full"/></CardContent></Card>
-                            ) : weatherData && weatherData.alerts.length > 0 ? (
-                                weatherData.alerts.map((alert: any, index: number) => (
-                                    <Card key={index} className={cn("backdrop-blur-sm border-0 shadow-md", getAlertCardClass(alert.severity))}>
-                                        <CardContent className="p-4 sm:p-6">
-                                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                                            <div className="flex-1 space-y-3">
-                                                <div className="flex items-center gap-3">
-                                                    {getAlertIcon(alert.severity)}
-                                                    <div>
-                                                        <Badge className={cn(
-                                                            "text-xs font-semibold",
-                                                            alert.severity === 'Severe' && 'bg-red-100 text-red-700',
-                                                            alert.severity === 'Moderate' && 'bg-yellow-100 text-yellow-700',
-                                                            alert.severity === 'Minor' && 'bg-blue-100 text-blue-700',
-                                                        )}>{alert.severity} Risk</Badge>
-                                                        <h3 className="font-bold text-slate-800 mt-1">{alert.title}</h3>
+                                {loading ? (
+                                    <Card className="bg-slate-50/50"><CardContent className="p-4 sm:p-6"><Skeleton className="h-24 w-full" /></CardContent></Card>
+                                ) : weatherData && weatherData.alerts.length > 0 ? (
+                                    weatherData.alerts.map((alert: any, index: number) => (
+                                        <Card key={index} className={cn("backdrop-blur-sm border-0 shadow-md", getAlertCardClass(alert.severity))}>
+                                            <CardContent className="p-4 sm:p-6">
+                                                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                                                    <div className="flex-1 space-y-3">
+                                                        <div className="flex items-center gap-3">
+                                                            {getAlertIcon(alert.severity)}
+                                                            <div>
+                                                                <Badge className={cn(
+                                                                    "text-xs font-semibold",
+                                                                    alert.severity === 'Severe' && 'bg-red-100 text-red-700',
+                                                                    alert.severity === 'Moderate' && 'bg-yellow-100 text-yellow-700',
+                                                                    alert.severity === 'Minor' && 'bg-blue-100 text-blue-700',
+                                                                )}>{t('weather.riskLevel', { severity: alert.severity })}</Badge>
+                                                                <h3 className="font-bold text-slate-800 mt-1">{alert.title}</h3>
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-sm sm:text-base text-slate-600 leading-relaxed">{alert.description}</p>
+                                                        <div className="flex flex-wrap gap-4 text-xs text-slate-500">
+                                                            <div className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> {t('weather.area', { area: alert.area })}</div>
+                                                            <div className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> {t('weather.until', { time: alert.activeUntil })}</div>
+                                                        </div>
                                                     </div>
+                                                    <Button variant="outline" size="sm" className="border-slate-200 text-slate-600 hover:bg-slate-50 mt-4 lg:mt-0">
+                                                        {t('weather.viewDetails')}
+                                                    </Button>
                                                 </div>
-                                                <p className="text-sm sm:text-base text-slate-600 leading-relaxed">{alert.description}</p>
-                                                <div className="flex flex-wrap gap-4 text-xs text-slate-500">
-                                                    <div className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5"/> Area: {alert.area}</div>
-                                                    <div className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5"/> Until: {alert.activeUntil}</div>
-                                                </div>
-                                            </div>
-                                            <Button variant="outline" size="sm" className="border-slate-200 text-slate-600 hover:bg-slate-50 mt-4 lg:mt-0">
-                                                View Details
-                                            </Button>
-                                            </div>
                                             </CardContent>
                                         </Card>
                                     ))
-                            ) : (
-                                <div className="text-center py-12">
-                                    <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                                    <p className="text-lg font-medium text-slate-800">No active weather alerts</p>
-                                    <p className="text-slate-600 mt-1">All clear for your area.</p>
-                                </div>
-                            )}
+                                ) : (
+                                    <div className="text-center py-12">
+                                        <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                                        <p className="text-lg font-medium text-slate-800">{t('weather.noActiveAlerts')}</p>
+                                        <p className="text-slate-600 mt-1">{t('weather.allClear')}</p>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     </TabsContent>
-                    
+
                     <TabsContent value="impact" className="mt-6">
-                    <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
-                        <CardHeader className="text-center sm:text-left">
-                             <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                                <Briefcase className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600" />
-                                Potential Shelter Impact
-                            </CardTitle>
-                            <CardDescription className="text-sm sm:text-base">AI-generated analysis of how current weather may affect shelter operations and safety.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            {loading ? (
-                                <div className="space-y-3">
-                                    <Skeleton className="h-4 w-full" />
-                                    <Skeleton className="h-4 w-full" />
-                                    <Skeleton className="h-4 w-3/4" />
-                                </div>
-                            ) : weatherData ? (
-                                <Alert className="bg-purple-50 border-purple-200">
-                                    <AlertTriangle className="h-4 w-4 text-purple-600" />
-                                    <AlertTitle className="text-purple-800">Impact Analysis</AlertTitle>
-                                    <AlertDescription className="text-purple-700 leading-relaxed">
-                                        {weatherData.shelterImpact}
-                                    </AlertDescription>
-                                </Alert>
-                            ) : (
-                                <div className="text-center py-8">
-                                    <AlertCircle className="h-12 w-12 text-slate-400 mx-auto mb-3" />
-                                    <p className="text-slate-500">Impact analysis could not be generated.</p>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
+                        <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+                            <CardHeader className="text-center sm:text-left">
+                                <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                                    <Briefcase className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600" />
+                                    {t('weather.potentialImpact')}
+                                </CardTitle>
+                                <CardDescription className="text-sm sm:text-base">{t('weather.impactDesc')}</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {loading ? (
+                                    <div className="space-y-3">
+                                        <Skeleton className="h-4 w-full" />
+                                        <Skeleton className="h-4 w-full" />
+                                        <Skeleton className="h-4 w-3/4" />
+                                    </div>
+                                ) : weatherData ? (
+                                    <Alert className="bg-purple-50 border-purple-200">
+                                        <AlertTriangle className="h-4 w-4 text-purple-600" />
+                                        <AlertTitle className="text-purple-800">{t('weather.impactAnalysis')}</AlertTitle>
+                                        <AlertDescription className="text-purple-700 leading-relaxed">
+                                            {weatherData.shelterImpact}
+                                        </AlertDescription>
+                                    </Alert>
+                                ) : (
+                                    <div className="text-center py-8">
+                                        <AlertCircle className="h-12 w-12 text-slate-400 mx-auto mb-3" />
+                                        <p className="text-slate-500">{t('weather.impactCouldNotBeGenerated')}</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
                     </TabsContent>
                 </Tabs>
 
-                {/* USSD Section */}
                 <Card className="bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900 dark:to-amber-900 border-yellow-200/50 dark:border-yellow-700/50 backdrop-blur-sm shadow-lg">
                     <CardHeader className="text-center sm:text-left">
                         <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                             <Phone className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-600" />
-                            Get Weather Updates via USSD
+                            {t('weather.ussdTitle')}
                         </CardTitle>
-                        <CardDescription className="text-sm sm:text-base">Access weather information without internet on any mobile phone</CardDescription>
+                        <CardDescription className="text-sm sm:text-base">{t('weather.ussdDesc')}</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -600,7 +597,7 @@ export default function WeatherPage() {
                                     <div className="bg-yellow-100 p-2 rounded-lg">
                                         <AlertTriangle className="h-4 w-4 text-yellow-600" />
                                     </div>
-                                    <span className="font-medium text-yellow-800">Weather Alerts</span>
+                                    <span className="font-medium text-yellow-800">{t('weather.weatherAlertsUSSD')}</span>
                                 </div>
                                 <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200 font-mono">
                                     *347*102#
@@ -611,7 +608,7 @@ export default function WeatherPage() {
                                     <div className="bg-yellow-100 p-2 rounded-lg">
                                         <Calendar className="h-4 w-4 text-yellow-600" />
                                     </div>
-                                    <span className="font-medium text-yellow-800">5-Day Forecast</span>
+                                    <span className="font-medium text-yellow-800">{t('weather.forecastUSSD')}</span>
                                 </div>
                                 <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200 font-mono">
                                     *347*202#

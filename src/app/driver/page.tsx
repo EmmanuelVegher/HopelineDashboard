@@ -63,10 +63,10 @@ export default function DriverPage() {
     const Δφ = (lat2 - lat1) * Math.PI / 180;
     const Δλ = (lng2 - lng1) * Math.PI / 180;
 
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) *
+      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c;
   }, []);
@@ -111,6 +111,9 @@ export default function DriverPage() {
         });
       });
       setTasks(assignedTasks);
+      setLoading(false);
+    }, (error) => {
+      console.error("Driver tasks listener error:", error);
       setLoading(false);
     });
 
@@ -165,36 +168,20 @@ export default function DriverPage() {
 
   // Update driver location when tracking using the new streaming hook
   useEffect(() => {
-    console.log('[DriverPage] Location streaming useEffect triggered:', {
+    console.log('[DriverPage] Location streaming effect triggered:', {
       trackingTaskId,
-      userId,
-      hasLocationStreaming: !!locationStreaming
+      userId
     });
 
     if (trackingTaskId && userId) {
-      console.log('[DriverPage] Starting location streaming via useEffect');
-      locationStreaming.startStreaming();
+      console.log('[DriverPage] Starting location tracking');
+      // locationStreaming functionality is currently disabled to prevent browser crashes
     } else {
-      console.log('[DriverPage] Stopping location streaming via useEffect');
-      locationStreaming.stopStreaming();
+      console.log('[DriverPage] Stopping location tracking');
     }
-  }, [trackingTaskId, userId, locationStreaming]);
+  }, [trackingTaskId, userId]);
 
-  // Location streaming error handling
-  useEffect(() => {
-    if (locationStreaming.state.error && trackingTaskId) {
-      toast({
-        title: 'Location Error',
-        description: locationStreaming.state.error,
-        variant: 'destructive',
-      });
-      // Stop tracking on error
-      locationStreaming.stopStreaming();
-      setTrackingTaskId(null);
-      // Update status back to Responding
-      updateTaskStatus(trackingTaskId, 'Responding');
-    }
-  }, [locationStreaming.state.error, trackingTaskId, toast, locationStreaming]);
+  // Location streaming error handling removed as core functionality is disabled
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -380,11 +367,6 @@ export default function DriverPage() {
                 </Badge>
               )}
             </div>
-            {locationStreaming.state.lastUpdate && (
-              <p className="text-xs text-muted-foreground">
-                Last update: {locationStreaming.state.lastUpdate.toLocaleTimeString()}
-              </p>
-            )}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">

@@ -6,15 +6,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { type Shelter } from "@/lib/data";
-import { Clock, Filter, LocateFixed, MapPin, Phone, Search, Send, Star, Zap, Loader2, Info } from "lucide-react";
+import { Filter, LocateFixed, MapPin, Search, Send, Star, Zap, Loader2, Info } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 type UserLocation = {
     city: string;
@@ -45,6 +45,7 @@ export default function FindShelterPage() {
     const [locationLoading, setLocationLoading] = useState(false);
     const [selectedState, setSelectedState] = useState("all");
     const [searchTerm, setSearchTerm] = useState("");
+    const { t } = useTranslation();
     const { toast } = useToast();
 
     const availableStates = useMemo(() => {
@@ -61,9 +62,9 @@ export default function FindShelterPage() {
                 setAllShelters(sheltersData);
             } catch (error) {
                 console.error("Error fetching shelters: ", error);
-                 toast({
-                    title: "Error",
-                    description: "Could not fetch shelter data.",
+                toast({
+                    title: t('findShelter.geolocationError'),
+                    description: t('findShelter.fetchError'),
                     variant: "destructive"
                 });
             }
@@ -72,7 +73,7 @@ export default function FindShelterPage() {
         fetchShelters();
     }, [toast]);
 
-     useEffect(() => {
+    useEffect(() => {
         let shelters = [...allShelters];
 
         // Update distances if user location is available
@@ -96,7 +97,7 @@ export default function FindShelterPage() {
                 shelter.location.toLowerCase().includes(searchTerm.toLowerCase())
             );
         }
-        
+
         // Sort by distance if location is available
         if (userLocation) {
             shelters.sort((a, b) => {
@@ -114,8 +115,8 @@ export default function FindShelterPage() {
         setLocationLoading(true);
         if (!navigator.geolocation) {
             toast({
-                title: "Geolocation Not Supported",
-                description: "Your browser does not support geolocation.",
+                title: t('findShelter.geolocationNotSupported'),
+                description: t('findShelter.geolocationNotSupportedDesc'),
                 variant: "destructive"
             });
             setLocationLoading(false);
@@ -128,31 +129,31 @@ export default function FindShelterPage() {
                 try {
                     const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
                     const data = await response.json();
-                    
+
                     if (data && data.address) {
                         const newUserLocation = {
-                            city: data.address.city || data.address.town || data.address.village || "Unknown City",
-                            state: data.address.state || "Unknown State",
-                            country: data.address.country || "Unknown Country",
+                            city: data.address.city || data.address.town || data.address.village || t('findShelter.unknownCity'),
+                            state: data.address.state || t('findShelter.unknownState'),
+                            country: data.address.country || t('findShelter.unknownCountry'),
                             lat: latitude,
                             lon: longitude,
                         };
                         setUserLocation(newUserLocation);
 
                     } else {
-                         toast({ title: "Error", description: "Could not determine your address.", variant: "destructive"});
+                        toast({ title: t('findShelter.geolocationError'), description: t('findShelter.addressError'), variant: "destructive" });
                     }
                 } catch (error) {
                     console.error("Reverse geocoding error:", error);
-                    toast({ title: "Error", description: "Could not fetch address data.", variant: "destructive"});
+                    toast({ title: t('findShelter.geolocationError'), description: t('findShelter.addressDataError'), variant: "destructive" });
                 } finally {
                     setLocationLoading(false);
                 }
             },
             (error) => {
                 toast({
-                    title: "Geolocation Error",
-                    description: error.message || "Could not get your location. Please ensure location services are enabled.",
+                    title: t('findShelter.geolocationError'),
+                    description: error.message || t('findShelter.geolocationErrorDesc'),
                     variant: "destructive"
                 });
                 setLocationLoading(false);
@@ -163,8 +164,8 @@ export default function FindShelterPage() {
     const handleGetDirections = (shelter: Shelter) => {
         if (!userLocation) {
             toast({
-                title: "Location Needed",
-                description: "Please click 'Use Current Location' first to get directions.",
+                title: t('findShelter.locationNeeded'),
+                description: t('findShelter.locationNeededDesc'),
                 variant: "destructive",
             });
             return;
@@ -194,18 +195,18 @@ export default function FindShelterPage() {
     return (
         <div className="max-w-7xl mx-auto">
             <div className="text-center mb-8">
-                <h1 className="text-3xl font-bold">Find IDP Camps & Emergency Shelters</h1>
+                <h1 className="text-3xl font-bold">{t('findShelter.title')}</h1>
                 <p className="text-muted-foreground mt-2">
-                    Locate official IDP camps and shelters in Bayelsa and Adamawa with available space and services.
+                    {t('findShelter.subtitle')}
                 </p>
             </div>
-            
+
             <Card className="p-4 mb-8 shadow-sm">
                 <div className="flex flex-col md:flex-row gap-4">
                     <div className="relative flex-grow">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                         <Input
-                            placeholder="Search by camp name, organization, or state..."
+                            placeholder={t('findShelter.searchPlaceholder')}
                             className="pl-10 h-11"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -214,32 +215,32 @@ export default function FindShelterPage() {
                     <Select value={selectedState} onValueChange={setSelectedState}>
                         <SelectTrigger className="h-11 w-full md:w-[200px]">
                             <Filter className="mr-2 h-4 w-4" />
-                            <SelectValue placeholder="Filter by State" />
+                            <SelectValue placeholder={t('findShelter.filterByState')} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">All States</SelectItem>
+                            <SelectItem value="all">{t('findShelter.allStates')}</SelectItem>
                             {availableStates.map(state => (
                                 <SelectItem key={state} value={state}>{state}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
                     <Button className="h-11 bg-black dark:bg-gray-800 text-white hover:bg-gray-800 dark:hover:bg-gray-700" onClick={handleGetCurrentLocation} disabled={locationLoading}>
-                        {locationLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <LocateFixed className="mr-2 h-4 w-4" />}
-                        {locationLoading ? 'Getting Location...' : 'Use Current Location'}
+                        {locationLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LocateFixed className="mr-2 h-4 w-4" />}
+                        {locationLoading ? t('findShelter.gettingLocation') : t('findShelter.useCurrentLocation')}
                     </Button>
                 </div>
                 <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900 border border-blue-100 dark:border-blue-700 rounded-lg flex items-center gap-4">
                     <MapPin className="h-6 w-6 text-blue-600" />
                     <div>
-                        <p className="text-sm text-blue-800 dark:text-blue-200 font-semibold">Your Current Location</p>
-                          {userLocation ? (
-                             <>
-                                 <p className="text-xs text-blue-700 dark:text-blue-300">{userLocation.city}, {userLocation.state}, {userLocation.country}</p>
-                                 <p className="text-xs text-blue-700/80 dark:text-blue-300/80">Coordinates: {userLocation.lat.toFixed(4)}° N, {userLocation.lon.toFixed(4)}° E</p>
-                             </>
-                         ) : (
-                             <p className="text-xs text-blue-700 dark:text-blue-300">Click the button above to find your location.</p>
-                         )}
+                        <p className="text-sm text-blue-800 dark:text-blue-200 font-semibold">{t('findShelter.yourLocation')}</p>
+                        {userLocation ? (
+                            <>
+                                <p className="text-xs text-blue-700 dark:text-blue-300">{userLocation.city}, {userLocation.state}, {userLocation.country}</p>
+                                <p className="text-xs text-blue-700/80 dark:text-blue-300/80">{t('findShelter.coordinates')}: {userLocation.lat.toFixed(4)}° N, {userLocation.lon.toFixed(4)}° E</p>
+                            </>
+                        ) : (
+                            <p className="text-xs text-blue-700 dark:text-blue-300">{t('findShelter.clickToFind')}</p>
+                        )}
                     </div>
                 </div>
             </Card>
@@ -287,35 +288,35 @@ export default function FindShelterPage() {
                                         <div className="flex items-center gap-6 text-sm text-muted-foreground my-4">
                                             <div className="flex items-center gap-2">
                                                 <MapPin className="h-4 w-4" />
-                                                <span>{shelter.distance || 'N/A'}</span>
+                                                <span>{shelter.distance || t('findShelter.notAvailable')}</span>
                                             </div>
                                         </div>
-                                        
+
                                         <div>
                                             <div className="flex justify-between items-center mb-1">
                                                 <div className="flex items-center gap-2 text-sm">
-                                                    <Zap className="h-4 w-4"/>
-                                                    <span>Capacity</span>
+                                                    <Zap className="h-4 w-4" />
+                                                    <span>{t('findShelter.capacity')}</span>
                                                 </div>
-                                                <p className="text-sm font-bold text-green-600 dark:text-green-400">{shelter.availableCapacity} spaces available</p>
+                                                <p className="text-sm font-bold text-green-600 dark:text-green-400">{shelter.availableCapacity} {t('findShelter.spacesAvailable')}</p>
                                             </div>
                                             <Progress value={capacityPercentage} colorClassName={getCapacityProgressColor(capacityPercentage)} />
-                                            <p className="text-xs text-muted-foreground mt-1">{currentOccupancy}/{shelter.capacity} occupied ({capacityPercentage}%)</p>
+                                            <p className="text-xs text-muted-foreground mt-1">{currentOccupancy}/{shelter.capacity} {t('findShelter.occupied')} ({capacityPercentage}%)</p>
                                         </div>
 
                                         <div className="flex items-center gap-2 text-sm my-4">
                                             <Star className="h-4 w-4 text-yellow-500 fill-yellow-400" />
-                                            <span><span className="font-bold">{shelter.rating ? shelter.rating.toFixed(1) : 'N/A'}</span> average rating</span>
+                                            <span><span className="font-bold">{shelter.rating ? shelter.rating.toFixed(1) : t('findShelter.notAvailable')}</span> {t('findShelter.averageRating')}</span>
                                         </div>
 
                                         <div className="border-t pt-4">
-                                            <h3 className="text-sm font-semibold mb-2">Available Services</h3>
+                                            <h3 className="text-sm font-semibold mb-2">{t('findShelter.availableServices')}</h3>
                                             <div className="flex flex-wrap gap-2">
                                                 {(shelter.facilities || []).slice(0, 4).map(facility => (
                                                     <Badge key={facility} variant="secondary" className="font-normal">{facility}</Badge>
                                                 ))}
                                                 {shelter.facilities && shelter.facilities.length > 4 && (
-                                                    <Badge variant="secondary" className="font-normal">+{shelter.facilities.length - 4} more</Badge>
+                                                    <Badge variant="secondary" className="font-normal">+{shelter.facilities.length - 4} {t('findShelter.more')}</Badge>
                                                 )}
                                             </div>
                                         </div>
@@ -323,12 +324,12 @@ export default function FindShelterPage() {
                                         <div className="flex gap-4 mt-6">
                                             <Button className="w-full bg-black dark:bg-gray-800 text-white hover:bg-gray-800 dark:hover:bg-gray-700" onClick={() => handleGetDirections(shelter)}>
                                                 <Send className="mr-2 h-4 w-4" />
-                                                Get Directions
+                                                {t('findShelter.getDirections')}
                                             </Button>
-                                             <Button asChild variant="outline" className="w-full">
+                                            <Button asChild variant="outline" className="w-full">
                                                 <Link to={`/shelter/${shelter.id}`}>
-                                                    <Info className="mr-2 h-4 w-4"/>
-                                                    View Details
+                                                    <Info className="mr-2 h-4 w-4" />
+                                                    {t('findShelter.viewDetails')}
                                                 </Link>
                                             </Button>
                                         </div>
@@ -339,8 +340,8 @@ export default function FindShelterPage() {
                     })
                 ) : (
                     <div className="col-span-1 md:col-span-2 text-center py-16">
-                        <h3 className="text-lg font-semibold">No Shelters Found</h3>
-                        <p className="text-muted-foreground mt-2">Try adjusting your search or filter criteria.</p>
+                        <h3 className="text-lg font-semibold">{t('findShelter.noSheltersFound')}</h3>
+                        <p className="text-muted-foreground mt-2">{t('findShelter.adjustSearch')}</p>
                     </div>
                 )}
             </div>

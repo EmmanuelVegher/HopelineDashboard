@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -30,7 +30,7 @@ export function IncomingCallDialog({
                         <Avatar className="h-24 w-24 border-4 border-blue-100 ring-4 ring-blue-50 animate-pulse">
                             <AvatarImage src={callerImage} />
                             <AvatarFallback className="text-2xl bg-gradient-to-br from-blue-500 to-cyan-500 text-white">
-                                {callerName[0]?.toUpperCase()}
+                                {callerName?.[0]?.toUpperCase() || '?'}
                             </AvatarFallback>
                         </Avatar>
                         {callType === 'video' && (

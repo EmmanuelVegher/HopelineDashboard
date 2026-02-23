@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   Card,
   CardContent,
@@ -12,9 +13,10 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Eye, EyeOff, Loader2, Check, ChevronsUpDown, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { auth, db } from "@/lib/firebase";
-import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { auth, db, functions } from "@/lib/firebase";
+import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -38,7 +40,7 @@ const languages = [
 ];
 
 const nigerianStates = [
-  "Abuja (FCT)", "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno", "Cross River",
+  "Federal Capital Territory", "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno", "Cross River",
   "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu", "Gombe", "Imo", "Jigawa", "Kaduna", "Kano", "Katsina", "Kebbi",
   "Kogi", "Kwara", "Lagos", "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo", "Plateau", "Rivers", "Sokoto",
   "Taraba", "Yobe", "Zamfara"
@@ -46,19 +48,20 @@ const nigerianStates = [
 
 export default function SignupPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [mobile, setMobile] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState<UserRole>("user");
+  const role: UserRole = "user";
   const [language, setLanguage] = useState("English");
   const [state, setState] = useState("");
   const [stateSearch, setStateSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
-
-  const isPrivilegedRole = role === 'admin' || role === 'support agent';
 
   // Slideshow timer
   useEffect(() => {
@@ -119,47 +122,38 @@ export default function SignupPage() {
   };
 
   const handleSignup = async () => {
-    if (!email || (!isPrivilegedRole && !password) || !role || !state) {
-      toast({ title: "Missing fields", description: "Please fill in all required fields, including state.", variant: "destructive" });
+    if (!password || !fullName || !mobile || !state) {
+      toast({ title: "Missing fields", description: "Please fill in all required fields, including full name, phone number, and state.", variant: "destructive" });
       return;
     }
     setLoading(true);
 
     try {
-      let user;
-      if (isPrivilegedRole) {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password || 'TempPass123!');
-        user = userCredential.user;
-      } else {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        user = userCredential.user;
+      const registerUserFn = httpsCallable(functions, 'registerUser');
+      const response = await registerUserFn({
+        email,
+        password,
+        fullName,
+        mobile,
+        state,
+        language
+      });
+
+      const data: any = response.data;
+      if (!data.success) {
+        throw new Error("Registration returned failure.");
       }
 
-      await setDoc(doc(db, "users", user.uid), {
-        uid: user.uid,
-        email: user.email,
-        role: role,
-        accountStatus: 'active',
-        createdAt: serverTimestamp(),
-        isOnline: true,
-        displayName: user.email?.split('@')[0] || 'New User',
-        firstName: '',
-        lastName: '',
-        gender: '',
-        image: '',
-        mobile: 0,
-        profileCompleted: 0,
-        language: language,
-        state: state,
-      });
+      // Automatically sign them in using the Client SDK now that the backend created the user
+      // Use data.email because it contains the generated virtual email if the user didn't provide one
+      await signInWithEmailAndPassword(auth, data.email, password);
 
       toast({
         title: "Account Created",
-        description: isPrivilegedRole ? `Welcome! Registered as ${role}. Redirecting...` : "Redirecting to your dashboard..."
+        description: "Redirecting to your dashboard..."
       });
 
-      if (role === 'admin') navigate("/admin");
-      else navigate("/dashboard");
+      navigate("/dashboard");
 
     } catch (error: any) {
       toast({ title: "Signup Failed", description: error.message || "An unexpected error occurred.", variant: "destructive" });
@@ -213,9 +207,9 @@ export default function SignupPage() {
                 <img src="/shelter_logo.png" alt="Logo" width={56} height={56} className="w-full h-full rounded-3xl" />
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-slate-800 via-blue-700 to-emerald-700 bg-clip-text text-transparent mb-1">
-                Create Account
+                {t('auth.signup.title')}
               </h1>
-              <p className="text-muted-foreground text-sm">Join our mission to help communities</p>
+              <p className="text-muted-foreground text-sm">{t('auth.signup.subtitle')}</p>
             </div>
 
             <Card className="backdrop-blur-sm bg-card shadow-2xl border-0 rounded-3xl overflow-hidden animate-fade-in-up animate-pulse-glow">
@@ -223,30 +217,29 @@ export default function SignupPage() {
               <CardContent className="relative p-2 sm:p-4">
                 <div className="space-y-3">
 
-                  {/* Role Selection */}
+                  {/* Full Name */}
                   <div className="space-y-1">
-                    <Label className="text-xs font-semibold">User Type</Label>
-                    <Select value={role} onValueChange={(value) => setRole(value as UserRole)} disabled={loading}>
-                      <SelectTrigger className="h-8 text-xs bg-background/50 border-input"><SelectValue placeholder="Select Role" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="user">User (Seeking Assistance)</SelectItem>
-                        <SelectItem value="support agent">Support Agent</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label className="text-xs font-semibold">{t('auth.signup.fullNameLabel')}</Label>
+                    <Input id="fullName" type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} disabled={loading} className="h-8 text-xs bg-background/50 px-2" placeholder="John Doe" />
                   </div>
 
-                  {/* Email */}
-                  <div className="space-y-1">
-                    <Label className="text-xs font-semibold">Email Address</Label>
-                    <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} className="h-8 text-xs bg-background/50" placeholder="name@example.com" />
+                  {/* Email & Phone */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-semibold">{t('auth.signup.emailLabel')}</Label>
+                      <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} className="h-8 text-xs bg-background/50 px-2" placeholder="name@example.com" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-semibold">{t('auth.signup.phoneLabel')}</Label>
+                      <Input id="mobile" type="tel" value={mobile} onChange={(e) => setMobile(e.target.value)} disabled={loading} className="h-8 text-xs bg-background/50 px-2" placeholder="08012345678" />
+                    </div>
                   </div>
 
                   {/* Password */}
                   <div className="space-y-1">
-                    <Label className="text-xs font-semibold">Password</Label>
+                    <Label className="text-xs font-semibold">{t('auth.signup.passwordLabel')}</Label>
                     <div className="relative">
-                      <Input id="password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading} className="h-8 text-xs bg-background/50 pr-8" placeholder="Create a password" required={!isPrivilegedRole} />
+                      <Input id="password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading} className="h-8 text-xs bg-background/50 pr-8" placeholder={t('auth.signup.passwordLabel')} required />
                       <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                         {showPassword ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                       </button>
@@ -256,7 +249,7 @@ export default function SignupPage() {
                   {/* Language & State (Grid) */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label className="text-xs font-semibold">Language</Label>
+                      <Label className="text-xs font-semibold">{t('auth.signup.languageLabel')}</Label>
                       <Select value={language} onValueChange={setLanguage} disabled={loading}>
                         <SelectTrigger className="h-8 text-xs bg-background/50"><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -265,11 +258,11 @@ export default function SignupPage() {
                       </Select>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs font-semibold">State</Label>
+                      <Label className="text-xs font-semibold">{t('auth.signup.stateLabel')}</Label>
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button variant="outline" role="combobox" className="h-8 w-full justify-between text-xs bg-background/50 px-2">
-                            {state || "Select..."}
+                            {state || t('common.select')}
                             <ChevronsUpDown className="ml-1 h-3 w-3 opacity-50" />
                           </Button>
                         </PopoverTrigger>
@@ -288,11 +281,7 @@ export default function SignupPage() {
                     </div>
                   </div>
 
-                  {isPrivilegedRole && (
-                    <div className="text-[10px] text-blue-600 bg-blue-50 p-2 rounded-md border border-blue-100">
-                      Admin accounts require approval.
-                    </div>
-                  )}
+                  {/* Privilege text removed since roles are defaulted */}
 
                 </div>
               </CardContent>
@@ -300,27 +289,27 @@ export default function SignupPage() {
               <CardFooter className="flex-col gap-2 p-4 bg-slate-50/50">
                 <Button className="w-full h-9 text-xs" onClick={handleSignup} disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
-                  {loading ? "Creating..." : "Create Account"}
+                  {loading ? t('auth.signup.signingUp') : t('auth.signup.signUp')}
                 </Button>
 
                 <div className="relative w-full my-1">
                   <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-300" /></div>
-                  <div className="relative flex justify-center text-[10px] uppercase"><span className="bg-slate-50 px-2 text-muted-foreground">Or continue with</span></div>
+                  <div className="relative flex justify-center text-[10px] uppercase"><span className="bg-slate-50 px-2 text-muted-foreground">{t('auth.login.orContinueWith')}</span></div>
                 </div>
 
                 <Button variant="outline" className="w-full h-9 text-xs" onClick={handleGoogleSignUp} disabled={googleLoading || loading}>
                   {googleLoading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : (
-                    <div className="flex items-center"><svg className="mr-2 h-3 w-3" viewBox="0 0 24 24"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" /><path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" /><path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" /></svg> Google</div>
+                    <div className="flex items-center"><svg className="mr-2 h-3 w-3" viewBox="0 0 24 24"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" /><path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" /><path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" /></svg> {t('auth.login.googleSignIn')}</div>
                   )}
                 </Button>
 
                 <div className="text-xs text-center mt-1">
-                  Already have an account? <Link to="/login" className="underline font-medium text-primary">Sign In</Link>
+                  {t('auth.signup.alreadyHaveAccount')} <Link to="/login" className="underline font-medium text-primary">{t('auth.signup.logIn')}</Link>
                 </div>
 
                 <Separator className="my-1" />
                 <AnonymousSosDialog>
-                  <Button variant="destructive" className="w-full h-8 text-xs"><AlertTriangle className="mr-2 h-3 w-3" /> Emergency SOS</Button>
+                  <Button variant="destructive" className="w-full h-8 text-xs"><AlertTriangle className="mr-2 h-3 w-3" /> {t('auth.login.sosAlert')}</Button>
                 </AnonymousSosDialog>
               </CardFooter>
             </Card>

@@ -197,6 +197,8 @@ export default function DriverChatsPage() {
                     };
                 });
                 setUserData(prev => ({ ...prev, ...newUserData }));
+            }, (error) => {
+                console.error("Users listener error:", error);
             });
             return () => unsubscribe();
         }
@@ -318,6 +320,9 @@ export default function DriverChatsPage() {
         const unsubscribe = onSnapshot(chatsQuery, (snapshot) => {
             const sessions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChatSession));
             setChatSessions(sessions);
+            setLoading(false);
+        }, (error) => {
+            console.error("Chat sessions listener error:", error);
             setLoading(false);
         });
 
@@ -441,11 +446,18 @@ export default function DriverChatsPage() {
                 return;
             }
 
+            const callerName = `${userProfile.firstName} ${userProfile.lastName}`;
+            const callerAvatar = userProfile.image || userProfile.imageUrl || userProfile.profileImage || userProfile.photoURL || userProfile.photoUrl || userProfile.avatar || '';
+
             const callDoc = await addDoc(collection(db, 'calls'), {
                 userId: recipients[0],
                 agentId: user.uid,
-                agentName: `${userProfile.firstName} ${userProfile.lastName}`,
-                agentImage: userProfile.image || userProfile.imageUrl || userProfile.profileImage || userProfile.photoURL || userProfile.photoUrl || userProfile.avatar || '',
+                userName: selectedChat.fullName || 'User',
+                userImage: selectedChat.userImage || '',
+                agentName: callerName,
+                agentImage: callerAvatar,
+                callerName: callerName,
+                callerAvatar: callerAvatar,
                 callType: 'voice',
                 chatId: selectedChatId,
                 channelName: channelName,
@@ -453,7 +465,32 @@ export default function DriverChatsPage() {
                 receiverId: isGroup ? selectedChat.id : recipients[0],
                 status: 'ringing',
                 startTime: serverTimestamp(),
-                isGroupCall: isGroup
+                isGroupCall: isGroup,
+                participants: isGroup ? (selectedChat.participants || []) : [user.uid, recipients[0]]
+            });
+
+            // ✅ Log call initiation to chat
+            const callEmoji = '📞';
+            const callText = 'Voice call';
+
+            await addDoc(collection(db, 'chats', selectedChatId, 'messages'), {
+                content: `${callEmoji} ${callText}`,
+                messageType: 'call',
+                callType: 'voice',
+                callId: callDoc.id,
+                originalText: callText,
+                agentTranslatedText: `${callEmoji} ${callText}`,
+                userTranslatedText: `${callEmoji} ${callText}`,
+                receiverId: isGroup ? selectedChat.id : recipients[0],
+                senderEmail: user?.email || '',
+                senderId: user?.uid,
+                timestamp: serverTimestamp(),
+                status: 'sent'
+            });
+
+            await updateDoc(doc(db, 'chats', selectedChatId), {
+                lastMessage: `${callEmoji} ${callText}`,
+                lastMessageTimestamp: serverTimestamp()
             });
 
             setActiveCall({
@@ -471,8 +508,81 @@ export default function DriverChatsPage() {
         }
     };
 
-    const handleVideoCall = () => {
-        toast({ title: "Video Call", description: "Initiating video call..." });
+    const handleVideoCall = async () => {
+        if (!selectedChatId || !user) return;
+        const selectedChat = chatSessions.find(chat => chat.id === selectedChatId);
+        if (!selectedChat) return;
+
+        try {
+            const isGroup = selectedChat.type === 'group';
+            const channelName = isGroup ? selectedChat.id : generateChannelName(user.uid, selectedChat.userId || '');
+            const recipients = isGroup ? (selectedChat.participants || []).filter(id => id !== user.uid) : (selectedChat.userId ? [selectedChat.userId] : []);
+
+            if (recipients.length === 0) {
+                toast({ title: "Call Failed", description: "No participants to call", variant: "destructive" });
+                return;
+            }
+
+            const callerName = `${userProfile.firstName} ${userProfile.lastName}`;
+            const callerAvatar = userProfile.image || userProfile.imageUrl || userProfile.profileImage || userProfile.photoURL || userProfile.photoUrl || userProfile.avatar || '';
+
+            const callDoc = await addDoc(collection(db, 'calls'), {
+                userId: recipients[0],
+                agentId: user.uid,
+                userName: selectedChat.fullName || 'User',
+                userImage: selectedChat.userImage || '',
+                agentName: callerName,
+                agentImage: callerAvatar,
+                callerName: callerName,
+                callerAvatar: callerAvatar,
+                callType: 'video',
+                chatId: selectedChatId,
+                channelName: channelName,
+                callerId: user.uid,
+                receiverId: isGroup ? selectedChat.id : recipients[0],
+                status: 'ringing',
+                startTime: serverTimestamp(),
+                isGroupCall: isGroup,
+                participants: isGroup ? (selectedChat.participants || []) : [user.uid, recipients[0]]
+            });
+
+            // ✅ Log call initiation to chat
+            const callEmoji = '📹';
+            const callText = 'Video call';
+
+            await addDoc(collection(db, 'chats', selectedChatId, 'messages'), {
+                content: `${callEmoji} ${callText}`,
+                messageType: 'call',
+                callType: 'video',
+                callId: callDoc.id,
+                originalText: callText,
+                agentTranslatedText: `${callEmoji} ${callText}`,
+                userTranslatedText: `${callEmoji} ${callText}`,
+                receiverId: isGroup ? selectedChat.id : recipients[0],
+                senderEmail: user?.email || '',
+                senderId: user?.uid,
+                timestamp: serverTimestamp(),
+                status: 'sent'
+            });
+
+            await updateDoc(doc(db, 'chats', selectedChatId), {
+                lastMessage: `${callEmoji} ${callText}`,
+                lastMessageTimestamp: serverTimestamp()
+            });
+
+            setActiveCall({
+                callId: callDoc.id,
+                chatId: selectedChatId,
+                channelName: channelName,
+                recipientName: selectedChat.fullName || 'User',
+                recipientImage: selectedChat.userImage,
+                callType: 'video',
+                isIncoming: false
+            });
+        } catch (error) {
+            console.error('Video call error:', error);
+            toast({ title: "Call Failed", description: "Could not initiate video call.", variant: "destructive" });
+        }
     };
 
     const handleSendMessage = async () => {

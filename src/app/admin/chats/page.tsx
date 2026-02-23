@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { format } from 'date-fns';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -36,7 +36,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Timestamp, collection, addDoc, doc, getDoc, getDocs, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where, limit } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, getDocs, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where, limit } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import { db, auth, functions, storage } from "@/lib/firebase";
 import { httpsCallable } from "firebase/functions";
@@ -47,7 +47,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 import { CallInterface } from "@/components/chat/call-interface"; // Restored correct path
 import { generateChannelName } from "@/lib/agora"; // Restored missing import
-import { NIGERIA_STATES } from "@/lib/nigeria-geography"; // Restored for completeness if needed later
+// import { NIGERIA_STATES } from "@/lib/nigeria-geography"; // Restored for completeness if needed later
 
 const SYSTEM_ROLES = ['Beneficiary', 'Driver', 'Support Agent', 'User'];
 
@@ -231,6 +231,8 @@ export default function AdminChatsPage() {
         const unsubP2P = onSnapshot(p2pQuery, (snapshot) => {
             const p2pSessions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChatSession));
             setPrivateChats(p2pSessions);
+        }, (error) => {
+            console.error("Admin p2p chats listener error:", error);
         });
 
         let unsubSystem = () => { };
@@ -238,6 +240,8 @@ export default function AdminChatsPage() {
             unsubSystem = onSnapshot(systemQuery, (snapshot) => {
                 const sysSessions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChatSession));
                 setSystemChats(sysSessions);
+            }, (error) => {
+                console.error("Admin system chats listener error:", error);
             });
         }
 
@@ -365,6 +369,8 @@ export default function AdminChatsPage() {
                     }
                 });
             }
+        }, (error) => {
+            console.error("Admin messages listener error:", error);
         });
 
         return () => unsubscribe();
@@ -455,6 +461,9 @@ export default function AdminChatsPage() {
                 return;
             }
 
+            const adminName = adminProfile ? `${adminProfile.firstName} ${adminProfile.lastName}` : 'Admin';
+            const adminAvatar = adminProfile?.image || '';
+
             // Create call document for each recipient
             const callPromises = recipients.map(recipientId => {
                 return addDoc(collection(db, 'calls'), {
@@ -462,13 +471,15 @@ export default function AdminChatsPage() {
                     agentId: auth.currentUser?.uid,
                     userName: selectedChat.fullName || 'Unknown User',
                     userImage: selectedChat.userImage || '',
-                    agentName: adminProfile?.firstName + ' ' + adminProfile?.lastName || 'Support Agent',
-                    agentImage: adminProfile?.image || '',
+                    agentName: adminName,
+                    agentImage: adminAvatar,
+                    callerName: adminName,
+                    callerAvatar: adminAvatar,
                     callType: 'voice',
                     chatId: selectedChatId,
                     channelName: channelName,
                     callerId: auth.currentUser?.uid,
-                    receiverId: isGroup ? selectedChat.id : recipientId, // Added receiverId
+                    receiverId: isGroup ? selectedChat.id : recipientId,
                     status: 'ringing',
                     startTime: serverTimestamp(),
                     acceptedAt: null,
@@ -477,12 +488,37 @@ export default function AdminChatsPage() {
                     language: 'en',
                     location: '',
                     priority: 'normal',
-                    isGroupCall: isGroup
+                    isGroupCall: isGroup,
+                    participants: isGroup ? (selectedChat.participants || []) : [auth.currentUser?.uid, recipientId]
                 });
             });
 
             const callRefs = await Promise.all(callPromises);
             const mainCallRef = callRefs[0];
+
+            // ✅ Log call initiation to chat
+            const callEmoji = '📞';
+            const callText = 'Voice call';
+
+            await addDoc(collection(db, 'chats', selectedChatId, 'messages'), {
+                content: `${callEmoji} ${callText}`,
+                messageType: 'call',
+                callType: 'voice',
+                callId: mainCallRef.id,
+                originalText: callText,
+                agentTranslatedText: `${callEmoji} ${callText}`,
+                userTranslatedText: `${callEmoji} ${callText}`,
+                receiverId: isGroup ? selectedChat.id : recipients[0],
+                senderEmail: auth.currentUser?.email || '',
+                senderId: auth.currentUser?.uid,
+                timestamp: serverTimestamp(),
+                status: 'sent'
+            });
+
+            await updateDoc(doc(db, 'chats', selectedChatId), {
+                lastMessage: `${callEmoji} ${callText}`,
+                lastMessageTimestamp: serverTimestamp()
+            });
 
             setActiveCall({
                 callId: mainCallRef.id,
@@ -523,19 +559,24 @@ export default function AdminChatsPage() {
                 return;
             }
 
+            const adminName = adminProfile ? `${adminProfile.firstName} ${adminProfile.lastName}` : 'Admin';
+            const adminAvatar = adminProfile?.image || '';
+
             const callPromises = recipients.map(recipientId => {
                 return addDoc(collection(db, 'calls'), {
                     userId: recipientId,
                     agentId: auth.currentUser?.uid,
                     userName: selectedChat.fullName || 'Unknown User',
                     userImage: selectedChat.userImage || '',
-                    agentName: adminProfile?.firstName + ' ' + adminProfile?.lastName || 'Support Agent',
-                    agentImage: adminProfile?.image || '',
+                    agentName: adminName,
+                    agentImage: adminAvatar,
+                    callerName: adminName,
+                    callerAvatar: adminAvatar,
                     callType: 'video',
                     chatId: selectedChatId,
                     channelName: channelName,
                     callerId: auth.currentUser?.uid,
-                    receiverId: isGroup ? selectedChat.id : recipientId, // Added receiverId
+                    receiverId: isGroup ? selectedChat.id : recipientId,
                     status: 'ringing',
                     startTime: serverTimestamp(),
                     acceptedAt: null,
@@ -544,12 +585,37 @@ export default function AdminChatsPage() {
                     language: 'en',
                     location: '',
                     priority: 'normal',
-                    isGroupCall: isGroup
+                    isGroupCall: isGroup,
+                    participants: isGroup ? (selectedChat.participants || []) : [auth.currentUser?.uid, recipientId]
                 });
             });
 
             const callRefs = await Promise.all(callPromises);
             const mainCallRef = callRefs[0];
+
+            // ✅ Log call initiation to chat
+            const callEmoji = '📹';
+            const callText = 'Video call';
+
+            await addDoc(collection(db, 'chats', selectedChatId, 'messages'), {
+                content: `${callEmoji} ${callText}`,
+                messageType: 'call',
+                callType: 'video',
+                callId: mainCallRef.id,
+                originalText: callText,
+                agentTranslatedText: `${callEmoji} ${callText}`,
+                userTranslatedText: `${callEmoji} ${callText}`,
+                receiverId: isGroup ? selectedChat.id : recipients[0],
+                senderEmail: auth.currentUser?.email || '',
+                senderId: auth.currentUser?.uid,
+                timestamp: serverTimestamp(),
+                status: 'sent'
+            });
+
+            await updateDoc(doc(db, 'chats', selectedChatId), {
+                lastMessage: `${callEmoji} ${callText}`,
+                lastMessageTimestamp: serverTimestamp()
+            });
 
             setActiveCall({
                 callId: mainCallRef.id,

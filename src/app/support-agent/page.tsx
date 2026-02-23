@@ -11,8 +11,6 @@ import {
   Phone,
   Users,
   Clock,
-  AlertCircle,
-  CheckCircle,
   MessageCircle,
   PhoneCall,
   MapPin,
@@ -20,7 +18,6 @@ import {
 } from "lucide-react";
 import { collection, query, where, onSnapshot, orderBy, limit, doc, getDocs, getCountFromServer } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
-import { useToast } from "@/hooks/use-toast";
 
 interface ChatSession {
   id: string;
@@ -57,7 +54,7 @@ export default function SupportAgentDashboard() {
     totalCalls: 0,
     onlineUsers: 0
   });
-  const { toast } = useToast();
+  // const { toast } = useToast();
   const agentId = auth.currentUser?.uid;
 
   // Fetch agent profile first
@@ -140,12 +137,14 @@ export default function SupportAgentDashboard() {
       }).catch(error => {
         console.error('Error getting chat count:', error);
       });
+    }, (error) => {
+      console.error("Support dashboard chats listener error:", error);
     });
 
-    // Listen for active calls assigned to this agent
+    // Listen for active calls where I am a participant
     const callsQuery = query(
       collection(db, 'calls'),
-      where('agentId', '==', agentId),
+      where('participants', 'array-contains', agentId),
       where('status', 'in', ['ringing', 'active']),
       orderBy('startTime', 'desc'),
       limit(10)
@@ -153,10 +152,10 @@ export default function SupportAgentDashboard() {
 
     const unsubscribeCalls = onSnapshot(callsQuery, async (snapshot) => {
       const calls: CallSession[] = [];
-  
+
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data();
-  
+
         // Get user profile data
         try {
           const userDoc = await getDocs(query(collection(db, 'users'), where('__name__', '==', doc(db, 'users', data.userId))));
@@ -177,9 +176,11 @@ export default function SupportAgentDashboard() {
           console.error('Error fetching user data for call:', error);
         }
       }
-  
+
       setActiveCalls(calls.slice(0, 5)); // Limit to 5 after filtering
       setStats(prev => ({ ...prev, totalCalls: calls.length }));
+    }, (error) => {
+      console.error("Support dashboard calls listener error:", error);
     });
 
     // Get online users count in the same state
@@ -202,6 +203,8 @@ export default function SupportAgentDashboard() {
       }
 
       setStats(prev => ({ ...prev, onlineUsers: onlineUsersInState }));
+    }, (error) => {
+      console.error("Support dashboard users listener error:", error);
     });
 
     return () => {
@@ -250,14 +253,14 @@ export default function SupportAgentDashboard() {
           <Card className="bg-card backdrop-blur-sm border-0 shadow-sm sm:shadow-2xl w-full max-w-[90vw] sm:max-w-full">
             <CardContent className="p-2 sm:p-4">
               <div className="flex items-center gap-1 sm:gap-2">
-                 <div className="bg-primary/10 p-2 sm:p-3 rounded-2xl">
-                   <MessageSquare className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-                 </div>
-                 <div>
-                   <p className="text-xl sm:text-2xl font-bold text-primary">{stats.activeChats}</p>
-                   <p className="text-xs sm:text-sm text-muted-foreground">Active Chats</p>
-                 </div>
-               </div>
+                <div className="bg-primary/10 p-2 sm:p-3 rounded-2xl">
+                  <MessageSquare className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xl sm:text-2xl font-bold text-primary">{stats.activeChats}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Active Chats</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -273,35 +276,35 @@ export default function SupportAgentDashboard() {
                 </div>
               </div>
             </CardContent>
-           </Card>
+          </Card>
 
-           <Card className="bg-card backdrop-blur-sm border-0 shadow-sm sm:shadow-2xl w-full max-w-[90vw] sm:max-w-full">
-             <CardContent className="p-2 sm:p-4">
-               <div className="flex items-center gap-1 sm:gap-2">
-                 <div className="bg-purple-100 p-2 sm:p-3 rounded-2xl">
-                   <Users className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600" />
-                 </div>
-                 <div>
-                   <p className="text-xl sm:text-2xl font-bold text-purple-600">{stats.onlineUsers}</p>
-                   <p className="text-xs sm:text-sm text-muted-foreground">Online Users</p>
-                 </div>
-               </div>
-             </CardContent>
-           </Card>
+          <Card className="bg-card backdrop-blur-sm border-0 shadow-sm sm:shadow-2xl w-full max-w-[90vw] sm:max-w-full">
+            <CardContent className="p-2 sm:p-4">
+              <div className="flex items-center gap-1 sm:gap-2">
+                <div className="bg-purple-100 p-2 sm:p-3 rounded-2xl">
+                  <Users className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-xl sm:text-2xl font-bold text-purple-600">{stats.onlineUsers}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Online Users</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-           <Card className="bg-card backdrop-blur-sm border-0 shadow-sm sm:shadow-2xl w-full max-w-[90vw] sm:max-w-full">
-             <CardContent className="p-2 sm:p-4">
-               <div className="flex items-center gap-1 sm:gap-2">
-                 <div className="bg-orange-100 p-2 sm:p-3 rounded-2xl">
-                   <Globe className="h-5 w-5 sm:h-6 sm:w-6 text-orange-600" />
-                 </div>
-                 <div>
-                   <p className="text-xl sm:text-2xl font-bold text-orange-600">5</p>
-                   <p className="text-xs sm:text-sm text-muted-foreground">Languages</p>
-                 </div>
-               </div>
-             </CardContent>
-           </Card>
+          <Card className="bg-card backdrop-blur-sm border-0 shadow-sm sm:shadow-2xl w-full max-w-[90vw] sm:max-w-full">
+            <CardContent className="p-2 sm:p-4">
+              <div className="flex items-center gap-1 sm:gap-2">
+                <div className="bg-orange-100 p-2 sm:p-3 rounded-2xl">
+                  <Globe className="h-5 w-5 sm:h-6 sm:w-6 text-orange-600" />
+                </div>
+                <div>
+                  <p className="text-xl sm:text-2xl font-bold text-orange-600">5</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Languages</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Active Chats */}

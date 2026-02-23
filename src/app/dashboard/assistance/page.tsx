@@ -386,6 +386,8 @@ export default function AssistancePage() {
                 calls.push({ id: doc.id, ...data, startTime: data.startTime?.toDate(), endTime: data.endTime?.toDate() });
             });
             setCallHistory(calls.map(call => ({ ...call, startTime: call.startTime ? new Date(call.startTime) : null, endTime: call.endTime ? new Date(call.endTime) : null })));
+        }, (error) => {
+            console.error("Call history listener error:", error);
         });
         return () => unsubscribe();
     }, [user]);
@@ -440,6 +442,9 @@ export default function AssistancePage() {
             const channelName = [user.uid, supportAgent!.uid].sort().join('_');
             const callDocRef = doc(collection(db, 'calls'));
 
+            const callerName = userProfile ? `${userProfile.firstName} ${userProfile.lastName}`.trim() : 'User';
+            const callerAvatar = userProfile?.image || '';
+
             await setDoc(callDocRef, {
                 userId: user.uid,
                 agentId: supportAgent!.uid,
@@ -447,10 +452,14 @@ export default function AssistancePage() {
                 userImage: userProfile?.image || '',
                 agentName: supportAgent!.displayName || 'Support Agent',
                 agentImage: supportAgent!.image || '',
+                callerName: callerName,
+                callerAvatar: callerAvatar,
                 callType: type,
                 chatId: chatId || 'temp-id',
                 channelName: channelName,
                 callerId: user.uid,
+                receiverId: supportAgent!.uid,
+                isGroupCall: false,
                 status: 'ringing',
                 startTime: serverTimestamp(),
                 acceptedAt: null,
@@ -458,7 +467,33 @@ export default function AssistancePage() {
                 duration: 0,
                 language: 'en',
                 location: '',
-                priority: 'normal'
+                priority: 'normal',
+                participants: [user.uid, supportAgent!.uid]
+            });
+
+            // ✅ Log call initiation to chat
+            const currentChatId = chatId || `${user.uid}_${supportAgent!.uid}`;
+            const callEmoji = type === 'video' ? '📹' : '📞';
+            const callText = type === 'video' ? 'Video call' : 'Voice call';
+
+            await addDoc(collection(db, 'chats', currentChatId, 'messages'), {
+                content: `${callEmoji} ${callText}`,
+                messageType: 'call',
+                callType: type,
+                callId: callDocRef.id,
+                originalText: callText,
+                agentTranslatedText: `${callEmoji} ${callText}`,
+                userTranslatedText: `${callEmoji} ${callText}`,
+                receiverId: supportAgent!.uid,
+                senderEmail: user.email!,
+                senderId: user.uid,
+                timestamp: serverTimestamp(),
+                status: 'sent'
+            });
+
+            await updateDoc(doc(db, 'chats', currentChatId), {
+                lastMessage: `${callEmoji} ${callText}`,
+                lastMessageTimestamp: serverTimestamp()
             });
 
             setCallType(type);

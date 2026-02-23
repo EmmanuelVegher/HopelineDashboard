@@ -10,12 +10,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { MapPin, Navigation, Play, Square, Activity, Clock, Route, Target, AlertTriangle, CheckCircle, XCircle, Pause, SkipBack, SkipForward, RotateCcw, History as HistoryIcon } from 'lucide-react';
+import { MapPin, Navigation, Play, Square, Activity, Route, Target, CheckCircle, XCircle, Pause, SkipBack, SkipForward, RotateCcw, History as HistoryIcon } from 'lucide-react';
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { useToast } from '@/hooks/use-toast';
 import { useGeolocation } from '@/hooks/useGeolocation';
@@ -23,14 +22,22 @@ import InteractiveGoogleMap from '@/components/interactive-google-map';
 // Location streaming removed to prevent browser crashes
 // import { useLocationStreaming } from '@/hooks/useLocationStreaming';
 
-interface MapTask extends SosAlert {
+interface MapTask {
+  id: string;
+  emergencyType: string;
+  status: 'Active' | 'Investigating' | 'Responding' | 'In Transit' | 'False Alarm' | 'Resolved';
   assignedAt: Date;
+  location: {
+    latitude: number;
+    longitude: number;
+    address?: string;
+  };
   trackingData?: {
-    coordinates: Array<{ lat: number, lng: number, timestamp: number }>;
-    startTime: string;
-    endTime: string;
-    totalDistance: number;
-    averageSpeed: number;
+    coordinates?: Array<{ lat?: number, lng?: number, latitude?: number, longitude?: number, timestamp?: number }>;
+    startTime?: string;
+    endTime?: string;
+    totalDistance?: number;
+    averageSpeed?: number;
   };
 }
 
@@ -68,6 +75,7 @@ export default function DriverMapPage() {
     lastPosition: null,
   });
   const [isTracking, setIsTracking] = useState(false);
+  const [trackingType, setTrackingType] = useState<'none' | 'general' | 'task'>('none');
 
   // General History Playback State
   const [historyStartDate, setHistoryStartDate] = useState<string>(() => {
@@ -81,7 +89,6 @@ export default function DriverMapPage() {
   const [followDriver, setFollowDriver] = useState(false);
   const [isReplaying, setIsReplaying] = useState(false);
   const [replayIndex, setReplayIndex] = useState(0);
-  const [tripSelectionModalOpen, setTripSelectionModalOpen] = useState(false);
   const [selectedTripForReplay, setSelectedTripForReplay] = useState<MapTask | null>(null);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -434,16 +441,52 @@ export default function DriverMapPage() {
       if (userId && (!lastLocationUpdateRef.current || now - lastLocationUpdateRef.current > 5000)) {
         lastLocationUpdateRef.current = now;
         const userRef = doc(db, 'users', userId);
-        updateDoc(userRef, {
+
+        // Data to update in users collection
+        const updateData: any = {
           latitude: lat,
           longitude: lng,
           heading: currentPos.coords.heading || 0,
           speed: currentPos.coords.speed || 0,
           lastLocationUpdate: serverTimestamp(),
-        }).catch(err => console.error("Error updating driver location:", err));
+          isTracking: true,
+          trackingType: trackingType
+        };
+
+        if (trackingType === 'task' && selectedTask) {
+          updateData.currentTaskId = selectedTask.id;
+        } else {
+          updateData.currentTaskId = null;
+        }
+
+        updateDoc(userRef, updateData).catch(err => console.error("Error updating driver location:", err));
+
+        // If tracking task, also update the SOS alert document with current position
+        if (trackingType === 'task' && selectedTask) {
+          const sosRef = doc(db, 'sosAlerts', selectedTask.id);
+          updateDoc(sosRef, {
+            currentDriverLocation: {
+              latitude: lat,
+              longitude: lng,
+              timestamp: serverTimestamp()
+            }
+          }).catch(err => console.error("Error updating SOS alert location:", err));
+        }
+      }
+    } else if (!isTracking && userId) {
+      // Clear tracking status in Firestore when not tracking
+      const now = Date.now();
+      if (!lastLocationUpdateRef.current || now - lastLocationUpdateRef.current > 10000) {
+        lastLocationUpdateRef.current = now;
+        const userRef = doc(db, 'users', userId);
+        updateDoc(userRef, {
+          isTracking: false,
+          trackingType: 'none',
+          currentTaskId: null
+        }).catch(err => console.error("Error clearing driver tracking status:", err));
       }
     }
-  }, [isTracking, geolocation.state.position, trackingStats.lastPosition, trackingStats.startTime, calculateDistance, userId]);
+  }, [isTracking, trackingType, geolocation.state.position, trackingStats.lastPosition, trackingStats.startTime, calculateDistance, userId, selectedTask]);
 
   const filteredTasks = tasks.filter(task => {
     switch (mapView) {
@@ -492,14 +535,12 @@ export default function DriverMapPage() {
     }
   };
 
-  const handleStartTracking = useCallback(async () => {
+  const handleStartTracking = useCallback(async (type: 'general' | 'task' = 'general') => {
     try {
-      console.log('[handleStartTracking] Starting location tracking...');
+      console.log(`[handleStartTracking] Starting ${type} tracking...`);
       console.log('[handleStartTracking] Current permission state:', geolocation.state.permission);
-      console.log('[handleStartTracking] Selected task:', selectedTask);
 
-      // Check if a task is selected
-      if (!selectedTask) {
+      if (type === 'task' && !selectedTask) {
         toast({
           title: 'No Task Selected',
           description: 'Please select a task from the dropdown before starting tracking.',
@@ -524,11 +565,12 @@ export default function DriverMapPage() {
       }
 
       // Start tracking with 30-second coordinate storage
-      console.log('[handleStartTracking] Starting geolocation tracking...');
+      console.log(`[handleStartTracking] Starting geolocation ${type} tracking...`);
       geolocation.startTracking({ trackingInterval: 30000 }); // 30 seconds
 
       // Initialize tracking
       setIsTracking(true);
+      setTrackingType(type);
       setTrackingPath([]); // Clear previous path
       setFollowDriver(true); // Enable following by default
 
@@ -542,11 +584,16 @@ export default function DriverMapPage() {
       }));
 
       toast({
-        title: 'Live Tracking Started',
-        description: 'Your location is now being tracked in real-time with navigation guidance.',
+        title: `${type === 'task' ? 'Task' : 'General'} Trip Started`,
+        description: `Your location is now being tracked for a ${type === 'task' ? 'task' : 'general'} trip.`,
       });
 
-      console.log('[handleStartTracking] Live tracking started successfully');
+      // If it's a task trip, update task status
+      if (type === 'task' && selectedTask) {
+        updateTaskStatus(selectedTask.id, 'In Transit');
+      }
+
+      console.log(`[handleStartTracking] ${type} tracking started successfully`);
     } catch (error) {
       console.error('Error starting tracking:', error);
       toast({
@@ -555,7 +602,7 @@ export default function DriverMapPage() {
         variant: 'destructive',
       });
     }
-  }, [geolocation, selectedTask, toast]);
+  }, [geolocation, selectedTask, toast, updateTaskStatus]);
 
   const saveTrackingDataToFirestore = useCallback(async (taskId: string, coordinates: Array<{ lat: number, lng: number, timestamp: number }>) => {
     if (coordinates.length === 0) return;
@@ -590,13 +637,14 @@ export default function DriverMapPage() {
   }, [userId, trackingStats, toast]);
 
   const handleStopTracking = useCallback(async () => {
-    // Save tracking data to Firestore before stopping
-    if (selectedTask && geolocation.state.trackingCoordinates.length > 0) {
+    // If it's a task trip, save the final tracking coordinates to the SOS alert
+    if (trackingType === 'task' && selectedTask && geolocation.state.trackingCoordinates.length > 0) {
       await saveTrackingDataToFirestore(selectedTask.id, geolocation.state.trackingCoordinates);
     }
 
     geolocation.stopTracking();
     setIsTracking(false);
+    setTrackingType('none');
     setFollowDriver(false);
     setTrackingStats(prev => ({
       ...prev,
@@ -604,10 +652,10 @@ export default function DriverMapPage() {
     }));
 
     toast({
-      title: 'Live Tracking Stopped',
+      title: 'Trip Stopped',
       description: 'Location tracking has been stopped and data saved.',
     });
-  }, [geolocation, selectedTask, saveTrackingDataToFirestore, toast]);
+  }, [geolocation, selectedTask, trackingType, saveTrackingDataToFirestore, toast]);
 
   const handleLocationError = useCallback((error: string) => {
     console.error('Location error:', error);
@@ -627,8 +675,7 @@ export default function DriverMapPage() {
 
         if (trackingData && trackingData.coordinates && trackingData.coordinates.length > 0) {
           setSelectedTripForReplay(task);
-          setTripSelectionModalOpen(false);
-          setReplayCoordinates(trackingData.coordinates); // Fix: Set replayCoordinates
+          setReplayCoordinates(trackingData.coordinates);
           setIsReplaying(true);
           setIsPlaying(true);
           setMapMode('tracking'); // Fix: Set map mode to tracking
@@ -1120,579 +1167,353 @@ export default function DriverMapPage() {
 
         {/* Task Details Sidebar */}
         <div className="space-y-4">
-          {/* Tracking Controls */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
-                Live Tracking
-                {isTracking && (
-                  <Badge variant="default" className="ml-auto">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-1"></div>
-                    Active
-                  </Badge>
-                )}
+          {/* General Trip Management Card */}
+          <Card className="border-t-4 border-t-green-500 shadow-md">
+            <CardHeader className="pb-3 text-center">
+              <CardTitle className="text-lg font-bold flex items-center justify-center gap-2">
+                <Route className="h-5 w-5 text-green-600" />
+                General Trip Management
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                {!isTracking ? (
-                  <Button
-                    onClick={() => {
-                      if (!selectedTask) {
-                        toast({
-                          title: 'Task Selection Required',
-                          description: 'Please select a task from the dropdown above before starting live tracking.',
-                          variant: 'destructive',
-                        });
-                        return;
-                      }
-                      handleStartTracking();
-                    }}
-                    className="flex-1"
-                    disabled={!geolocation.state.isSupported || geolocation.state.permission === 'denied' || !selectedTask}
-                  >
-                    <Play className="h-4 w-4 mr-2" />
-                    {!selectedTask ? 'Select Task First' : geolocation.state.permission === 'denied' ? 'Location Blocked' : 'Start Live Tracking'}
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={handleStopTracking}
-                    variant="destructive"
-                    className="flex-1"
-                  >
-                    <Square className="h-4 w-4 mr-2" />
-                    Stop Tracking
-                  </Button>
-                )}
-              </div>
-
-              {/* Movement History Replay Controls */}
-              {!isTracking && !selectedTask && (
-                <Card className="border shadow-sm bg-purple-50/20">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-xs font-black uppercase tracking-widest text-purple-600 flex items-center gap-2">
-                      <HistoryIcon className="h-4 w-4" /> Movement History Replay
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-[9px] font-bold uppercase text-slate-500">From</Label>
-                        <Input
-                          type="datetime-local"
-                          value={historyStartDate}
-                          onChange={(e) => setHistoryStartDate(e.target.value)}
-                          className="h-8 text-xs bg-white"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[9px] font-bold uppercase text-slate-500">To</Label>
-                        <Input
-                          type="datetime-local"
-                          value={historyEndDate}
-                          onChange={(e) => setHistoryEndDate(e.target.value)}
-                          className="h-8 text-xs bg-white"
-                        />
-                      </div>
-                    </div>
-                    <Button
-                      onClick={fetchGeneralHistory}
-                      className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold uppercase text-[10px] h-8 shadow-sm"
-                      disabled={isFetchingGeneralHistory}
-                    >
-                      {isFetchingGeneralHistory ? (
-                        <div className="flex items-center gap-1">
-                          <div className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Fetching...
-                        </div>
-                      ) : "Load Replay"}
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-
-              {!geolocation.state.isSupported && (
-                <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
-                  Geolocation is not supported in this browser.
-                </div>
-              )}
-
-              {/* Follow Driver Toggle */}
-              {isTracking && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Follow Driver</span>
-                  <Button
-                    variant={followDriver ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setFollowDriver(!followDriver)}
-                  >
-                    {followDriver ? "On" : "Off"}
-                  </Button>
-                </div>
-              )}
-
-              {/* Permission Status */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Location Permission:</span>
-                  <Badge variant={
-                    geolocation.state.permission === 'granted' ? 'default' :
-                      geolocation.state.permission === 'denied' ? 'destructive' :
-                        geolocation.state.permission === 'prompt' ? 'secondary' : 'outline'
-                  }>
-                    {geolocation.state.permission === 'granted' ? 'Granted' :
-                      geolocation.state.permission === 'denied' ? 'Denied' :
-                        geolocation.state.permission === 'prompt' ? 'Prompt' : 'Unknown'}
-                  </Badge>
-                </div>
-
-                {geolocation.state.permission === 'denied' && (
-                  <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
-                    Location access is blocked. Click the lock icon in your browser's address bar and allow location access.
-                  </div>
-                )}
-
-                {geolocation.state.position && (
+              <div className="flex flex-col gap-3">
+                {trackingType !== 'task' && (
                   <>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Current Location:</span>
-                      <span className="font-mono text-xs">
-                        {geolocation.state.position.coords.latitude.toFixed(4)},
-                        {geolocation.state.position.coords.longitude.toFixed(4)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Accuracy:</span>
-                      <Badge variant={geolocation.state.position.coords.accuracy < 50 ? "default" : "secondary"}>
-                        ±{Math.round(geolocation.state.position.coords.accuracy)}m
-                      </Badge>
-                    </div>
+                    {!isTracking ? (
+                      <Button
+                        onClick={() => handleStartTracking('general')}
+                        className="w-full bg-green-600 hover:bg-green-700 h-12 text-lg font-bold shadow-lg transform transition-all active:scale-95"
+                      >
+                        <Play className="h-5 w-5 mr-2" />
+                        Start General Trip
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={handleStopTracking}
+                        variant="destructive"
+                        className="w-full h-12 text-lg font-bold shadow-lg animate-pulse"
+                      >
+                        <Square className="h-5 w-5 mr-2" />
+                        Stop General Trip
+                      </Button>
+                    )}
                   </>
                 )}
+
+                {trackingType === 'task' && (
+                  <div className="p-3 bg-muted rounded-lg text-center text-sm text-muted-foreground italic border">
+                    General tracking unavailable during active task trip.
+                  </div>
+                )}
               </div>
 
-              {/* Location streaming removed to prevent browser crashes */}
-              {/* {locationStreaming.state.error && (
-                <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
-                  {locationStreaming.state.error}
+              {/* General History Replay Expandable Section */}
+              {!isTracking && !isReplaying && (
+                <div className="pt-2 border-t mt-4">
+                  <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-2">
+                    <HistoryIcon className="h-3 w-3" /> Historical Replay
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-bold uppercase text-slate-400">From</Label>
+                      <Input
+                        type="datetime-local"
+                        value={historyStartDate}
+                        onChange={(e) => setHistoryStartDate(e.target.value)}
+                        className="h-9 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-bold uppercase text-slate-400">To</Label>
+                      <Input
+                        type="datetime-local"
+                        value={historyEndDate}
+                        onChange={(e) => setHistoryEndDate(e.target.value)}
+                        className="h-9 text-xs"
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    onClick={fetchGeneralHistory}
+                    variant="outline"
+                    className="w-full border-green-200 hover:bg-green-50 text-green-700 font-bold text-xs h-9 uppercase tracking-wider"
+                    disabled={isFetchingGeneralHistory}
+                  >
+                    {isFetchingGeneralHistory ? (
+                      <div className="flex items-center gap-1">
+                        <div className="h-3 w-3 border-2 border-green-600/30 border-t-green-600 rounded-full animate-spin" />
+                        Searching...
+                      </div>
+                    ) : "Load General History"}
+                  </Button>
                 </div>
-              )} */}
+              )}
             </CardContent>
           </Card>
 
-          {/* Tracking Statistics */}
-          {isTracking && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Route className="h-5 w-5" />
-                  Trip Statistics
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm flex items-center gap-1">
-                    <Activity className="h-4 w-4" />
-                    Speed
-                  </span>
-                  <span className="font-semibold">{(trackingStats.speed * 3.6).toFixed(1)} km/h</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm flex items-center gap-1">
-                    <Route className="h-4 w-4" />
-                    Distance
-                  </span>
-                  <span className="font-semibold">{(trackingStats.distanceTraveled / 1000).toFixed(2)} km</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm flex items-center gap-1">
-                    <Clock className="h-4 w-4" />
-                    Time
-                  </span>
-                  <span className="font-semibold">
-                    {Math.floor(trackingStats.timeElapsed / 60)}:{(trackingStats.timeElapsed % 60).toFixed(0).padStart(2, '0')}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Path Points</span>
-                  <span className="font-semibold">{trackingPath.length}</span>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Enhanced Trip Playback Controls */}
-          {isReplaying && selectedTripForReplay && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Play className="h-5 w-5" />
-                  Trip Playback
-                  <Badge variant="default" className="ml-auto">
-                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse mr-1"></div>
-                    Replaying
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-sm">
-                  <p className="font-medium">{selectedTripForReplay.emergencyType}</p>
-                  <p className="text-muted-foreground text-xs">
-                    {selectedTripForReplay.location.address || `${selectedTripForReplay.location.latitude.toFixed(4)}, ${selectedTripForReplay.location.longitude.toFixed(4)}`}
-                  </p>
-                </div>
-
-                {/* Playback Controls */}
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={resetPlayback}
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => seekToPosition(Math.max(0, currentPlaybackTime - 5000))}
-                    disabled={currentPlaybackTime === 0}
-                  >
-                    <SkipBack className="h-4 w-4" />
-                  </Button>
-                  {isPlaying ? (
-                    <Button
-                      size="sm"
-                      onClick={pausePlayback}
-                    >
-                      <Pause className="h-4 w-4 mr-1" />
-                      Pause
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      onClick={resumePlayback}
-                    >
-                      <Play className="h-4 w-4 mr-1" />
-                      Play
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => seekToPosition(Math.min(playbackDuration, currentPlaybackTime + 5000))}
-                    disabled={currentPlaybackTime >= playbackDuration}
-                  >
-                    <SkipForward className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="space-y-2">
-                  <Slider
-                    value={[currentPlaybackTime]}
-                    max={playbackDuration}
-                    step={100}
-                    onValueChange={(value) => seekToPosition(value[0])}
-                    className="w-full"
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{formatTime(currentPlaybackTime)}</span>
-                    <span>{formatTime(playbackDuration)}</span>
-                  </div>
-                </div>
-
-                {/* Speed Control */}
-                <div className="space-y-2">
-                  <Label className="text-sm">Playback Speed: {playbackSpeed}x</Label>
-                  <Slider
-                    value={[playbackSpeed]}
-                    min={0.25}
-                    max={4}
-                    step={0.25}
-                    onValueChange={(value) => changePlaybackSpeed(value[0])}
-                    className="w-full"
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>0.25x</span>
-                    <span>4x</span>
-                  </div>
-                </div>
-
-                {/* Timestamp and Speed Indicators */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      Time
-                    </span>
-                    <span className="font-semibold text-sm">
-                      {getCurrentTimestamp()}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm flex items-center gap-1">
-                      <Activity className="h-4 w-4" />
-                      Speed
-                    </span>
-                    <span className="font-semibold text-sm">{currentSpeed.toFixed(1)} km/h</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-sm">
-                  <span>Progress</span>
-                  <span>{Math.round((currentPlaybackTime / playbackDuration) * 100)}%</span>
-                </div>
-                <Progress value={(currentPlaybackTime / playbackDuration) * 100} className="h-2" />
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Enhanced Trip Statistics */}
-          {isReplaying && selectedTripForReplay && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="h-5 w-5" />
-                  Trip Analytics
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm flex items-center gap-1">
-                    <Route className="h-4 w-4" />
-                    Total Distance
-                  </span>
-                  <span className="font-semibold">{(tripStats.totalDistance / 1000).toFixed(2)} km</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm flex items-center gap-1">
-                    <Activity className="h-4 w-4" />
-                    Avg Speed
-                  </span>
-                  <span className="font-semibold">{tripStats.averageSpeed.toFixed(1)} km/h</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm flex items-center gap-1">
-                    <Activity className="h-4 w-4" />
-                    Max Speed
-                  </span>
-                  <span className="font-semibold">{tripStats.maxSpeed.toFixed(1)} km/h</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm flex items-center gap-1">
-                    <Clock className="h-4 w-4" />
-                    Data Points
-                  </span>
-                  <span className="font-semibold">{tripStats.duration}</span>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Task Selection */}
-          {filteredTasks.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5" />
-                  Select Task
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+          {/* Active Task Card */}
+          <Card className={`border-t-4 ${selectedTask ? 'border-t-red-500' : 'border-t-slate-300'} shadow-md transition-all`}>
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <Target className={`h-5 w-5 ${selectedTask ? 'text-red-600' : 'text-slate-400'}`} />
+                Active Task trip
+              </CardTitle>
+              {isTracking && trackingType === 'task' && (
+                <Badge variant="destructive" className="animate-pulse">Tracking Active</Badge>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Task Selector */}
+              <div className="space-y-2">
+                <Label className="text-xs font-bold text-slate-500 uppercase">Select SOS Alert</Label>
                 <Select
                   value={selectedTask?.id || ''}
                   onValueChange={(taskId) => {
                     const task = filteredTasks.find(t => t.id === taskId);
                     setSelectedTask(task || null);
                   }}
+                  disabled={isTracking}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a task to navigate to" />
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Choose a task..." />
                   </SelectTrigger>
                   <SelectContent>
                     {filteredTasks.map((task) => (
                       <SelectItem key={task.id} value={task.id}>
                         <div className="flex items-center gap-2">
                           <div className={`w-2 h-2 rounded-full ${getTaskStatusColor(task.status)}`} />
-                          <span className="truncate">{task.emergencyType}</span>
+                          <span className="truncate font-medium">{task.emergencyType}</span>
                         </div>
                       </SelectItem>
                     ))}
+                    {filteredTasks.length === 0 && (
+                      <SelectItem value="none" disabled>No active tasks assigned</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
-              </CardContent>
-            </Card>
-          )}
+              </div>
 
-          {/* Task Details */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5" />
-                Task Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
               {selectedTask ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-full ${getTaskStatusColor(selectedTask.status)}`} />
-                    <Badge variant="outline">{selectedTask.status}</Badge>
-                  </div>
-
-                  <div>
-                    <h3 className="font-semibold">{selectedTask.emergencyType}</h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {selectedTask.location.address ||
-                        `${selectedTask.location.latitude.toFixed(4)}, ${selectedTask.location.longitude.toFixed(4)}`}
-                    </p>
-                  </div>
-
-                  {selectedTask.additionalInfo && (
-                    <p className="text-sm text-muted-foreground">
-                      {selectedTask.additionalInfo}
-                    </p>
-                  )}
-
-                  <div className="text-xs text-muted-foreground">
-                    Assigned: {selectedTask.assignedAt.toLocaleString()}
-                  </div>
-
-                  {/* Location streaming removed to prevent browser crashes */}
-                  {/* Trip Progress */}
-                  {/* {selectedTask && geolocation.state.position && locationStreaming.state.isStreaming && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span>Trip Progress</span>
-                        <span className="text-xs text-muted-foreground">
-                          {calculateDistance(
-                            geolocation.state.position.coords.latitude,
-                            geolocation.state.position.coords.longitude,
-                            selectedTask.location.latitude,
-                            selectedTask.location.longitude
-                          ).toFixed(0)}m remaining
-                        </span>
-                      </div>
-                      <Progress value={calculateTripProgress()} className="h-2" />
-                      <div className="text-xs text-center text-muted-foreground">
-                        {calculateTripProgress().toFixed(1)}% complete
-                      </div>
+                <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                  {/* Task Summary Info */}
+                  <div className="p-3 bg-red-50 rounded-lg border border-red-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <Badge variant="outline" className="bg-white text-red-700 border-red-200">
+                        {selectedTask.status}
+                      </Badge>
+                      <span className="text-[10px] text-red-400 font-mono">ID: {selectedTask.id.slice(-6)}</span>
                     </div>
-                  )} */}
+                    <h3 className="font-bold text-red-900">{selectedTask.emergencyType}</h3>
+                    <p className="text-xs text-red-700 mt-1 line-clamp-2">
+                      {selectedTask.location.address || "Fetching address..."}
+                    </p>
+                  </div>
 
-                  <div className="flex flex-col gap-2 pt-2">
-                    <div className="flex gap-2">
+                  {/* Task Trip Buttons */}
+                  <div className="grid grid-cols-1 gap-2">
+                    {trackingType === 'none' && (
+                      <>
+                        <Button
+                          onClick={() => handleStartTracking('task')}
+                          className="w-full bg-red-600 hover:bg-red-700 h-11 text-white font-bold shadow-md transform transition-all active:scale-95"
+                          disabled={isTracking}
+                        >
+                          <Play className="h-4 w-4 mr-2" />
+                          Start Task Trip
+                        </Button>
+                        {selectedTask.status !== 'Resolved' && selectedTask.status !== 'False Alarm' && (
+                          <Button
+                            variant="outline"
+                            onClick={() => updateTaskStatus(selectedTask.id, 'Resolved')}
+                            className="h-11 border-green-600 text-green-700 hover:bg-green-50 font-bold"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Mark as Resolved
+                          </Button>
+                        )}
+                      </>
+                    )}
+
+                    {trackingType === 'task' && (
                       <Button
-                        size="sm"
+                        onClick={handleStopTracking}
+                        variant="destructive"
+                        className="w-full h-11 font-bold shadow-lg animate-pulse"
+                      >
+                        <Square className="h-4 w-4 mr-2" />
+                        Stop Task Trip
+                      </Button>
+                    )}
+
+                    {trackingType === 'general' && (
+                      <div className="p-2 bg-yellow-50 border border-yellow-200 rounded text-[11px] text-yellow-700 text-center italic">
+                        Stop General Trip to start Task Tracking
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <Button
                         variant="outline"
-                        onClick={() => {
-                          // Do NOT launch a separate navigation flow.
-                          // Instead, refresh the embedded Google Maps Directions view on this page.
-                          refreshEmbeddedNavigation();
-                          document.getElementById('embedded-navigation')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }}
-                        disabled={!selectedTask}
+                        size="sm"
+                        className="text-xs h-9"
+                        onClick={refreshEmbeddedNavigation}
                       >
-                        <Navigation className="h-4 w-4 mr-1" />
-                        Open In-app Navigation
+                        <Navigation className="h-3 w-3 mr-1" />
+                        Navigate
                       </Button>
                       <Button
+                        variant="outline"
                         size="sm"
-                        variant="default"
-                        className="flex-1 bg-purple-600 hover:bg-purple-700 shadow-md transform transition-all active:scale-95"
-                        onClick={async () => {
-                          if (!selectedTask) {
-                            toast({
-                              title: 'No Task Selected',
-                              description: 'Please select a task first.',
-                              variant: 'destructive',
-                            });
-                            return;
-                          }
-
-                          if (isReplaying) {
-                            toast({
-                              title: 'Replay in Progress',
-                              description: 'Please wait for the current replay to finish.',
-                              variant: 'destructive',
-                            });
-                            return;
-                          }
-
-                          console.log('Starting playback for selected task:', selectedTask.id);
-                          await startEnhancedReplay(selectedTask);
-                        }}
-                        disabled={isReplaying || !selectedTask}
+                        className="text-xs h-9 border-purple-200 hover:bg-purple-50 hover:text-purple-700"
+                        onClick={() => startEnhancedReplay(selectedTask)}
+                        disabled={isTracking || isReplaying}
                       >
-                        <Play className="h-4 w-4 mr-1" />
-                        Replay Trip
+                        <HistoryIcon className="h-3 w-3 mr-1" />
+                        Replay Task
                       </Button>
                     </div>
-
-                    {selectedTask.status === 'Active' && (
-                      <Button
-                        size="sm"
-                        className="w-full"
-                        onClick={() => {
-                          // TODO: Navigate to tasks page or implement accept here
-                          toast({
-                            title: 'Navigate to Tasks',
-                            description: 'Please go to the Tasks page to accept this task.',
-                          });
-                        }}
-                      >
-                        Accept Task
-                      </Button>
-                    )}
-
-                    {selectedTask.status === 'Responding' && (
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => {
-                            // Start Trip - update status to In Transit and start tracking
-                            updateTaskStatus(selectedTask.id, 'In Transit');
-                            handleStartTracking();
-                            toast({
-                              title: 'Trip Started',
-                              description: 'Live tracking and navigation have begun.',
-                            });
-                          }}
-                        >
-                          <Play className="h-4 w-4 mr-1" />
-                          Start Trip
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1"
-                          onClick={() => {
-                            // Mark as Resolved - update status to Resolved
-                            updateTaskStatus(selectedTask.id, 'Resolved');
-                            setSelectedTask(null); // Clear selection after resolving
-                            toast({
-                              title: 'Task Resolved',
-                              description: 'Task has been marked as resolved.',
-                            });
-                          }}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Mark as Resolved
-                        </Button>
-                      </div>
-                    )}
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">Select a task on the map to view details</p>
+                <div className="py-6 text-center border-2 border-dashed rounded-lg bg-slate-50 border-slate-200">
+                  <MapPin className="h-10 w-10 text-slate-300 mx-auto mb-2" />
+                  <p className="text-xs text-slate-400 font-medium px-4">
+                    Select a task from the dropdown above to manage its trip.
+                  </p>
                 </div>
               )}
             </CardContent>
           </Card>
+
+          {/* Stats & Playback Card (Dynamic) */}
+          {(isTracking || isReplaying) && (
+            <Card className="border-t-4 border-t-purple-500 shadow-xl animate-in zoom-in-95 duration-300">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    {isReplaying ? <RotateCcw className="h-4 w-4 text-purple-600" /> : <Activity className="h-4 w-4 text-blue-600" />}
+                    {isReplaying ? 'Playback Control' : 'Trip Statistics'}
+                  </span>
+                  {isReplaying && (
+                    <Badge className="bg-purple-100 text-purple-700 border-purple-200">
+                      {playbackSpeed}x Speed
+                    </Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isReplaying ? (
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <Slider
+                        value={[currentPlaybackTime]}
+                        max={playbackDuration}
+                        step={100}
+                        onValueChange={(value) => seekToPosition(value[0])}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-[10px] font-mono text-muted-foreground">
+                        <span>{formatTime(currentPlaybackTime)}</span>
+                        <span>{formatTime(playbackDuration)}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-center gap-2">
+                      <Button size="icon" variant="outline" className="h-8 w-8" onClick={resetPlayback}>
+                        <RotateCcw className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => seekToPosition(Math.max(0, currentPlaybackTime - 5000))}>
+                        <SkipBack className="h-4 w-4" />
+                      </Button>
+                      {isPlaying ? (
+                        <Button size="icon" className="h-10 w-10 bg-purple-600 hover:bg-purple-700" onClick={pausePlayback}>
+                          <Pause className="h-5 w-5" />
+                        </Button>
+                      ) : (
+                        <Button size="icon" className="h-10 w-10 bg-purple-600 hover:bg-purple-700" onClick={resumePlayback}>
+                          <Play className="h-5 w-5" />
+                        </Button>
+                      )}
+                      <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => seekToPosition(Math.min(playbackDuration, currentPlaybackTime + 5000))}>
+                        <SkipForward className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => setIsReplaying(false)}>
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2 pt-2 border-t">
+                      <div className="flex justify-between items-center text-[10px] font-bold uppercase text-slate-500">
+                        <span>Playback Speed</span>
+                        <span className="text-purple-600">{playbackSpeed}x</span>
+                      </div>
+                      <Slider
+                        value={[playbackSpeed]}
+                        min={0.5}
+                        max={4}
+                        step={0.5}
+                        onValueChange={(val) => changePlaybackSpeed(val[0])}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 p-2 bg-slate-50 rounded border text-center">
+                      <div className="space-y-0.5">
+                        <p className="text-[10px] text-slate-400 uppercase font-black">Speed</p>
+                        <p className="text-sm font-bold">{currentSpeed.toFixed(1)} <span className="text-[10px] font-normal">km/h</span></p>
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-[10px] text-slate-400 uppercase font-black">Time</p>
+                        <p className="text-sm font-bold">{getCurrentTimestamp()}</p>
+                      </div>
+                    </div>
+
+                    {tripStats.totalDistance > 0 && (
+                      <div className="pt-2 border-t space-y-2">
+                        <p className="text-[10px] font-bold uppercase text-slate-500">Trip Summary</p>
+                        <div className="grid grid-cols-2 gap-2 text-[11px]">
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Avg Speed:</span>
+                            <span className="font-bold">{tripStats.averageSpeed.toFixed(1)} km/h</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Distance:</span>
+                            <span className="font-bold">{(tripStats.totalDistance / 1000).toFixed(2)} km</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="flex flex-col items-center p-2 bg-blue-50 rounded-lg border border-blue-100">
+                      <span className="text-[9px] text-blue-400 uppercase font-bold tracking-tight">Speed</span>
+                      <span className="text-sm font-black text-blue-900">{(trackingStats.speed * 3.6).toFixed(1)}</span>
+                      <span className="text-[8px] text-blue-400">km/h</span>
+                    </div>
+                    <div className="flex flex-col items-center p-2 bg-indigo-50 rounded-lg border border-indigo-100">
+                      <span className="text-[9px] text-indigo-400 uppercase font-bold tracking-tight">Distance</span>
+                      <span className="text-sm font-black text-indigo-900">{(trackingStats.distanceTraveled / 1000).toFixed(2)}</span>
+                      <span className="text-[8px] text-indigo-400">km</span>
+                    </div>
+                    <div className="flex flex-col items-center p-2 bg-slate-50 rounded-lg border border-slate-100">
+                      <span className="text-[9px] text-slate-400 uppercase font-bold tracking-tight">Duration</span>
+                      <span className="text-sm font-black text-slate-900">
+                        {Math.floor(trackingStats.timeElapsed / 60)}:{(trackingStats.timeElapsed % 60).toFixed(0).padStart(2, '0')}
+                      </span>
+                      <span className="text-[8px] text-slate-400">min</span>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Location Status Badge */}
+          <div className="px-1 text-center">
+            <Badge variant="outline" className={`text-[10px] py-0.5 w-full flex justify-center gap-2 ${geolocation.state.permission === 'granted' ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${geolocation.state.permission === 'granted' ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
+              GPS Status: {geolocation.state.permission === 'granted' ? 'High Precision' : 'Permission Required'}
+            </Badge>
+          </div>
 
           {/* SOS Alert Cards - Commented out as per requirements */}
           {/* <div className="space-y-4">
@@ -1766,14 +1587,16 @@ export default function DriverMapPage() {
                           >
                             Start Trip
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="flex-1 text-xs"
-                            onClick={() => updateTaskStatus(task.id, 'Resolved')}
-                          >
-                            Mark as Resolved
-                          </Button>
+                          {task.status !== 'Resolved' && task.status !== 'False Alarm' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 text-xs"
+                              onClick={() => updateTaskStatus(task.id, 'Resolved')}
+                            >
+                              Mark as Resolved
+                            </Button>
+                          )}
                         </>
                       )}
                       {task.status === 'In Transit' && (

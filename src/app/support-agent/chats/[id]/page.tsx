@@ -204,6 +204,9 @@ export default function IndividualChatPage() {
         });
       }
       setLoading(false);
+    }, (error) => {
+      console.error("Chat session listener error:", error);
+      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -255,6 +258,8 @@ export default function IndividualChatPage() {
           await updateDoc(doc.ref, { status: 'read' });
         });
       }
+    }, (error) => {
+      console.error("Chat messages listener error:", error);
     });
 
     return () => unsubscribe();
@@ -362,17 +367,26 @@ export default function IndividualChatPage() {
 
     try {
       const channelName = generateChannelName(auth.currentUser.uid, chatSession.userId);
+      const callerName = userData[auth.currentUser.uid]?.firstName
+        ? `${userData[auth.currentUser.uid].firstName} ${userData[auth.currentUser.uid].lastName}`
+        : 'Support Agent';
+      const callerAvatar = userData[auth.currentUser.uid]?.image || '';
+
       const callDocRef = await addDoc(collection(db, 'calls'), {
         userId: chatSession.userId,
         agentId: auth.currentUser.uid,
         userName: chatSession.userName,
         userImage: chatSession.userImage || '',
-        agentName: 'Support Agent', // Ideally fetch from profile
-        agentImage: '',
+        agentName: callerName,
+        agentImage: callerAvatar,
+        callerName: callerName,
+        callerAvatar: callerAvatar,
         callType: type,
         chatId: chatId,
         channelName: channelName,
         callerId: auth.currentUser.uid,
+        receiverId: chatSession.userId,
+        isGroupCall: false,
         status: 'ringing',
         startTime: serverTimestamp(),
         acceptedAt: null,
@@ -380,7 +394,32 @@ export default function IndividualChatPage() {
         duration: 0,
         language: 'en',
         location: '',
-        priority: 'normal'
+        priority: 'normal',
+        participants: [auth.currentUser.uid, chatSession.userId]
+      });
+
+      // ✅ Log call initiation to chat
+      const callEmoji = type === 'video' ? '📹' : '📞';
+      const callText = type === 'video' ? 'Video call' : 'Voice call';
+
+      await addDoc(collection(db, 'chats', chatId, 'messages'), {
+        content: `${callEmoji} ${callText}`,
+        messageType: 'call',
+        callType: type,
+        callId: callDocRef.id,
+        originalText: callText,
+        agentTranslatedText: `${callEmoji} ${callText}`,
+        userTranslatedText: `${callEmoji} ${callText}`,
+        receiverId: chatSession.userId,
+        senderEmail: auth.currentUser.email || '',
+        senderId: auth.currentUser.uid,
+        timestamp: serverTimestamp(),
+        status: 'sent'
+      });
+
+      await updateDoc(doc(db, 'chats', chatId), {
+        lastMessage: `${callEmoji} ${callText}`,
+        lastMessageTimestamp: serverTimestamp()
       });
 
       setActiveCall({

@@ -142,11 +142,13 @@ function AdminSidebar({ adminProfile }: { adminProfile?: { firstName: string; la
   );
 }
 function AdminModalWrapper() {
-  const { activeAlertModal, clearActiveAlert } = useAdminData();
+  const { activeAlerts, clearAlert } = useAdminData();
+  const activeAlert = activeAlerts && activeAlerts.length > 0 ? activeAlerts[0] : null;
+
   return (
     <EmergencySignalModal
-      alert={activeAlertModal}
-      onClose={clearActiveAlert}
+      alert={activeAlert}
+      onClose={() => activeAlert && clearAlert(activeAlert.id)}
     />
   );
 }
@@ -181,9 +183,11 @@ export default function AdminLayout() {
 
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          console.log("Admin layout: User role from Firestore:", userData.role);
-          if (userData.role === 'Admin' || userData.role === 'super-admin') {
-            console.log("Admin layout: User authorized as", userData.role);
+          const role = userData.role?.toLowerCase();
+          console.log("Admin layout: User role from Firestore:", role);
+
+          if (role === 'admin' || role === 'super-admin' || role === 'super admin' || role === 'superadmin') {
+            console.log("Admin layout: User authorized as", role);
             // Authorized admin
             setIsAuthorized(true);
           } else {

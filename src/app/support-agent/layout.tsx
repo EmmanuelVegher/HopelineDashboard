@@ -23,6 +23,7 @@ import {
   Bell,
   LogOut,
   Headphones,
+  GraduationCap,
 } from "lucide-react";
 import { useLocation, useNavigate, Outlet } from "react-router-dom";
 import { NavLink } from "@/components/nav-link";
@@ -45,6 +46,7 @@ const navLinks = [
   { to: "/support-agent/profile", key: "profile", icon: User },
   { to: "/support-agent/settings", key: "settings", icon: Settings },
   { to: "/support-agent/notifications", key: "notifications", icon: Bell },
+  { to: "/support-agent/training", key: "training", icon: GraduationCap },
 ];
 
 function SupportAgentSidebar({ userProfile }: { userProfile?: { firstName: string; lastName: string; image?: string; isOnline?: boolean } | null }) {

@@ -147,61 +147,77 @@ export default function SupportAgentCallsPage() {
     }
   }, [isVideoEnabled, isAgoraConnected]);
 
-// In handleAcceptCall, before joining the channel:
-const handleAcceptCall = async (call: CallSession) => {
-  try {
-    // Generate Agora token via Firebase Function
-    const channelName = `call_${call.id}`;
-    const uid = auth.currentUser?.uid || '0'; // Use user ID as UID
+  const handleAcceptCall = async (call: CallSession) => {
+    try {
+      // Generate Agora token via Firebase Function
+      const channelName = `call_${call.id}`;
 
-    const { token } = await generateAgoraToken({
-      channelName,
-      uid,
-      role: 'publisher'
-    });
+      // IMPORTANT: Generate token for UID 0 to be compatible with null/anonymous join
+      // This matches the implementation in CallInterface.tsx
+      const { token } = await generateAgoraToken({
+        channelName,
+        uid: "0",
+        role: 'publisher'
+      });
 
-    // Update Firestore
-    await updateDoc(doc(db, 'calls', call.id), {
-      status: 'active',
-      agentId: auth.currentUser?.uid,
-      acceptedAt: new Date()
-    });
+      // Update Firestore
+      await updateDoc(doc(db, 'calls', call.id), {
+        status: 'active',
+        agentId: auth.currentUser?.uid,
+        acceptedAt: new Date()
+      });
 
-    // Initialize Agora
-    await agoraManager.initializeClient();
-    await agoraManager.setupRemoteTracks();
+      // Initialize Agora
+      await agoraManager.initializeClient();
+      await agoraManager.setupRemoteTracks();
 
-    // Create tracks based on call type
-    const hasVideo = call.callType === 'video';
-    await agoraManager.createLocalTracks(true, hasVideo);
+      // Create tracks based on call type
+      const hasVideo = call.callType === 'video';
+      await agoraManager.createLocalTracks(true, hasVideo);
 
-    // Join channel with token
-    await agoraManager.joinChannel(channelName, token);
+      // Join channel with token
+      // Passing undefined for uid to match the token generated for uid 0
+      await agoraManager.joinChannel(channelName, token, undefined);
 
-    // Publish tracks
-    await agoraManager.publishTracks();
+      // Publish tracks
+      await agoraManager.publishTracks();
 
-    // Set video enabled if video call
-    setIsVideoEnabled(hasVideo);
+      // Set video enabled if video call
+      setIsVideoEnabled(hasVideo);
 
-    // Play local video if video call
-    if (hasVideo && localVideoRef.current) {
-      const localTrack = agoraManager.getLocalVideoTrack();
-      if (localTrack) {
-        localTrack.play(localVideoRef.current);
+      // Play local video if video call
+      if (hasVideo && localVideoRef.current) {
+        const localTrack = agoraManager.getLocalVideoTrack();
+        if (localTrack) {
+          localTrack.play(localVideoRef.current);
+        }
       }
-    }
 
-    setSelectedCall(call);
-    setIsInCall(true);
-    setIsAgoraConnected(true);
-    setCallDuration(0);
-    toast({ title: "Call Connected", description: `Connected to ${call.userName}` });
-  } catch (error) {
-    console.error("Error accepting call:", error);
-    toast({ title: "Error", description: "Failed to accept call", variant: "destructive" });
-  }
-};
+      setSelectedCall(call);
+      setIsInCall(true);
+      setIsAgoraConnected(true);
+      setCallDuration(0);
+      toast({ title: "Call Connected", description: `Connected to ${call.userName}` });
+    } catch (error) {
+      console.error("Error accepting call:", error);
+      toast({ title: "Error", description: "Failed to accept call", variant: "destructive" });
+    }
+  };
+
+  const handleDeclineCall = async (call: CallSession) => {
+    try {
+      await updateDoc(doc(db, 'calls', call.id), {
+        status: 'declined',
+        endTime: new Date(),
+        agentId: auth.currentUser?.uid
+      });
+      setSelectedCall(null);
+      toast({ title: "Call Declined", description: `You declined the call from ${call.userName}` });
+    } catch (error) {
+      console.error("Error declining call:", error);
+      toast({ title: "Error", description: "Failed to decline call", variant: "destructive" });
+    }
+  };
 
   const handleEndCall = async () => {
     if (!selectedCall) return;
@@ -295,11 +311,10 @@ const handleAcceptCall = async (call: CallSession) => {
                     {activeCalls.map((call) => (
                       <div
                         key={call.id}
-                        className={`p-4 rounded-lg border cursor-pointer transition-colors ${
-                          selectedCall?.id === call.id
-                            ? 'border-green-500 bg-accent'
-                            : 'border-slate-200 hover:bg-slate-50'
-                        }`}
+                        className={`p-4 rounded-lg border cursor-pointer transition-colors ${selectedCall?.id === call.id
+                          ? 'border-green-500 bg-accent'
+                          : 'border-slate-200 hover:bg-slate-50'
+                          }`}
                         onClick={() => setSelectedCall(call)}
                       >
                         <div className="flex items-center gap-3">
@@ -469,7 +484,7 @@ const handleAcceptCall = async (call: CallSession) => {
                       variant="outline"
                       size="lg"
                       className="px-8"
-                      onClick={() => setSelectedCall(null)}
+                      onClick={() => handleDeclineCall(selectedCall)}
                     >
                       Decline
                     </Button>

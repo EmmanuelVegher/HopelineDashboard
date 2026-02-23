@@ -11,12 +11,13 @@ import { useToast } from "@/hooks/use-toast";
 import { sendSos } from "@/ai/client";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth, db } from "@/lib/firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query, where, doc, getDoc } from "firebase/firestore";
 import type { UssdCode } from "@/lib/data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NIGERIA_STATE_BOUNDS } from "@/lib/nigeria-geography";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
@@ -27,19 +28,20 @@ import {
 } from "@/components/ui/dialog";
 
 const emergencyTypes = [
-  { name: "Medical Emergency", icon: Ambulance, color: "bg-red-100 text-red-600", borderColor: "border-red-200" },
-  { name: "Flood Emergency", icon: Waves, color: "bg-blue-100 text-blue-600", borderColor: "border-blue-200" },
-  { name: "Security Threat", icon: Siren, color: "bg-purple-100 text-purple-600", borderColor: "border-purple-200" },
-  { name: "Fire Emergency", icon: Flame, color: "bg-orange-100 text-orange-600", borderColor: "border-orange-200" },
-  { name: "Road Accident", icon: Car, color: "bg-yellow-100 text-yellow-600", borderColor: "border-yellow-200" },
-  { name: "Kidnapping/Abduction", icon: User, color: "bg-red-100 text-red-600", borderColor: "border-red-200", variant: "destructive" },
-  { name: "Communal Conflict", icon: Swords, color: "bg-gray-100 text-gray-600", borderColor: "border-gray-200" },
-  { name: "Terrorist Activity", icon: Anchor, color: "bg-red-100 text-red-600", borderColor: "border-red-200", variant: "destructive" },
-  { name: "Other Emergency", icon: Tent, color: "bg-green-100 text-green-600", borderColor: "border-green-200" },
+  { name: "Medical Emergency", key: "medicalEmergency", icon: Ambulance, color: "bg-red-100 text-red-600", borderColor: "border-red-200" },
+  { name: "Flood Emergency", key: "floodEmergency", icon: Waves, color: "bg-blue-100 text-blue-600", borderColor: "border-blue-200" },
+  { name: "Security Threat", key: "securityThreat", icon: Siren, color: "bg-purple-100 text-purple-600", borderColor: "border-purple-200" },
+  { name: "Fire Emergency", key: "fireEmergency", icon: Flame, color: "bg-orange-100 text-orange-600", borderColor: "border-orange-200" },
+  { name: "Road Accident", key: "roadAccident", icon: Car, color: "bg-yellow-100 text-yellow-600", borderColor: "border-yellow-200" },
+  { name: "Kidnapping/Abduction", key: "kidnapping", icon: User, color: "bg-red-100 text-red-600", borderColor: "border-red-200", variant: "destructive" },
+  { name: "Communal Conflict", key: "communalConflict", icon: Swords, color: "bg-gray-100 text-gray-600", borderColor: "border-gray-200" },
+  { name: "Terrorist Activity", key: "terroristActivity", icon: Anchor, color: "bg-red-100 text-red-600", borderColor: "border-red-200", variant: "destructive" },
+  { name: "Other Emergency", key: "otherEmergency", icon: Tent, color: "bg-green-100 text-green-600", borderColor: "border-green-200" },
 ];
 
 export default function SOSPage() {
-  const [selectedEmergency, setSelectedEmergency] = useState<string>("Other Emergency");
+  const { t } = useTranslation();
+  const [selectedEmergency, setSelectedEmergency] = useState<string>(t('sos.otherEmergency'));
   const [additionalInfo, setAdditionalInfo] = useState("");
   const [location, setLocation] = useState<{ latitude: number, longitude: number, address?: string, state?: string, localGovernment?: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -56,7 +58,7 @@ export default function SOSPage() {
   const getLocation = useCallback(() => {
     setLocationLoading(true);
     if (!navigator.geolocation) {
-      toast({ title: "Location Error", description: "Geolocation is not supported by your browser.", variant: "destructive" });
+      toast({ title: t('sos.locationErrorTitle'), description: t('sos.locationErrorDesc'), variant: "destructive" });
       setLocationLoading(false);
       return;
     }
@@ -73,11 +75,12 @@ export default function SOSPage() {
       async (position) => {
         const { latitude, longitude } = position.coords;
         console.log("Geolocation success:", latitude, longitude);
-        let address = "Address not found";
+        let address = t('sos.locationCoordinatesAcquired');
         let state = "";
         let localGovernment = "";
         try {
-          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+          // Added email param as per Nominatim Usage Policy to avoid 429/425 limits
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&email=support@hopeline.ng`);
           const data = await response.json();
           address = data.display_name || "Could not determine address";
           state = data.address?.state || "";
@@ -91,22 +94,21 @@ export default function SOSPage() {
       (error) => {
         console.error(`Geolocation error:`, error);
 
-        // No automatic fallback loop here, keep it simple like AnonymousSosDialog
-        let errorMessage = "Could not get your location.";
+        let errorMessage = t('findShelter.geolocationErrorDesc');
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            errorMessage = "Location permission denied. Please allow location access in your browser settings.";
+            errorMessage = t('sos.locationPermissionDenied');
             break;
           case error.POSITION_UNAVAILABLE:
-            errorMessage = "Location information is unavailable. Ensure your system location services are enabled and you have a clear network connection.";
+            errorMessage = t('sos.locationUnavailable');
             break;
           case error.TIMEOUT:
-            errorMessage = "Location request timed out. Please try again.";
+            errorMessage = t('sos.locationTimeout');
             break;
         }
 
         toast({
-          title: "Location Error",
+          title: t('sos.locationErrorTitle'),
           description: errorMessage,
           variant: "destructive"
         });
@@ -114,17 +116,32 @@ export default function SOSPage() {
       },
       options
     );
-  }, [toast]);
+  }, [toast, t]);
 
   useEffect(() => {
-    // Automatically attempt to get location on launch as requested
-    getLocation();
+    // Only fetch USSD codes on launch, require user interaction for geolocation to prevent rate limiting
 
     const fetchUssd = async () => {
       setUssdLoading(true);
       try {
-        const snapshot = await getDocs(collection(db, "ussdCodes"));
-        const codes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as UssdCode);
+        let userState = "";
+        if (user) {
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          if (userDoc.exists() && userDoc.data().state) {
+            userState = userDoc.data().state;
+          }
+        }
+
+        let codes: UssdCode[] = [];
+        if (userState) {
+          const q = query(collection(db, "ussdCodes"), where("state", "==", userState));
+          const snapshot = await getDocs(q);
+          codes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as UssdCode);
+        } else {
+          const snapshot = await getDocs(collection(db, "ussdCodes"));
+          codes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as UssdCode);
+        }
+
         setUssdCodes(codes);
       } catch (error: any) {
         console.error("Error fetching USSD codes:", error);
@@ -132,18 +149,18 @@ export default function SOSPage() {
         if (error.code === 'permission-denied') {
           console.warn("USSD fetch permission denied. This might be resolved by redeploying rules or checking auth.");
         }
-        toast({ title: "Note", description: "Emergency USSD codes could not be loaded at this time.", variant: "destructive" });
+        toast({ title: t('sos.noteTitle'), description: t('sos.ussdLoadError'), variant: "destructive" });
       }
       setUssdLoading(false);
     }
     fetchUssd();
-  }, [getLocation, toast]);
+  }, [getLocation, toast, user]);
 
   const handleSendSOS = async () => {
     if (!location && !showManualLocation) {
       toast({
-        title: "Location Required",
-        description: "Please click 'Detect Location' or enter your location manually before sending the SOS.",
+        title: t('sos.locationRequiredTitle'),
+        description: t('sos.locationRequiredDesc'),
         variant: "destructive"
       });
       // Optionally trigger the detection automatically
@@ -153,7 +170,7 @@ export default function SOSPage() {
 
     if (showManualLocation) {
       if (!manualState || !manualAddress) {
-        toast({ title: "Details Required", description: "Please provide at least your State and Address for manual location.", variant: "destructive" });
+        toast({ title: t('sos.detailsRequiredTitle'), description: t('sos.detailsRequiredDesc'), variant: "destructive" });
         return;
       }
       const manualLoc = {
@@ -185,10 +202,10 @@ export default function SOSPage() {
 
       if (result.success) {
         toast({
-          title: "SOS Sent Successfully",
-          description: "Help is on the way. Your alert has been received by our response team.",
+          title: t('sos.sosSentTitle'),
+          description: t('sos.sosSentDesc'),
         });
-        setSelectedEmergency("Other Emergency");
+        setSelectedEmergency(t('sos.otherEmergency'));
         setAdditionalInfo("");
       } else {
         throw new Error("Failed to send SOS alert.");
@@ -196,8 +213,8 @@ export default function SOSPage() {
 
     } catch (error) {
       toast({
-        title: "SOS Failed",
-        description: "Could not send your SOS. Please try again or use the USSD code.",
+        title: t('sos.sosFailedTitle'),
+        description: t('sos.sosFailedDesc'),
         variant: "destructive"
       });
       console.error(error);
@@ -216,19 +233,19 @@ export default function SOSPage() {
             <AlertTriangle className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
           </div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent mb-3 sm:mb-4">
-            Emergency SOS
+            {t('sos.title')}
           </h1>
           <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base lg:text-lg leading-relaxed max-w-2xl mx-auto">
-            Send an immediate emergency alert to CARITAS Nigeria, the Police, and local response teams.
+            {t('sos.subtitle')}
           </p>
         </div>
 
         {/* SOS Button Section */}
         <Alert className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900 dark:to-orange-900 border-red-200/50 dark:border-red-700/50 backdrop-blur-sm shadow-lg">
           <AlertTriangle className="h-5 w-5 text-red-600" />
-          <AlertTitle className="text-red-800 dark:text-white font-bold text-lg">Immediate Life-Threatening Emergency?</AlertTitle>
+          <AlertTitle className="text-red-800 dark:text-white font-bold text-lg">{t('sos.immediateEmergency')}</AlertTitle>
           <AlertDescription className="text-red-700/90 dark:text-red-300/90">
-            Click the button below to send an instant SOS with your location. Your information will be sent after you click.
+            {t('sos.clickToInstruction')}
           </AlertDescription>
           <div className="flex justify-center mt-4 sm:mt-6">
             <div
@@ -244,8 +261,8 @@ export default function SOSPage() {
               <div className="absolute inset-0 bg-gradient-to-br from-red-500 to-orange-500 rounded-full shadow-2xl transform transition-all duration-300 group-hover:scale-105 group-active:scale-95"></div>
               <div className="absolute inset-2 bg-white rounded-full shadow-lg flex items-center justify-center">
                 <div className="text-center">
-                  <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-red-600 mb-2">SOS</div>
-                  <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium">EMERGENCY</div>
+                  <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-red-600 mb-2">{t('sos.sosButton')}</div>
+                  <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium">{t('sos.emergency')}</div>
                 </div>
               </div>
               {isSubmitting && (
@@ -257,7 +274,7 @@ export default function SOSPage() {
                 <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-full backdrop-blur-sm">
                   <div className="text-center text-white">
                     <Loader2 className="h-8 w-8 sm:h-10 sm:w-10 animate-spin mx-auto mb-2" />
-                    <div className="text-xs sm:text-sm">Getting Location...</div>
+                    <div className="text-xs sm:text-sm">{t('sos.gettingLocation')}</div>
                   </div>
                 </div>
               )}
@@ -270,10 +287,10 @@ export default function SOSPage() {
           <CardHeader className="text-center sm:text-left">
             <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-red-500" />
-              Type of Emergency
+              {t('sos.emergencyTypeTitle')}
             </CardTitle>
             <CardDescription className="text-sm sm:text-base text-slate-600 dark:text-slate-300">
-              Select the emergency type to help response teams prepare appropriate assistance
+              {t('sos.emergencyTypeSelect')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -281,10 +298,10 @@ export default function SOSPage() {
               {emergencyTypes.map((type) => (
                 <button
                   key={type.name}
-                  onClick={() => setSelectedEmergency(type.name)}
+                  onClick={() => setSelectedEmergency(t(`sos.${type.key}`))}
                   className={cn(
                     "p-3 sm:p-4 border-2 rounded-xl flex flex-col items-center justify-center gap-2 text-center transition-all duration-200 hover:shadow-md",
-                    selectedEmergency === type.name
+                    selectedEmergency === t(`sos.${type.key}`)
                       ? `${type.color} border-opacity-50 shadow-lg scale-105`
                       : "bg-white border-slate-200 hover:border-slate-300",
                     type.variant === "destructive" && selectedEmergency === type.name ? "ring-2 ring-red-300" : ""
@@ -293,8 +310,8 @@ export default function SOSPage() {
                   <div className={`p-2 sm:p-3 rounded-lg ${type.color} mb-2 transition-all duration-200 hover:scale-110`}>
                     <type.icon className="h-6 w-6 sm:h-7 sm:w-7" />
                   </div>
-                  <span className="text-xs sm:text-sm font-medium text-black leading-tight">{type.name}</span>
-                  {selectedEmergency === type.name && (
+                  <span className="text-xs sm:text-sm font-medium text-black leading-tight">{t(`sos.${type.key}`)}</span>
+                  {selectedEmergency === t(`sos.${type.key}`) && (
                     <Check className="h-4 w-4 text-green-600 absolute mt-1" />
                   )}
                 </button>
@@ -308,15 +325,15 @@ export default function SOSPage() {
           <CardHeader className="text-center sm:text-left">
             <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
               <FileText className="h-5 w-5 text-blue-500" />
-              Additional Information (Optional)
+              {t('sos.additionalInfoTitle')}
             </CardTitle>
             <CardDescription className="text-sm sm:text-base text-slate-600 dark:text-slate-300">
-              Provide any extra details to help responders understand your situation
+              {t('sos.additionalInfoDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Textarea
-              placeholder="E.g., Number of people affected, specific medical needs, landmark for location..."
+              placeholder={t('sos.additionalInfoPlaceholder')}
               className="min-h-[100px] sm:min-h-[120px] resize-none border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 rounded-xl p-4 text-sm sm:text-base"
               value={additionalInfo}
               onChange={(e) => setAdditionalInfo(e.target.value)}
@@ -333,8 +350,8 @@ export default function SOSPage() {
                 <MapPin className="h-5 w-5 text-blue-600" />
               </div>
               <div>
-                <CardTitle className="text-base sm:text-lg font-semibold text-blue-800">Your Location</CardTitle>
-                <CardDescription className="text-xs sm:text-base text-blue-600">We need your coordinates to send responders</CardDescription>
+                <CardTitle className="text-base sm:text-lg font-semibold text-blue-800">{t('sos.locationTitle')}</CardTitle>
+                <CardDescription className="text-xs sm:text-base text-blue-600">{t('sos.locationDesc')}</CardDescription>
               </div>
             </CardHeader>
             <CardContent className="pt-0">
@@ -342,10 +359,9 @@ export default function SOSPage() {
                 {!location && !locationLoading && (
                   <Alert variant="destructive" className="bg-red-50 border-red-200">
                     <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Location Access Required</AlertTitle>
+                    <AlertTitle>{t('sos.locationAccessRequiredTitle')}</AlertTitle>
                     <AlertDescription className="text-xs">
-                      Please allow location access to automatically detect your position.
-                      Check your browser address bar or system settings.
+                      {t('sos.locationAccessRequiredDesc')}
                     </AlertDescription>
                   </Alert>
                 )}
@@ -353,20 +369,20 @@ export default function SOSPage() {
                 {locationLoading ? (
                   <div className="flex items-center gap-3 p-3 bg-white/60 rounded-lg">
                     <Loader2 className="h-5 w-5 text-blue-600 animate-spin" />
-                    <span className="text-sm text-blue-700">Getting your location...</span>
+                    <span className="text-sm text-blue-700">{t('sos.gettingYourLocation')}</span>
                   </div>
                 ) : location ? (
                   <>
                     <div className="flex items-center justify-between p-3 bg-white/60 rounded-lg">
-                      <span className="text-sm text-blue-600">Status:</span>
+                      <span className="text-sm text-blue-600">{t('sos.statusLabel')}</span>
                       <div className="flex items-center gap-2">
                         <CheckCircle className="h-4 w-4 text-green-600" />
-                        <span className="font-medium text-green-700">Location Acquired</span>
+                        <span className="font-medium text-green-700">{t('sos.locationAcquired')}</span>
                       </div>
                     </div>
                     <div className="p-3 bg-white/60 rounded-lg">
                       <p className="text-xs sm:text-sm text-blue-700 font-medium leading-relaxed">
-                        {location.address || "Location coordinates acquired"}
+                        {location.address || t('sos.locationCoordinatesAcquired')}
                       </p>
                       <p className="text-xs text-blue-500 mt-1 font-mono">
                         {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
@@ -378,17 +394,17 @@ export default function SOSPage() {
                         onClick={() => getLocation()}
                       >
                         <Loader2 className={cn("h-3 w-3", locationLoading && "animate-spin")} />
-                        Refresh Location
+                        {t('sos.refreshLocation')}
                       </Button>
                     </div>
                   </>
                 ) : (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between p-3 bg-white/60 rounded-lg">
-                      <span className="text-sm text-blue-600">Status:</span>
+                      <span className="text-sm text-blue-600">{t('sos.statusLabel')}</span>
                       <div className="flex items-center gap-2">
                         <Button variant="outline" size="sm" className="text-xs" onClick={() => getLocation()}>
-                          Detect Location
+                          {t('sos.detectLocation')}
                         </Button>
                       </div>
                     </div>
@@ -402,7 +418,7 @@ export default function SOSPage() {
                           onClick={() => setShowManualLocation(true)}
                         >
                           <MapPin className="h-3 w-3" />
-                          Enter Location Manually
+                          {t('sos.enterLocationManually')}
                         </Button>
 
                         <Dialog>
@@ -418,27 +434,27 @@ export default function SOSPage() {
                           </DialogTrigger>
                           <DialogContent className="max-w-md">
                             <DialogHeader>
-                              <DialogTitle>Troubleshooting Location Issues</DialogTitle>
+                              <DialogTitle>{t('sos.troubleshootTitle')}</DialogTitle>
                               <DialogDescription>
-                                If you are seeing "kCLErrorLocationUnknown" or persistent location errors:
+                                {t('sos.troubleshootDesc')}
                               </DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4 text-sm">
                               <div className="p-3 bg-slate-50 rounded-lg space-y-2 border border-slate-200">
-                                <p className="font-semibold text-slate-800">1. Check System Settings (macOS)</p>
+                                <p className="font-semibold text-slate-800">{t('sos.troubleshootStep1')}</p>
                                 <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                                  <li>Go to <b>System Settings</b> → <b>Privacy & Security</b> → <b>Location Services</b>.</li>
-                                  <li>Ensure <b>Location Services</b> is ON.</li>
-                                  <li>Ensure <b>Google Chrome</b> is toggled ON.</li>
+                                  <li>{t('sos.troubleshootStep1_1')}</li>
+                                  <li>{t('sos.troubleshootStep1_2')}</li>
+                                  <li>{t('sos.troubleshootStep1_3')}</li>
                                 </ul>
                               </div>
                               <div className="p-3 bg-slate-50 rounded-lg space-y-2 border border-slate-200">
-                                <p className="font-semibold text-slate-800">2. Restart Services</p>
-                                <p className="text-slate-600">Toggling Wi-Fi off and on can sometimes force a location refresh.</p>
+                                <p className="font-semibold text-slate-800">{t('sos.troubleshootStep2')}</p>
+                                <p className="text-slate-600">{t('sos.troubleshootStep2Desc')}</p>
                               </div>
                               <div className="p-3 bg-slate-50 rounded-lg space-y-2 border border-slate-200">
-                                <p className="font-semibold text-slate-800">3. Use Manual Entry</p>
-                                <p className="text-slate-600">If GPS persists in failing, please use the "Enter Location Manually" option to ensure responders can find you.</p>
+                                <p className="font-semibold text-slate-800">{t('sos.troubleshootStep3')}</p>
+                                <p className="text-slate-600">{t('sos.troubleshootStep3Desc')}</p>
                               </div>
                             </div>
                           </DialogContent>
@@ -447,24 +463,24 @@ export default function SOSPage() {
                     ) : (
                       <div className="p-4 bg-white/80 rounded-xl space-y-4 border border-blue-200 shadow-sm animate-in fade-in slide-in-from-top-2">
                         <div className="flex items-center justify-between border-b pb-2 mb-2">
-                          <h3 className="text-sm font-bold text-blue-800">Manual Location Details</h3>
+                          <h3 className="text-sm font-bold text-blue-800">{t('sos.manualLocationDetails')}</h3>
                           <Button
                             variant="ghost"
                             size="sm"
                             className="h-6 px-2 text-slate-500 hover:text-red-500"
                             onClick={() => setShowManualLocation(false)}
                           >
-                            Cancel
+                            {t('sos.cancel')}
                           </Button>
                         </div>
 
                         <div className="space-y-3">
                           <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1">
-                              <label className="text-[10px] uppercase font-bold text-slate-500">State</label>
+                              <label className="text-[10px] uppercase font-bold text-slate-500">{t('sos.stateLabel')}</label>
                               <Select onValueChange={setManualState} value={manualState}>
                                 <SelectTrigger className="h-9 text-xs sm:text-sm">
-                                  <SelectValue placeholder="Select State" />
+                                  <SelectValue placeholder={t('sos.selectState')} />
                                 </SelectTrigger>
                                 <SelectContent className="max-h-[300px]">
                                   {Object.keys(NIGERIA_STATE_BOUNDS).sort().map(state => (
@@ -474,9 +490,9 @@ export default function SOSPage() {
                               </Select>
                             </div>
                             <div className="space-y-1">
-                              <label className="text-[10px] uppercase font-bold text-slate-500">LGA (Optional)</label>
+                              <label className="text-[10px] uppercase font-bold text-slate-500">{t('sos.lgaLabel')}</label>
                               <Input
-                                placeholder="Enter LGA"
+                                placeholder={t('sos.enterLga')}
                                 className="h-9 text-xs sm:text-sm"
                                 value={manualLga}
                                 onChange={(e) => setManualLga(e.target.value)}
@@ -485,9 +501,9 @@ export default function SOSPage() {
                           </div>
 
                           <div className="space-y-1">
-                            <label className="text-[10px] uppercase font-bold text-slate-500">Specific Address / Landmarked Area</label>
+                            <label className="text-[10px] uppercase font-bold text-slate-500">{t('sos.specificAddressLabel')}</label>
                             <Textarea
-                              placeholder="E.g. No 5, Close to the Primary Health Center..."
+                              placeholder={t('sos.specificAddressPlaceholder')}
                               className="min-h-[60px] text-xs sm:text-sm resize-none"
                               value={manualAddress}
                               onChange={(e) => setManualAddress(e.target.value)}
@@ -509,8 +525,8 @@ export default function SOSPage() {
                 <Phone className="h-5 w-5 text-yellow-600" />
               </div>
               <div>
-                <CardTitle className="text-base sm:text-lg font-semibold text-yellow-800">No Internet? Use USSD</CardTitle>
-                <CardDescription className="text-xs sm:text-base text-yellow-600">Works on MTN, Airtel, Glo, 9mobile</CardDescription>
+                <CardTitle className="text-base sm:text-lg font-semibold text-yellow-800">{t('sos.noInternetUssd')}</CardTitle>
+                <CardDescription className="text-xs sm:text-base text-yellow-600">{t('sos.worksOnNetworks')}</CardDescription>
               </div>
             </CardHeader>
             <CardContent className="pt-0">
@@ -538,7 +554,7 @@ export default function SOSPage() {
                 ) : (
                   <div className="text-center p-4 bg-white/60 rounded-lg">
                     <AlertCircle className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
-                    <p className="text-sm text-yellow-700">USSD codes not available</p>
+                    <p className="text-sm text-yellow-700">{t('sos.ussdCodesNotAvailable')}</p>
                   </div>
                 )}
               </div>
@@ -554,12 +570,12 @@ export default function SOSPage() {
                 <CheckCircle className="h-5 w-5 text-green-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-green-800 dark:text-green-200 mb-2">What happens next?</h3>
+                <h3 className="font-semibold text-green-800 dark:text-green-200 mb-2">{t('sos.whatHappensNext')}</h3>
                 <ul className="text-sm text-green-700 dark:text-green-300 space-y-1">
-                  <li>• Your location and emergency details are sent to response teams</li>
-                  <li>• Local authorities and CARITAS Nigeria are notified</li>
-                  <li>• You should receive confirmation within 30 seconds</li>
-                  <li>• Stay on the line if possible for follow-up communication</li>
+                  <li>• {t('sos.nextStep1')}</li>
+                  <li>• {t('sos.nextStep2')}</li>
+                  <li>• {t('sos.nextStep3')}</li>
+                  <li>• {t('sos.nextStep4')}</li>
                 </ul>
               </div>
             </div>

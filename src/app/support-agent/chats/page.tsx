@@ -111,6 +111,15 @@ export default function SupportAgentChatsPage() {
     return [uid1, uid2].sort().join('_');
   };
 
+  const getAgentProfile = () => {
+    const uid = auth.currentUser?.uid;
+    if (!uid || !userData[uid]) return { name: 'Support Agent', avatar: '' };
+    return {
+      name: `${userData[uid].firstName} ${userData[uid].lastName}`.trim() || 'Support Agent',
+      avatar: userData[uid].image || ''
+    };
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -659,17 +668,22 @@ export default function SupportAgentChatsPage() {
                           // But we need to actually create the call doc
                           const startCall = async (type: 'voice' | 'video') => {
                             try {
+                              const agent = getAgentProfile();
                               await setDoc(callDocRef, {
                                 userId: selectedChat.userId,
                                 agentId: auth.currentUser!.uid,
                                 userName: selectedChat.fullName,
                                 userImage: selectedChat.userImage || '',
-                                agentName: 'Support Agent', // Should fetch profile
-                                agentImage: '',
+                                agentName: agent.name,
+                                agentImage: agent.avatar,
+                                callerName: agent.name,
+                                callerAvatar: agent.avatar,
                                 callType: type,
                                 chatId: selectedChat.id,
                                 channelName: channelName,
                                 callerId: auth.currentUser!.uid,
+                                receiverId: selectedChat.userId,
+                                isGroupCall: false,
                                 status: 'ringing',
                                 startTime: serverTimestamp(),
                                 acceptedAt: null,
@@ -677,7 +691,8 @@ export default function SupportAgentChatsPage() {
                                 duration: 0,
                                 language: 'en',
                                 location: '',
-                                priority: 'normal'
+                                priority: 'normal',
+                                participants: [auth.currentUser!.uid, selectedChat.userId]
                               });
 
                               setActiveCall({
@@ -708,17 +723,22 @@ export default function SupportAgentChatsPage() {
 
                           const startCall = async (type: 'voice' | 'video') => {
                             try {
+                              const agent = getAgentProfile();
                               await setDoc(callDocRef, {
                                 userId: selectedChat.userId,
                                 agentId: auth.currentUser!.uid,
                                 userName: selectedChat.fullName,
                                 userImage: selectedChat.userImage || '',
-                                agentName: 'Support Agent',
-                                agentImage: '',
+                                agentName: agent.name,
+                                agentImage: agent.avatar,
+                                callerName: agent.name,
+                                callerAvatar: agent.avatar,
                                 callType: type,
                                 chatId: selectedChat.id,
                                 channelName: channelName,
                                 callerId: auth.currentUser!.uid,
+                                receiverId: selectedChat.userId,
+                                isGroupCall: false,
                                 status: 'ringing',
                                 startTime: serverTimestamp(),
                                 acceptedAt: null,
@@ -726,7 +746,8 @@ export default function SupportAgentChatsPage() {
                                 duration: 0,
                                 language: 'en',
                                 location: '',
-                                priority: 'normal'
+                                priority: 'normal',
+                                participants: [auth.currentUser!.uid, selectedChat.userId]
                               });
 
                               setActiveCall({
@@ -747,14 +768,7 @@ export default function SupportAgentChatsPage() {
                           startCall('video');
                         }
                       }}>
-                        { /* Video Icon - wait we need to import Video icon if not present, checking imports */}
-                        { /* It was not in the imports list I saw earlier (Phone, MapPin etc). Let's use Phone for now or just text "Video Call" if icon missing, 
-                           Actually I can see imports at top. `Phone` is there. `Video` is NOT there. 
-                           I'll add Video to imports in a separate step or just use text. 
-                           Wait, I can just add Video to imports in the first chunk if I knew. 
-                           I'll just use text "Video Call" for now or re-use Phone icon with different text to avoid breaking. 
-                           Or I can add Video to imports now? No, safely I'll use text. 
-                        */ }
+                        <Video className="h-4 w-4 mr-2" />
                         Video Call
                       </Button>
 

@@ -18,7 +18,8 @@ import {
   History,
   Car,
   LogOut,
-  MessageSquare
+  MessageSquare,
+  GraduationCap
 } from "lucide-react";
 import { useLocation, useNavigate, Outlet, Link } from "react-router-dom";
 import { useLoading } from '@/contexts/LoadingProvider';
@@ -38,6 +39,7 @@ const navLinks = [
   { to: "/driver/profile", label: "Profile", icon: User },
   { to: "/driver/settings", label: "Settings", icon: Settings },
   { to: "/driver/history", label: "History", icon: History },
+  { to: "/driver/training", label: "Training", icon: GraduationCap },
 ];
 
 function DriverSidebar({ activeAlertsCount = 0, driverProfile }: { activeAlertsCount?: number; driverProfile?: { firstName: string; lastName: string; image?: string } | null }) {
