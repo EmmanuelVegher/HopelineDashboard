@@ -67,6 +67,7 @@ export default function AssistancePage() {
     const [availableUsers, setAvailableUsers] = useState<UserProfile[]>([]);
     const [availableAdmins, setAvailableAdmins] = useState<UserProfile[]>([]);
     const [usersLoading, setUsersLoading] = useState(true);
+    const [agentsLoading, setAgentsLoading] = useState(true);
     const [adminsLoading, setAdminsLoading] = useState(true);
     const [selectedCategory, setSelectedCategory] = useState<'agents' | 'users' | 'admins'>('agents');
     const [agentSearch, setAgentSearch] = useState('');
