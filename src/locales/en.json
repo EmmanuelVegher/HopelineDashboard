@@ -957,5 +957,20 @@
       }
     },
     "consent": "By using HopeLine, you agree to the terms of this Privacy Policy and our commitment to protecting your data during humanitarian crises."
+  },
+  "deleteAccount": {
+    "title": "Delete Account",
+    "subtitle": "Request account and data deletion",
+    "warning": "Warning: This action is permanent. Once your account is deleted, all your data, including history, records, and settings, will be permanently removed and cannot be recovered.",
+    "requestTitle": "Submit Deletion Request",
+    "reasonLabel": "Reason for deletion (Optional)",
+    "reasonPlaceholder": "Please tell us why you want to delete your account...",
+    "confirmCheckbox": "I understand that this action is irreversible and all my data will be lost.",
+    "submitButton": "Submit Deletion Request",
+    "cancelButton": "Cancel",
+    "successTitle": "Request Received",
+    "successMessage": "Your request for account and data deletion has been received. Our team will process it within 30 days in accordance with our privacy policy.",
+    "errorTitle": "Submission Failed",
+    "errorMessage": "There was an error submitting your request. Please try again later or contact support directly."
   }
 }

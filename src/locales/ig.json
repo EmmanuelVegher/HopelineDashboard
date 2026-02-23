@@ -308,5 +308,20 @@
       }
     },
     "consent": "Site n'iji HopeLine, ị kwenyere na usoro nke Usoro Nzuzo a na ntinye onwe anyị n'ichekwa data gị n'oge nsogbu enyemaka mmadụ."
+  },
+  "deleteAccount": {
+    "title": "Hichapụ Akaụntụ",
+    "subtitle": "Rịọ ka ehichapụ akaụntụ na data",
+    "warning": "Ịdọ aka ná ntị: Ihe a ị na-eme bụ nke na-adịgide adịgide. Ozugbo ehichapụrụ akaụntụ gị, data gị niile, gụnyere akụkọ mbu, ndekọ, na ntọala, ga-apụ kpamkpam ma agaghị enwe ike iweghachite ha.",
+    "requestTitle": "Nyefee Arịrịọ Nhichapụ",
+    "reasonLabel": "Ihe kpatara nhichapụ (Nhọrọ)",
+    "reasonPlaceholder": "Biko gwa anyị ihe kpatara ịchọrọ ihichapụ akaụntụ gị...",
+    "confirmCheckbox": "Aghọtara m na a gaghị enwe ike ịgbanwe ihe a na data m niile ga-atụfu.",
+    "submitButton": "Nyefee Arịrịọ Nhichapụ",
+    "cancelButton": "Kagbuo",
+    "successTitle": "Enwetara Arịrịọ",
+    "successMessage": "Enwetara arịrịọ gị maka nhichapụ akaụntụ na data. Ndị otu anyị ga-arụ ya n'ime ụbọchị 30 dịka usoro nzuzo anyị si dị.",
+    "errorTitle": "Ntọhapụ Adaghị",
+    "errorMessage": "Enwere njehie n'inyefee arịrịọ gị. Biko gbalịa ọzọ ma emechaa ma ọ bụ kpọtụrụ ndị na-enyere anyị aka ozugbo."
   }
 }

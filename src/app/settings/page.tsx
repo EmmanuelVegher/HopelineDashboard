@@ -10,10 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Languages, Bell } from "lucide-react";
+import { Loader2, Languages, Bell, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 
 const languages = [
   "English",
@@ -31,6 +32,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   const [language, setLanguage] = useState("");
   const [pushNotifications, setPushNotifications] = useState(false);
@@ -162,11 +164,22 @@ export default function SettingsPage() {
           </div>
         </div>
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex flex-col sm:flex-row gap-4 border-t pt-6">
         <Button onClick={handleSave} disabled={isSaving}>
           {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           {isSaving ? t('settings.buttons.saving') : t('settings.buttons.saveChanges')}
         </Button>
+
+        <div className="sm:ml-auto">
+          <Button
+            variant="ghost"
+            className="text-red-600 hover:bg-red-50 hover:text-red-700"
+            onClick={() => navigate("/delete-account")}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            {t("deleteAccount.title")}
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   );

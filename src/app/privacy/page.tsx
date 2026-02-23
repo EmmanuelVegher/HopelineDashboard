@@ -2,7 +2,7 @@
 
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, Lock, Eye, Share2, Info, ChevronLeft } from "lucide-react";
+import { Shield, Lock, Eye, Share2, Info, ChevronLeft, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 
@@ -94,9 +94,19 @@ export default function PrivacyPage() {
                                 <CardTitle className="text-xl font-bold">{section.title}</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <p className="text-muted-foreground leading-relaxed">
+                                <p className="text-muted-foreground leading-relaxed mb-4">
                                     {section.description}
                                 </p>
+                                {section.id === "rights" && (
+                                    <Button
+                                        variant="outline"
+                                        className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                                        onClick={() => navigate("/delete-account")}
+                                    >
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        {t("deleteAccount.title")}
+                                    </Button>
+                                )}
                             </CardContent>
                         </Card>
                     ))}

@@ -183,5 +183,20 @@
       }
     },
     "consent": "As you dey use HopeLine, you agree to the terms of this Privacy Policy and our commitment to protect your data during humanitarian crises."
+  },
+  "deleteAccount": {
+    "title": "Delete Account",
+    "subtitle": "Ask for account and data deletion",
+    "warning": "Warning: Dis action na permanent. Once your account delete, all your data, including history, records, and settings, go commot forever and you no go fit get dem back.",
+    "requestTitle": "Submit Deletion Request",
+    "reasonLabel": "Reason why you want delete (Optional)",
+    "reasonPlaceholder": "Please tell us why you want delete your account...",
+    "confirmCheckbox": "I understand say I no go fit change dis thing once I do am and all my data go loss.",
+    "submitButton": "Submit Deletion Request",
+    "cancelButton": "Cancel",
+    "successTitle": "We Get Your Request",
+    "successMessage": "We don get your request for account and data deletion. Our team go work on am within 30 days based on our privacy policy.",
+    "errorTitle": "Submission Fail",
+    "errorMessage": "Error occur as you try submit your request. Please try again later or contact support directly."
   }
 }

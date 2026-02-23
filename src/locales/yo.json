@@ -292,5 +292,20 @@
       }
     },
     "consent": "Nípa lílo HopeLine, o gbà sí àwọn òfin ìlànà ìpamọ́ yìí àti ìpinnu wa láti dáàbò bò ìsọfúnni rẹ nígbà àwọn ìṣòro ìrànwọ́."
+  },
+  "deleteAccount": {
+    "title": "Pa Àkàǹtì Rẹ́",
+    "subtitle": "Tọrọ kí a pa àkàǹtì àti ìsọfúnni rẹ́",
+    "warning": "Ìkìlọ̀: Ìgbésẹ̀ yìí kò ṣeé yípadà. Nígbà tí a bá pa àkàǹtì rẹ́ tán, gbogbo ìsọfúnni rẹ, pẹ̀lú àwọn àkọsílẹ̀, iṣẹ́ rẹ, àti àwọn ètò rẹ, yóò parẹ́ pátápátá tí kò sì ní ṣeé rí mọ́.",
+    "requestTitle": "Fi Ìbéèrè Ìparẹ́ Sílẹ̀",
+    "reasonLabel": "Ìdí fún ìparẹ́ (Bí o bá fẹ́)",
+    "reasonPlaceholder": "Jọ̀wọ́ sọ fún wa ìdí tí o fi fẹ́ pa àkàǹtì rẹ́...",
+    "confirmCheckbox": "Mo gbà pé ìgbésẹ̀ yìí kò ṣeé yípadà àti pé gbogbo ìsọfúnni mi yóò parẹ́.",
+    "submitButton": "Fi Ìbéèrè Ìparẹ́ Sílẹ̀",
+    "cancelButton": "Fagile",
+    "successTitle": "A Ti Gba Ìbéèrè Rẹ",
+    "successMessage": "A ti gba ìbéèrè rẹ láti pa àkàǹtì àti ìsọfúnni rẹ́. Ẹgbẹ́ wa yóò ṣiṣẹ́ lórí rẹ̀ láàárín ọjọ́ ọgbọ̀n gẹ́gẹ́ bí ìlànà ìpamọ́ wa.",
+    "errorTitle": "Ìkùnà Láti Fi Sini",
+    "errorMessage": "Àṣìṣe kan wáyé nígbà tí o ń fi ìbéèrè rẹ sílẹ̀. Jọ̀wọ́ gbìyànjú padà níkẹyìn tàbí kí o kàn sí ẹgbẹ́ ìrànwọ́ wa tààrà."
   }
 }

@@ -49,6 +49,7 @@ import DriverTrainingPage from './app/driver/training/page';
 import UserTrainingPage from './app/dashboard/training/page';
 import CallPage from './app/call/page';
 import PrivacyPage from './app/privacy/page';
+import DeleteAccountPage from './app/delete-account/page';
 
 import { CallListener } from './components/call/call-listener';
 
@@ -133,6 +134,7 @@ function App() {
               <Route path="training" element={<TrainingCenterPage />} />
             </Route>
             <Route path="privacy" element={<PrivacyPage />} />
+            <Route path="delete-account" element={<DeleteAccountPage />} />
           </Route>
         </Routes>
       </Router>

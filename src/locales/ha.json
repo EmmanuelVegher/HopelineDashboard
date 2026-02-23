@@ -723,5 +723,20 @@
       }
     },
     "consent": "Ta amfani da HopeLine, kun yarda da sharuɗɗan wannan Manufar Sirri da sadaukarwarmu don kare bayananku yayin rikice-rikice na jinkai."
+  },
+  "deleteAccount": {
+    "title": "Goge Akanta",
+    "subtitle": "Nemi goge akanta da bayanai",
+    "warning": "Gargaɗi: Wannan aikin na dindindin ne. Da zarar an goge akantarka, duk bayananka, gami da tarihi, bayanan sirri, da saituna, za a cire su na dindindin kuma ba za a iya dawo da su ba.",
+    "requestTitle": "Sanya Neman Goge Akanta",
+    "reasonLabel": "Dalilin gogewa (Zabibi)",
+    "reasonPlaceholder": "Da fatan za a gaya mana dalilin da yasa kake son goge akantarka...",
+    "confirmCheckbox": "Na fahimci cewa wannan aikin ba za a iya sauyawa ba kuma duk bayanana za su bace.",
+    "submitButton": "Sanya Neman Goge Akanta",
+    "cancelButton": "Soke",
+    "successTitle": "An Karɓi Buƙata",
+    "successMessage": "An karɓi buƙatarka ta goge akanta da bayanai. Tawagar mu za ta aiwatar da ita cikin kwanaki 30 daidai da manufofin mu na sirri.",
+    "errorTitle": "Ba a yi nasara ba",
+    "errorMessage": "An sami kuskure wajen gabatar da buƙatarka. Da fatan za a sake gwadawa daga baya ko tuntuɓi tallafi kai tsaye."
   }
 }
