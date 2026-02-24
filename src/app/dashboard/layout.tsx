@@ -54,7 +54,6 @@ function DashboardContent({ userProfile }: { userProfile?: { firstName: string; 
     { to: "/dashboard/profile", label: t('navigation.profile'), icon: User },
     { to: "/dashboard/settings", label: t('navigation.settings'), icon: Settings },
     { to: "/dashboard/training", label: t('navigation.training'), icon: GraduationCap },
-    { to: "/privacy", label: t('navigation.privacy'), icon: Shield },
   ];
 
   const handleLogout = () => {

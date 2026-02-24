@@ -613,7 +613,12 @@ export default function TrackShelterPage() {
                                                         className="w-full sm:w-1/3 h-32 sm:h-auto rounded-lg overflow-hidden border cursor-pointer hover:opacity-90 transition-opacity"
                                                         onClick={() => setSelectedPreviewImage(shelter.imageUrl!)}
                                                     >
-                                                        <img src={shelter.imageUrl} alt={shelter.name} className="w-full h-full object-cover" />
+                                                        <img
+                                                            src={shelter.imageUrl}
+                                                            alt={shelter.name}
+                                                            className="w-full h-full object-cover"
+                                                            crossOrigin="anonymous"
+                                                        />
                                                     </div>
                                                 )}
                                                 <div className={cn("flex-1 text-center sm:text-left space-y-1", !shelter.imageUrl && "text-center")}>

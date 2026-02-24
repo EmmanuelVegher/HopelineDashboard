@@ -69,8 +69,26 @@ export default function NavigatePage() {
                 setLocationLoading(false);
             },
             (error) => {
-                toast({ title: t('navigate.toasts.errorTitle'), description: error.message, variant: "destructive" });
+                let description = error.message;
+
+                // Specific advice for macOS / Position Unavailable
+                if (error.code === error.POSITION_UNAVAILABLE) {
+                    description = "Location unavailable. Please ensure your device's Location Services are ON (System Settings > Privacy) and Wi-Fi is enabled for better accuracy.";
+                } else if (error.code === error.TIMEOUT) {
+                    description = "Location request timed out. Please check your signal and try again.";
+                }
+
+                toast({
+                    title: t('navigate.toasts.errorTitle'),
+                    description: description,
+                    variant: "destructive"
+                });
                 setLocationLoading(false);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
             }
         );
     }, [toast]);
@@ -79,17 +97,25 @@ export default function NavigatePage() {
         // Require user interaction to fetch location to avoid rate limiting
     }, [handleGetCurrentLocation]);
 
-    const handleFindRoutes = () => {
+    const handleFindRoutes = (shelterOverride?: Shelter) => {
         if (!userLocation) {
             toast({ title: t('navigate.toasts.locationNeeded'), description: t('navigate.toasts.getLocationFirst'), variant: "destructive" });
             return;
         }
 
         let destinationQuery = "";
-        if (selectedShelterId) {
-            const shelter = shelters.find(s => s.id === selectedShelterId);
-            if (shelter) {
+        const shelter = shelterOverride || (selectedShelterId ? shelters.find(s => s.id === selectedShelterId) : null);
+
+        if (shelter) {
+            // Check for valid lat/lng, otherwise fallback to first geofence point
+            if (shelter.latitude && shelter.longitude && shelter.latitude !== 0 && shelter.longitude !== 0) {
                 destinationQuery = `${shelter.latitude},${shelter.longitude}`;
+            } else if (shelter.geofence && shelter.geofence.length > 0) {
+                const firstPoint = shelter.geofence[0];
+                destinationQuery = `${firstPoint.lat},${firstPoint.lng}`;
+            } else {
+                // Last fallback: use address or name if coords are missing
+                destinationQuery = encodeURIComponent(shelter.location || shelter.name);
             }
         } else if (customDestination) {
             destinationQuery = encodeURIComponent(customDestination);
@@ -138,7 +164,17 @@ export default function NavigatePage() {
                                 <MapPin className="h-4 w-4 text-blue-500" />
                                 {t('navigate.selectShelter')}
                             </label>
-                            <Select value={selectedShelterId} onValueChange={setSelectedShelterId} disabled={loadingShelters}>
+                            <Select
+                                value={selectedShelterId}
+                                onValueChange={(value) => {
+                                    setSelectedShelterId(value);
+                                    const shelter = shelters.find(s => s.id === value);
+                                    if (shelter) {
+                                        handleFindRoutes(shelter);
+                                    }
+                                }}
+                                disabled={loadingShelters}
+                            >
                                 <SelectTrigger className="h-12 sm:h-14 border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20">
                                     <SelectValue placeholder={loadingShelters ? t('navigate.loadingShelters') : t('navigate.chooseShelter')} />
                                 </SelectTrigger>
@@ -182,7 +218,7 @@ export default function NavigatePage() {
                         <Button
                             className="w-full h-12 sm:h-14 text-base sm:text-lg font-semibold bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
                             size="lg"
-                            onClick={handleFindRoutes}
+                            onClick={() => handleFindRoutes()}
                             disabled={!userLocation}
                         >
                             <Navigation className="mr-2 h-5 w-5" />

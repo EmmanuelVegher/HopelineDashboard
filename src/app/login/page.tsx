@@ -21,12 +21,13 @@ import type { AdminUser } from "@/lib/data";
 import { Separator } from "@/components/ui/separator";
 import { AnonymousSosDialog } from "@/components/anonymous-sos-dialog";
 
-// Define the images for the slideshow
-const SLIDE_IMAGES = [
-  //"https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?q=80&w=2070&auto=format&fit=crop",
-  "/hassan.jpg", // Original image
-  "/guillermo.jpg",
-  "/farah.jpg",
+// Define the images and videos for the slideshow
+const SLIDE_MEDIA = [
+  // { type: 'image', url: "/farah.jpg" },
+  // Example of how to add a video:
+  { type: 'video', url: "/drone_footage.MP4" },
+  //{ type: 'image', url: "/hassan.jpg" },
+  //{ type: 'image', url: "/guillermo.jpg" },
 
 ];
 
@@ -46,8 +47,8 @@ export default function LoginPage() {
   // Slideshow timer
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % SLIDE_IMAGES.length);
-    }, 5000); // Change image every 5 seconds
+      setCurrentSlide((prev) => (prev + 1) % SLIDE_MEDIA.length);
+    }, 5000); // Change image/video every 5 seconds
     return () => clearInterval(timer);
   }, []);
 
@@ -239,18 +240,34 @@ export default function LoginPage() {
 
         {/* LEFT SIDE: Slideshow Section */}
         <div className="hidden lg:block lg:w-1/2 relative overflow-hidden bg-slate-900">
-          {/* Slideshow Images */}
-          {SLIDE_IMAGES.map((imgSrc, index) => (
+          {/* Slideshow Media */}
+          {SLIDE_MEDIA.map((media, index) => (
             <div
               key={index}
-              className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentSlide ? "opacity-90" : "opacity-0"
+              className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentSlide ? "opacity-100" : "opacity-0"
                 }`}
             >
-              <img
-                src={imgSrc}
-                alt={`Humanitarian Aid Slide ${index + 1}`}
-                className="w-full h-full object-cover"
-              />
+              {media.type === 'video' ? (
+                <video
+                  src={media.url}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="auto"
+                  className="w-full h-full object-cover transition-opacity duration-1000"
+                  style={{
+                    filter: "contrast(1.05) brightness(1.05)",
+                    willChange: "opacity, transform"
+                  }}
+                />
+              ) : (
+                <img
+                  src={media.url}
+                  alt={`Humanitarian Aid Slide ${index + 1}`}
+                  className="w-full h-full object-cover"
+                />
+              )}
             </div>
           ))}
 
@@ -261,7 +278,7 @@ export default function LoginPage() {
 
             {/* Optional Dots Indicator */}
             <div className="flex gap-2 mt-6">
-              {SLIDE_IMAGES.map((_, index) => (
+              {SLIDE_MEDIA.map((_, index) => (
                 <button
                   key={index}
                   onClick={() => setCurrentSlide(index)}

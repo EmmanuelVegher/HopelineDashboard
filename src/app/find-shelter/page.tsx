@@ -73,15 +73,38 @@ export default function FindShelterPage() {
         fetchShelters();
     }, [toast]);
 
+    // Auto-request location on mount
+    useEffect(() => {
+        handleGetCurrentLocation();
+    }, []);
+
     useEffect(() => {
         let shelters = [...allShelters];
 
         // Update distances if user location is available
         if (userLocation) {
-            shelters = shelters.map(shelter => ({
-                ...shelter,
-                distance: calculateDistance(userLocation.lat, userLocation.lon, shelter.latitude, shelter.longitude).toFixed(1) + ' km'
-            }));
+            shelters = shelters.map(shelter => {
+                let destLat = shelter.latitude;
+                let destLon = shelter.longitude;
+
+                // Fallback to first geofence point if primary coordinates are 0
+                if ((!destLat || !destLon || destLat === 0 || destLon === 0) && shelter.geofence && shelter.geofence.length > 0) {
+                    destLat = shelter.geofence[0].lat;
+                    destLon = shelter.geofence[0].lng;
+                }
+
+                if (destLat && destLon && destLat !== 0 && destLon !== 0) {
+                    return {
+                        ...shelter,
+                        distance: calculateDistance(userLocation.lat, userLocation.lon, destLat, destLon).toFixed(1) + ' km'
+                    };
+                }
+
+                return {
+                    ...shelter,
+                    distance: t('findShelter.notAvailable')
+                };
+            });
         }
 
         // Filter by state
@@ -128,6 +151,11 @@ export default function FindShelterPage() {
                 const { latitude, longitude } = position.coords;
                 try {
                     const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
                     const data = await response.json();
 
                     if (data && data.address) {
@@ -139,24 +167,60 @@ export default function FindShelterPage() {
                             lon: longitude,
                         };
                         setUserLocation(newUserLocation);
-
                     } else {
-                        toast({ title: t('findShelter.geolocationError'), description: t('findShelter.addressError'), variant: "destructive" });
+                        // Fallback to coordinates only if address data is missing
+                        setUserLocation({
+                            city: t('findShelter.unknownCity'),
+                            state: t('findShelter.unknownState'),
+                            country: t('findShelter.unknownCountry'),
+                            lat: latitude,
+                            lon: longitude,
+                        });
                     }
                 } catch (error) {
-                    console.error("Reverse geocoding error:", error);
-                    toast({ title: t('findShelter.geolocationError'), description: t('findShelter.addressDataError'), variant: "destructive" });
+                    console.error("Reverse geocoding error (likely CORS or Rate Limit):", error);
+                    // Graceful fallback: set coordinates even if reverse lookup fails
+                    setUserLocation({
+                        city: t('findShelter.unknownCity'),
+                        state: t('findShelter.unknownState'),
+                        country: t('findShelter.unknownCountry'),
+                        lat: latitude,
+                        lon: longitude,
+                    });
+
+                    // Show a less intrusive toast if it's just a lookup failure
+                    toast({
+                        title: t('findShelter.geolocationError'),
+                        description: t('findShelter.addressDataError'),
+                        variant: "default"
+                    });
                 } finally {
                     setLocationLoading(false);
                 }
             },
             (error) => {
+                let description = error.message || t('findShelter.geolocationErrorDesc');
+
+                // Specific advice for macOS / Position Unavailable
+                if (error.code === error.POSITION_UNAVAILABLE) {
+                    description = "Location unavailable. Please ensure your device's Location Services are ON (System Settings > Privacy) and Wi-Fi is enabled for better accuracy. On macOS, Wi-Fi is required for location triangulation.";
+                } else if (error.code === error.TIMEOUT) {
+                    description = "Location request timed out. Please check your signal and try again.";
+                } else if (error.code === error.PERMISSION_DENIED) {
+                    description = "Location permission was denied. Please allow access in your browser settings to find nearby shelters.";
+                }
+
                 toast({
                     title: t('findShelter.geolocationError'),
-                    description: error.message || t('findShelter.geolocationErrorDesc'),
+                    description: description,
                     variant: "destructive"
                 });
                 setLocationLoading(false);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
             }
         );
     };
@@ -172,9 +236,18 @@ export default function FindShelterPage() {
         }
 
         const origin = `${userLocation.lat},${userLocation.lon}`;
-        const destination = `${shelter.latitude},${shelter.longitude}`;
-        const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+        let destCoords = `${shelter.latitude},${shelter.longitude}`;
 
+        // Geofence fallback logic
+        if ((!shelter.latitude || !shelter.longitude || shelter.latitude === 0 || shelter.longitude === 0) && shelter.geofence && shelter.geofence.length > 0) {
+            const firstPoint = shelter.geofence[0];
+            destCoords = `${firstPoint.lat},${firstPoint.lng}`;
+        } else if (!shelter.latitude || !shelter.longitude || (shelter.latitude === 0 && shelter.longitude === 0)) {
+            // Last fallback: name or address
+            destCoords = encodeURIComponent(shelter.location || shelter.name);
+        }
+
+        const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destCoords}`;
         window.open(googleMapsUrl, "_blank");
     }
 
@@ -271,7 +344,12 @@ export default function FindShelterPage() {
                                 <CardContent className="p-0">
                                     {shelter.imageUrl && (
                                         <div className="aspect-video w-full relative">
-                                            <img src={shelter.imageUrl} alt={shelter.name} className="object-cover rounded-t-lg w-full h-full" />
+                                            <img
+                                                src={shelter.imageUrl}
+                                                alt={shelter.name}
+                                                className="object-cover rounded-t-lg w-full h-full"
+                                                crossOrigin="anonymous"
+                                            />
                                         </div>
                                     )}
                                     <div className="p-6">
