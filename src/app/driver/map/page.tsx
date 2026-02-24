@@ -19,6 +19,8 @@ import { LoadingSpinner } from '@/components/loading-spinner';
 import { useToast } from '@/hooks/use-toast';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import InteractiveGoogleMap from '@/components/interactive-google-map';
+import { useTranslation } from 'react-i18next';
+import { calculateDistanceInMeters } from '@/lib/utils';
 // Location streaming removed to prevent browser crashes
 // import { useLocationStreaming } from '@/hooks/useLocationStreaming';
 
@@ -56,17 +58,16 @@ interface DriverLocation {
 }
 
 export default function DriverMapPage() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const [tasks, setTasks] = useState<MapTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<MapTask | null>(null);
   console.log("DriverMapPage: selectedTask:", selectedTask);
-  const selectedTaskId = selectedTask?.id;
   const [mapView, setMapView] = useState<'all' | 'active' | 'resolved'>('all');
   const [driverLocation, setDriverLocation] = useState<DriverLocation | undefined>(undefined);
   const [navigationOrigin, setNavigationOrigin] = useState<[number, number] | null>(null);
-  const [navigationRefreshKey, setNavigationRefreshKey] = useState(0);
   const [trackingStats, setTrackingStats] = useState<TrackingStats>({
     speed: 0,
     distanceTraveled: 0,
@@ -108,6 +109,26 @@ export default function DriverMapPage() {
   const { toast } = useToast();
   const permissionCheckedRef = useRef(false);
   const lastLocationUpdateRef = useRef<number>(0);
+
+  const formatTime = (ms: number) => {
+    if (!ms) return "00:00";
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const getCurrentTimestamp = () => {
+    if (!replayCoordinates || replayCoordinates.length === 0 || replayIndex >= replayCoordinates.length) {
+      return "--:--:--";
+    }
+    const currentPoint = replayCoordinates[replayIndex];
+    if (!currentPoint) return "--:--:--";
+    const timestamp = currentPoint.timestamp || currentPoint.sortTime;
+    if (!timestamp) return "--:--:--";
+    const date = new Date(typeof timestamp === 'number' ? timestamp : (timestamp.seconds ? timestamp.seconds * 1000 : timestamp));
+    return date.toLocaleTimeString();
+  };
 
   // Initialize geolocation and location streaming hooks
   const geolocation = useGeolocation({
@@ -198,128 +219,8 @@ export default function DriverMapPage() {
     } else if (driverLocation) {
       setNavigationOrigin([driverLocation.latitude, driverLocation.longitude]);
     }
-    setNavigationRefreshKey((k) => k + 1);
   }, [geolocation.state.position, driverLocation]);
 
-  // Location streaming removed to prevent browser crashes
-  // const locationStreaming = useLocationStreaming({
-  //   userId: userId || '',
-  //   batchInterval: 10000,
-  //   minDistanceChange: 50,
-  // });
-
-  // Calculate distance between two coordinates using Haversine formula
-  const calculateDistance = useCallback((lat1: number, lng1: number, lat2: number, lng2: number): number => {
-    const R = 6371e3; // Earth's radius in meters
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lng2 - lng1) * Math.PI / 180;
-
-    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) * Math.cos(φ2) *
-      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c;
-  }, []);
-
-  // Format time display
-  const formatTime = useCallback((milliseconds: number): string => {
-    const totalSeconds = Math.floor(milliseconds / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  }, []);
-
-  // Get current timestamp for display
-  const getCurrentTimestamp = useCallback((): string => {
-    const coordinates = selectedTripForReplay?.trackingData?.coordinates ?? [];
-    if (coordinates.length === 0 || replayIndex >= coordinates.length) return '--:--:--';
-    {
-      const timestamp = coordinates[replayIndex]?.timestamp;
-      if (!timestamp) return '--:--:--';
-      return new Date(timestamp).toLocaleTimeString();
-    }
-  }, [selectedTripForReplay, replayIndex]);
-
-  // Location streaming removed to prevent browser crashes
-  // Update tracking statistics when position changes
-  // useEffect(() => {
-  //   if (geolocation.state.position && locationStreaming.state.isStreaming) {
-  //     const currentPos = geolocation.state.position;
-  //     const lastPos = trackingStats.lastPosition;
-
-  //     let newDistance = trackingStats.distanceTraveled;
-  //     let newSpeed = 0;
-
-  //     if (lastPos) {
-  //       const distanceIncrement = calculateDistance(
-  //         lastPos.coords.latitude,
-  //         lastPos.coords.longitude,
-  //         currentPos.coords.latitude,
-  //         currentPos.coords.longitude
-  //       );
-  //       newDistance += distanceIncrement;
-
-  //       // Calculate speed (m/s) if we have time difference
-  //       const timeDiff = (currentPos.timestamp - lastPos.timestamp) / 1000; // seconds
-  //       if (timeDiff > 0) {
-  //         newSpeed = distanceIncrement / timeDiff;
-  //       }
-  //     }
-
-  //     const timeElapsed = trackingStats.startTime
-  //       ? (Date.now() - trackingStats.startTime.getTime()) / 1000
-  //       : 0;
-
-  //     setTrackingStats(prev => ({
-  //       ...prev,
-  //       speed: newSpeed,
-  //       distanceTraveled: newDistance,
-  //       timeElapsed,
-  //       lastPosition: currentPos,
-  //     }));
-  //   }
-  // }, [geolocation.state.position, locationStreaming.state.isStreaming, trackingStats.lastPosition, trackingStats.startTime, calculateDistance]);
-
-  // Location streaming removed to prevent browser crashes
-  // Handle start/stop tracking
-  // const handleStartTracking = useCallback(async () => {
-  //   try {
-  //     await locationStreaming.startStreaming();
-  //     setTrackingStats(prev => ({
-  //       ...prev,
-  //       startTime: new Date(),
-  //       speed: 0,
-  //       distanceTraveled: 0,
-  //       timeElapsed: 0,
-  //       lastPosition: geolocation.state.position,
-  //     }));
-  //     toast({
-  //       title: 'Tracking Started',
-  //       description: 'Live location tracking is now active.',
-  //     });
-  //   } catch (error) {
-  //     toast({
-  //       title: 'Tracking Failed',
-  //       description: 'Failed to start location tracking. Please check permissions.',
-  //       variant: 'destructive',
-  //     });
-  //   }
-  // }, [locationStreaming, geolocation.state.position, toast]);
-
-  // const handleStopTracking = useCallback(() => {
-  //   locationStreaming.stopStreaming();
-  //   setTrackingStats(prev => ({
-  //     ...prev,
-  //     startTime: null,
-  //   }));
-  //   toast({
-  //     title: 'Tracking Stopped',
-  //     description: 'Live location tracking has been stopped.',
-  //   });
-  // }, [locationStreaming, toast]);
 
 
 
@@ -397,7 +298,7 @@ export default function DriverMapPage() {
         const newPath = [...prev];
         // Only add if it's significantly different from the last point
         if (newPath.length === 0 ||
-          calculateDistance(newPath[newPath.length - 1][0], newPath[newPath.length - 1][1], lat, lng) > 10) { // 10 meters minimum
+          calculateDistanceInMeters(newPath[newPath.length - 1][0], newPath[newPath.length - 1][1], lat, lng) > 10) { // 10 meters minimum
           newPath.push([lat, lng]);
         }
         return newPath;
@@ -409,7 +310,7 @@ export default function DriverMapPage() {
       let newSpeed = 0;
 
       if (lastPos) {
-        const distanceIncrement = calculateDistance(
+        const distanceIncrement = calculateDistanceInMeters(
           lastPos.coords.latitude,
           lastPos.coords.longitude,
           currentPos.coords.latitude,
@@ -486,7 +387,7 @@ export default function DriverMapPage() {
         }).catch(err => console.error("Error clearing driver tracking status:", err));
       }
     }
-  }, [isTracking, trackingType, geolocation.state.position, trackingStats.lastPosition, trackingStats.startTime, calculateDistance, userId, selectedTask]);
+  }, [isTracking, trackingType, geolocation.state.position, trackingStats.lastPosition, trackingStats.startTime, calculateDistanceInMeters, userId, selectedTask]);
 
   const filteredTasks = tasks.filter(task => {
     switch (mapView) {
@@ -522,8 +423,8 @@ export default function DriverMapPage() {
         status: newStatus,
       });
       toast({
-        title: 'Status Updated',
-        description: `Task status updated to ${newStatus}.`,
+        title: t('driver.map.statusUpdated'),
+        description: t('driver.map.statusUpdatedDesc', { status: newStatus }),
       });
     } catch (error) {
       console.error('Error updating task status:', error);
@@ -542,8 +443,8 @@ export default function DriverMapPage() {
 
       if (type === 'task' && !selectedTask) {
         toast({
-          title: 'No Task Selected',
-          description: 'Please select a task from the dropdown before starting tracking.',
+          title: t('driver.map.noTaskSelected'),
+          description: t('driver.map.selectTaskFirst'),
           variant: 'destructive',
         });
         return;
@@ -584,8 +485,8 @@ export default function DriverMapPage() {
       }));
 
       toast({
-        title: `${type === 'task' ? 'Task' : 'General'} Trip Started`,
-        description: `Your location is now being tracked for a ${type === 'task' ? 'task' : 'general'} trip.`,
+        title: t('driver.map.tripStarted', { type: type === 'task' ? t('driver.map.task') : t('driver.map.general') }),
+        description: t('driver.map.tripStartedDesc', { type: type === 'task' ? t('driver.map.task') : t('driver.map.general') }),
       });
 
       // If it's a task trip, update task status
@@ -597,8 +498,8 @@ export default function DriverMapPage() {
     } catch (error) {
       console.error('Error starting tracking:', error);
       toast({
-        title: 'Tracking Failed',
-        description: error instanceof Error ? error.message : 'Failed to start location tracking. Please check your browser settings.',
+        title: t('driver.map.trackingFailed'),
+        description: error instanceof Error ? error.message : t('driver.map.trackingFailedDesc'),
         variant: 'destructive',
       });
     }
@@ -629,8 +530,8 @@ export default function DriverMapPage() {
     } catch (error) {
       console.error('Error saving tracking data:', error);
       toast({
-        title: 'Data Save Error',
-        description: 'Failed to save tracking data. Please check your connection.',
+        title: t('driver.map.dataSaveError'),
+        description: t('driver.map.dataSaveDesc'),
         variant: 'destructive',
       });
     }
@@ -652,15 +553,15 @@ export default function DriverMapPage() {
     }));
 
     toast({
-      title: 'Trip Stopped',
-      description: 'Location tracking has been stopped and data saved.',
+      title: t('driver.map.tripStopped'),
+      description: t('driver.map.tripStoppedDesc'),
     });
   }, [geolocation, selectedTask, trackingType, saveTrackingDataToFirestore, toast]);
 
   const handleLocationError = useCallback((error: string) => {
     console.error('Location error:', error);
     toast({
-      title: 'Location Error',
+      title: t('driver.map.locationErrorTitle'),
       description: error,
       variant: 'destructive',
     });
@@ -691,7 +592,7 @@ export default function DriverMapPage() {
           let totalDistance = 0;
           let speeds: number[] = [];
           for (let i = 1; i < coordinates.length; i++) {
-            const dist = calculateDistance(
+            const dist = calculateDistanceInMeters(
               coordinates[i - 1].lat, coordinates[i - 1].lng,
               coordinates[i].lat, coordinates[i].lng
             );
@@ -719,13 +620,13 @@ export default function DriverMapPage() {
           startPlayback(coordinates);
 
           toast({
-            title: 'Enhanced Trip Replay Started',
-            description: `Replaying ${task.emergencyType} trip with advanced analytics`,
+            title: t('driver.map.replayStarted'),
+            description: t('driver.map.replayDesc', { type: task.emergencyType }),
           });
         } else {
           toast({
-            title: 'No Tracking Data',
-            description: 'No tracking data available for this trip.',
+            title: t('driver.map.noTrackingData'),
+            description: t('driver.map.noTrackingDesc'),
             variant: 'destructive',
           });
         }
@@ -733,12 +634,12 @@ export default function DriverMapPage() {
     } catch (error) {
       console.error('Error starting enhanced replay:', error);
       toast({
-        title: 'Replay Error',
-        description: 'Failed to load tracking data for replay.',
+        title: t('driver.map.replayError'),
+        description: t('driver.map.replayLoadFailed'),
         variant: 'destructive',
       });
     }
-  }, [calculateDistance, toast]);
+  }, [calculateDistanceInMeters, toast]);
 
   // Handle replay parameter from URL
   useEffect(() => {
@@ -765,8 +666,8 @@ export default function DriverMapPage() {
         if (prev >= coordinates.length - 1) {
           stopPlayback();
           toast({
-            title: 'Replay Complete',
-            description: 'History replay has finished.',
+            title: t('driver.map.replayComplete'),
+            description: t('driver.map.replayFinished'),
           });
           return prev;
         }
@@ -778,7 +679,7 @@ export default function DriverMapPage() {
         if (nextIndex < coordinates.length - 1) {
           const currentCoord = coordinates[nextIndex];
           const nextCoord = coordinates[nextIndex + 1];
-          const distance = calculateDistance(
+          const distance = calculateDistanceInMeters(
             currentCoord.lat, currentCoord.lng,
             nextCoord.lat, nextCoord.lng
           );
@@ -790,7 +691,7 @@ export default function DriverMapPage() {
         return nextIndex;
       });
     }, interval);
-  }, [playbackSpeed, calculateDistance, toast]);
+  }, [playbackSpeed, calculateDistanceInMeters, toast]);
 
   const stopPlayback = useCallback(() => {
     if (replayIntervalRef.current) {
@@ -840,7 +741,7 @@ export default function DriverMapPage() {
             if (newIndex < totalCoordinates - 1) {
               const currentCoord = trackingData.coordinates[newIndex];
               const nextCoord = trackingData.coordinates[newIndex + 1];
-              const distance = calculateDistance(
+              const distance = calculateDistanceInMeters(
                 currentCoord.lat, currentCoord.lng,
                 nextCoord.lat, nextCoord.lng
               );
@@ -852,7 +753,7 @@ export default function DriverMapPage() {
         }
       });
     }
-  }, [selectedTripForReplay, playbackDuration, calculateDistance]);
+  }, [selectedTripForReplay, playbackDuration, calculateDistanceInMeters]);
 
   const changePlaybackSpeed = useCallback((speed: number) => {
     setPlaybackSpeed(speed);
@@ -881,7 +782,7 @@ export default function DriverMapPage() {
 
   const fetchGeneralHistory = useCallback(async () => {
     if (!userId) {
-      toast({ title: "Auth Required", description: "You must be logged in to fetch history.", variant: "destructive" });
+      toast({ title: t('driver.map.authRequired'), description: t('driver.map.mustBeLoggedIn'), variant: "destructive" });
       return;
     }
 
@@ -914,7 +815,7 @@ export default function DriverMapPage() {
       });
 
       if (history.length === 0) {
-        toast({ title: "No Data Found", description: "No location records found for the selected time range." });
+        toast({ title: t('driver.map.noDataFound'), description: t('driver.map.noDataDesc') });
         setIsFetchingGeneralHistory(false);
         return;
       }
@@ -936,10 +837,10 @@ export default function DriverMapPage() {
         minSpeed: 0
       });
 
-      toast({ title: "History Loaded", description: `Found ${history.length} data points for replay.` });
+      toast({ title: t('driver.map.historyLoaded'), description: t('driver.map.historyLoadedDesc', { count: history.length }) });
     } catch (error) {
       console.error("Error fetching general history:", error);
-      toast({ title: "Fetch Error", description: "Could not retrieve historical data.", variant: "destructive" });
+      toast({ title: t('driver.map.fetchErr'), description: t('driver.map.fetchErrDesc'), variant: "destructive" });
     } finally {
       setIsFetchingGeneralHistory(false);
     }
@@ -958,7 +859,7 @@ export default function DriverMapPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Driver's Task</h1>
+        <h1 className="text-3xl font-bold">{t('driver.map.title')}</h1>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Select value={mapView} onValueChange={(value: 'all' | 'active' | 'resolved') => setMapView(value)}>
@@ -966,9 +867,9 @@ export default function DriverMapPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Tasks</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="resolved">Resolved</SelectItem>
+                <SelectItem value="all">{t('driver.map.allTasks')}</SelectItem>
+                <SelectItem value="active">{t('driver.map.active')}</SelectItem>
+                <SelectItem value="resolved">{t('driver.map.resolved')}</SelectItem>
               </SelectContent>
             </Select>
             {tasks.filter(t => t.status === 'Active' || t.status === 'Responding').length > 0 && (
@@ -983,7 +884,7 @@ export default function DriverMapPage() {
             )}
           </div>
           <Badge variant="outline" className="text-sm">
-            {filteredTasks.length} Task{filteredTasks.length !== 1 ? 's' : ''} Shown
+            {t('driver.map.tasksShown', { count: filteredTasks.length })}
           </Badge>
         </div>
       </div>
@@ -995,11 +896,11 @@ export default function DriverMapPage() {
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="h-5 w-5" />
-                Interactive Map
+                {t('driver.map.interactiveMap')}
                 {isTracking && mapMode === 'tracking' && (
                   <Badge variant="default" className="ml-auto">
                     <Activity className="h-3 w-3 mr-1" />
-                    Live Tracking
+                    {t('driver.map.liveTracking')}
                   </Badge>
                 )}
               </CardTitle>
@@ -1009,8 +910,8 @@ export default function DriverMapPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="navigation">Navigation</SelectItem>
-                    <SelectItem value="tracking">Tracking</SelectItem>
+                    <SelectItem value="navigation">{t('driver.map.navigation')}</SelectItem>
+                    <SelectItem value="tracking">{t('driver.map.tracking')}</SelectItem>
                   </SelectContent>
                 </Select>
                 {selectedTask && (
@@ -1021,17 +922,17 @@ export default function DriverMapPage() {
                       onClick={refreshEmbeddedNavigation}
                       disabled={!embeddedDirectionsUrl}
                     >
-                      Refresh Route
+                      {t('driver.map.refreshRoute')}
                     </Button>
                     <Dialog>
                       <DialogTrigger asChild>
                         <Button size="sm" variant="outline" disabled={!embeddedDirectionsUrl}>
-                          Expand
+                          {t('driver.map.expand')}
                         </Button>
                       </DialogTrigger>
                       <DialogContent className="max-w-5xl h-[85vh] p-0">
                         <DialogHeader className="p-4">
-                          <DialogTitle>Navigation</DialogTitle>
+                          <DialogTitle>{t('driver.map.navigation')}</DialogTitle>
                         </DialogHeader>
                         <div className="h-[calc(85vh-64px)] w-full">
                           <InteractiveGoogleMap
@@ -1066,7 +967,7 @@ export default function DriverMapPage() {
                                   // Only add if it's significantly different from the last point
                                   if (
                                     newPath.length === 0 ||
-                                    calculateDistance(newPath[newPath.length - 1][0], newPath[newPath.length - 1][1], location.lat, location.lng) > 10
+                                    calculateDistanceInMeters(newPath[newPath.length - 1][0], newPath[newPath.length - 1][1], location.lat, location.lng) > 10
                                   ) {
                                     newPath.push([location.lat, location.lng]);
                                   }
@@ -1084,48 +985,6 @@ export default function DriverMapPage() {
                   </>
                 )}
               </div>
-              {selectedTask && (
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={refreshEmbeddedNavigation}
-                    disabled={!embeddedDirectionsUrl}
-                  >
-                    Refresh Route
-                  </Button>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button size="sm" variant="outline" disabled={!embeddedDirectionsUrl}>
-                        Expand
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-5xl h-[85vh] p-0">
-                      <DialogHeader className="p-4">
-                        <DialogTitle>Navigation</DialogTitle>
-                      </DialogHeader>
-                      <div className="h-[calc(85vh-64px)] w-full">
-                        {embeddedDirectionsUrl ? (
-                          <iframe
-                            key={`nav-modal-${selectedTaskId ?? 'no-task'}-${navigationRefreshKey}`}
-                            title="Google Maps Navigation (Expanded)"
-                            src={embeddedDirectionsUrl}
-                            className="h-full w-full border-0"
-                            loading="lazy"
-                            referrerPolicy="no-referrer-when-downgrade"
-                            allow="geolocation; fullscreen"
-                            allowFullScreen
-                          />
-                        ) : (
-                          <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">
-                            Unable to render embedded Google Maps navigation. Ensure `VITE_GOOGLE_MAPS_API_KEY` is set and Maps Embed API is enabled.
-                          </div>
-                        )}
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              )}
             </CardHeader>
             <CardContent className="p-0">
               <InteractiveGoogleMap
@@ -1172,7 +1031,7 @@ export default function DriverMapPage() {
             <CardHeader className="pb-3 text-center">
               <CardTitle className="text-lg font-bold flex items-center justify-center gap-2">
                 <Route className="h-5 w-5 text-green-600" />
-                General Trip Management
+                {t('driver.map.generalTripMgmt')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1185,7 +1044,7 @@ export default function DriverMapPage() {
                         className="w-full bg-green-600 hover:bg-green-700 h-12 text-lg font-bold shadow-lg transform transition-all active:scale-95"
                       >
                         <Play className="h-5 w-5 mr-2" />
-                        Start General Trip
+                        {t('driver.map.startGeneralTrip')}
                       </Button>
                     ) : (
                       <Button
@@ -1194,7 +1053,7 @@ export default function DriverMapPage() {
                         className="w-full h-12 text-lg font-bold shadow-lg animate-pulse"
                       >
                         <Square className="h-5 w-5 mr-2" />
-                        Stop General Trip
+                        {t('driver.map.stopGeneralTrip')}
                       </Button>
                     )}
                   </>
@@ -1202,7 +1061,7 @@ export default function DriverMapPage() {
 
                 {trackingType === 'task' && (
                   <div className="p-3 bg-muted rounded-lg text-center text-sm text-muted-foreground italic border">
-                    General tracking unavailable during active task trip.
+                    {t('driver.map.generalUnavailable')}
                   </div>
                 )}
               </div>
@@ -1211,11 +1070,11 @@ export default function DriverMapPage() {
               {!isTracking && !isReplaying && (
                 <div className="pt-2 border-t mt-4">
                   <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-2">
-                    <HistoryIcon className="h-3 w-3" /> Historical Replay
+                    <HistoryIcon className="h-3 w-3" /> {t('driver.map.historicalReplay')}
                   </h4>
                   <div className="grid grid-cols-2 gap-3 mb-3">
                     <div className="space-y-1">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400">From</Label>
+                      <Label className="text-[10px] font-bold uppercase text-slate-400">{t('driver.map.from')}</Label>
                       <Input
                         type="datetime-local"
                         value={historyStartDate}
@@ -1224,7 +1083,7 @@ export default function DriverMapPage() {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400">To</Label>
+                      <Label className="text-[10px] font-bold uppercase text-slate-400">{t('driver.map.to')}</Label>
                       <Input
                         type="datetime-local"
                         value={historyEndDate}
@@ -1242,9 +1101,9 @@ export default function DriverMapPage() {
                     {isFetchingGeneralHistory ? (
                       <div className="flex items-center gap-1">
                         <div className="h-3 w-3 border-2 border-green-600/30 border-t-green-600 rounded-full animate-spin" />
-                        Searching...
+                        {t('driver.map.searching')}
                       </div>
-                    ) : "Load General History"}
+                    ) : t('driver.map.loadHistory')}
                   </Button>
                 </div>
               )}
@@ -1256,16 +1115,16 @@ export default function DriverMapPage() {
             <CardHeader className="pb-3 flex flex-row items-center justify-between">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
                 <Target className={`h-5 w-5 ${selectedTask ? 'text-red-600' : 'text-slate-400'}`} />
-                Active Task trip
+                {t('driver.map.activeTaskTrip')}
               </CardTitle>
               {isTracking && trackingType === 'task' && (
-                <Badge variant="destructive" className="animate-pulse">Tracking Active</Badge>
+                <Badge variant="destructive" className="animate-pulse">{t('driver.map.trackingActive')}</Badge>
               )}
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Task Selector */}
               <div className="space-y-2">
-                <Label className="text-xs font-bold text-slate-500 uppercase">Select SOS Alert</Label>
+                <Label className="text-xs font-bold text-slate-500 uppercase">{t('driver.map.selectSosAlert')}</Label>
                 <Select
                   value={selectedTask?.id || ''}
                   onValueChange={(taskId) => {
@@ -1275,7 +1134,7 @@ export default function DriverMapPage() {
                   disabled={isTracking}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Choose a task..." />
+                    <SelectValue placeholder={t('driver.map.chooseTask')} />
                   </SelectTrigger>
                   <SelectContent>
                     {filteredTasks.map((task) => (
@@ -1287,7 +1146,7 @@ export default function DriverMapPage() {
                       </SelectItem>
                     ))}
                     {filteredTasks.length === 0 && (
-                      <SelectItem value="none" disabled>No active tasks assigned</SelectItem>
+                      <SelectItem value="none" disabled>{t('driver.map.noActiveTasks')}</SelectItem>
                     )}
                   </SelectContent>
                 </Select>
@@ -1305,7 +1164,7 @@ export default function DriverMapPage() {
                     </div>
                     <h3 className="font-bold text-red-900">{selectedTask.emergencyType}</h3>
                     <p className="text-xs text-red-700 mt-1 line-clamp-2">
-                      {selectedTask.location.address || "Fetching address..."}
+                      {selectedTask.location.address || t('driver.map.fetchingAddress')}
                     </p>
                   </div>
 
@@ -1319,7 +1178,7 @@ export default function DriverMapPage() {
                           disabled={isTracking}
                         >
                           <Play className="h-4 w-4 mr-2" />
-                          Start Task Trip
+                          {t('driver.map.startTaskTrip')}
                         </Button>
                         {selectedTask.status !== 'Resolved' && selectedTask.status !== 'False Alarm' && (
                           <Button
@@ -1328,7 +1187,7 @@ export default function DriverMapPage() {
                             className="h-11 border-green-600 text-green-700 hover:bg-green-50 font-bold"
                           >
                             <CheckCircle className="h-4 w-4 mr-2" />
-                            Mark as Resolved
+                            {t('driver.map.markResolved')}
                           </Button>
                         )}
                       </>
@@ -1341,13 +1200,13 @@ export default function DriverMapPage() {
                         className="w-full h-11 font-bold shadow-lg animate-pulse"
                       >
                         <Square className="h-4 w-4 mr-2" />
-                        Stop Task Trip
+                        {t('driver.map.stopTaskTrip')}
                       </Button>
                     )}
 
                     {trackingType === 'general' && (
                       <div className="p-2 bg-yellow-50 border border-yellow-200 rounded text-[11px] text-yellow-700 text-center italic">
-                        Stop General Trip to start Task Tracking
+                        {t('driver.map.stopGeneralFirst')}
                       </div>
                     )}
 
@@ -1359,7 +1218,7 @@ export default function DriverMapPage() {
                         onClick={refreshEmbeddedNavigation}
                       >
                         <Navigation className="h-3 w-3 mr-1" />
-                        Navigate
+                        {t('driver.map.navigate')}
                       </Button>
                       <Button
                         variant="outline"
@@ -1369,7 +1228,7 @@ export default function DriverMapPage() {
                         disabled={isTracking || isReplaying}
                       >
                         <HistoryIcon className="h-3 w-3 mr-1" />
-                        Replay Task
+                        {t('driver.map.replayTask')}
                       </Button>
                     </div>
                   </div>
@@ -1378,7 +1237,7 @@ export default function DriverMapPage() {
                 <div className="py-6 text-center border-2 border-dashed rounded-lg bg-slate-50 border-slate-200">
                   <MapPin className="h-10 w-10 text-slate-300 mx-auto mb-2" />
                   <p className="text-xs text-slate-400 font-medium px-4">
-                    Select a task from the dropdown above to manage its trip.
+                    {t('driver.map.selectTaskHint')}
                   </p>
                 </div>
               )}
@@ -1392,11 +1251,11 @@ export default function DriverMapPage() {
                 <CardTitle className="text-sm font-bold flex items-center justify-between">
                   <span className="flex items-center gap-2">
                     {isReplaying ? <RotateCcw className="h-4 w-4 text-purple-600" /> : <Activity className="h-4 w-4 text-blue-600" />}
-                    {isReplaying ? 'Playback Control' : 'Trip Statistics'}
+                    {isReplaying ? t('driver.map.playbackControl') : t('driver.map.tripStatistics')}
                   </span>
                   {isReplaying && (
                     <Badge className="bg-purple-100 text-purple-700 border-purple-200">
-                      {playbackSpeed}x Speed
+                      {t('driver.map.playbackSpeed', { speed: playbackSpeed })}
                     </Badge>
                   )}
                 </CardTitle>
@@ -1443,7 +1302,7 @@ export default function DriverMapPage() {
 
                     <div className="space-y-2 pt-2 border-t">
                       <div className="flex justify-between items-center text-[10px] font-bold uppercase text-slate-500">
-                        <span>Playback Speed</span>
+                        <span>{t('driver.map.playbackSpeedLabel')}</span>
                         <span className="text-purple-600">{playbackSpeed}x</span>
                       </div>
                       <Slider
@@ -1457,25 +1316,25 @@ export default function DriverMapPage() {
 
                     <div className="grid grid-cols-2 gap-2 p-2 bg-slate-50 rounded border text-center">
                       <div className="space-y-0.5">
-                        <p className="text-[10px] text-slate-400 uppercase font-black">Speed</p>
+                        <p className="text-[10px] text-slate-400 uppercase font-black">{t('driver.map.speed')}</p>
                         <p className="text-sm font-bold">{currentSpeed.toFixed(1)} <span className="text-[10px] font-normal">km/h</span></p>
                       </div>
                       <div className="space-y-0.5">
-                        <p className="text-[10px] text-slate-400 uppercase font-black">Time</p>
+                        <p className="text-[10px] text-slate-400 uppercase font-black">{t('driver.map.time')}</p>
                         <p className="text-sm font-bold">{getCurrentTimestamp()}</p>
                       </div>
                     </div>
 
                     {tripStats.totalDistance > 0 && (
                       <div className="pt-2 border-t space-y-2">
-                        <p className="text-[10px] font-bold uppercase text-slate-500">Trip Summary</p>
+                        <p className="text-[10px] font-bold uppercase text-slate-500">{t('driver.map.tripSummary')}</p>
                         <div className="grid grid-cols-2 gap-2 text-[11px]">
                           <div className="flex justify-between">
-                            <span className="text-slate-400">Avg Speed:</span>
+                            <span className="text-slate-400">{t('driver.map.avgSpeed')}</span>
                             <span className="font-bold">{tripStats.averageSpeed.toFixed(1)} km/h</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-slate-400">Distance:</span>
+                            <span className="text-slate-400">{t('driver.map.distance')}</span>
                             <span className="font-bold">{(tripStats.totalDistance / 1000).toFixed(2)} km</span>
                           </div>
                         </div>
@@ -1485,17 +1344,17 @@ export default function DriverMapPage() {
                 ) : (
                   <div className="grid grid-cols-3 gap-2">
                     <div className="flex flex-col items-center p-2 bg-blue-50 rounded-lg border border-blue-100">
-                      <span className="text-[9px] text-blue-400 uppercase font-bold tracking-tight">Speed</span>
+                      <span className="text-[9px] text-blue-400 uppercase font-bold tracking-tight">{t('driver.map.speed')}</span>
                       <span className="text-sm font-black text-blue-900">{(trackingStats.speed * 3.6).toFixed(1)}</span>
                       <span className="text-[8px] text-blue-400">km/h</span>
                     </div>
                     <div className="flex flex-col items-center p-2 bg-indigo-50 rounded-lg border border-indigo-100">
-                      <span className="text-[9px] text-indigo-400 uppercase font-bold tracking-tight">Distance</span>
+                      <span className="text-[9px] text-indigo-400 uppercase font-bold tracking-tight">{t('driver.map.distanceStat')}</span>
                       <span className="text-sm font-black text-indigo-900">{(trackingStats.distanceTraveled / 1000).toFixed(2)}</span>
                       <span className="text-[8px] text-indigo-400">km</span>
                     </div>
                     <div className="flex flex-col items-center p-2 bg-slate-50 rounded-lg border border-slate-100">
-                      <span className="text-[9px] text-slate-400 uppercase font-bold tracking-tight">Duration</span>
+                      <span className="text-[9px] text-slate-400 uppercase font-bold tracking-tight">{t('driver.map.duration')}</span>
                       <span className="text-sm font-black text-slate-900">
                         {Math.floor(trackingStats.timeElapsed / 60)}:{(trackingStats.timeElapsed % 60).toFixed(0).padStart(2, '0')}
                       </span>
@@ -1511,7 +1370,7 @@ export default function DriverMapPage() {
           <div className="px-1 text-center">
             <Badge variant="outline" className={`text-[10px] py-0.5 w-full flex justify-center gap-2 ${geolocation.state.permission === 'granted' ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
               <div className={`w-1.5 h-1.5 rounded-full ${geolocation.state.permission === 'granted' ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
-              GPS Status: {geolocation.state.permission === 'granted' ? 'High Precision' : 'Permission Required'}
+              {t('driver.map.gpsStatus')} {geolocation.state.permission === 'granted' ? t('driver.map.highPrecision') : t('driver.map.permissionRequired')}
             </Badge>
           </div>
 

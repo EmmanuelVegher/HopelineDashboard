@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { Bell, Moon, Volume2, MapPin, Car } from 'lucide-react';
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
 
 interface DriverSettings {
   notifications: {
@@ -34,6 +35,7 @@ interface DriverSettings {
 }
 
 export default function DriverSettingsPage() {
+  const { t, i18n } = useTranslation();
   const [settings, setSettings] = useState<DriverSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -55,7 +57,7 @@ export default function DriverSettingsPage() {
               },
               preferences: userData.preferences || {
                 theme: 'system',
-                language: 'en',
+                language: i18n.language || 'en',
                 soundEnabled: true,
                 autoAcceptTasks: false,
               },
@@ -69,8 +71,8 @@ export default function DriverSettingsPage() {
         } catch (error) {
           console.error('Error loading settings:', error);
           toast({
-            title: 'Error',
-            description: 'Failed to load settings.',
+            title: t('driver.settings.loadError'),
+            description: t('driver.settings.loadError'),
             variant: 'destructive',
           });
         }
@@ -90,6 +92,11 @@ export default function DriverSettingsPage() {
         [key]: value,
       },
     });
+
+    // If language is updated, also update i18n instance
+    if (category === 'preferences' && key === 'language') {
+      i18n.changeLanguage(value);
+    }
   };
 
   const handleSave = async () => {
@@ -97,20 +104,25 @@ export default function DriverSettingsPage() {
 
     setSaving(true);
     try {
+      const language = settings.preferences.language;
       await updateDoc(doc(db, 'users', auth.currentUser.uid), {
         notifications: settings.notifications,
         preferences: settings.preferences,
         privacy: settings.privacy,
+        language: language, // Sync root level
+        settings: {
+          language: language // Sync settings level
+        }
       });
       toast({
-        title: 'Settings Saved',
-        description: 'Your settings have been successfully updated.',
+        title: t('driver.settings.settingsSaved'),
+        description: t('driver.settings.settingsSavedDesc'),
       });
     } catch (error) {
       console.error('Error saving settings:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to save settings. Please try again.',
+        title: t('common.error'),
+        description: t('driver.settings.saveError'),
         variant: 'destructive',
       });
     } finally {
@@ -129,7 +141,7 @@ export default function DriverSettingsPage() {
   if (!settings) {
     return (
       <div className="text-center py-12">
-        <p className="text-muted-foreground">Settings not available.</p>
+        <p className="text-muted-foreground">{t('driver.settings.settingsNotAvailable')}</p>
       </div>
     );
   }
@@ -137,9 +149,9 @@ export default function DriverSettingsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Driver Settings</h1>
+        <h1 className="text-3xl font-bold">{t('driver.settings.title')}</h1>
         <Button onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving...' : 'Save Changes'}
+          {saving ? t('driver.settings.saving') : t('driver.settings.saveChanges')}
         </Button>
       </div>
 
@@ -148,14 +160,14 @@ export default function DriverSettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5" />
-            Notifications
+            {t('driver.settings.notifications')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>SOS Alerts</Label>
-              <p className="text-sm text-muted-foreground">Receive notifications for emergency alerts</p>
+              <Label>{t('driver.settings.sosAlerts')}</Label>
+              <p className="text-sm text-muted-foreground">{t('driver.settings.sosAlertsDesc')}</p>
             </div>
             <Switch
               checked={settings.notifications.sosAlerts}
@@ -167,8 +179,8 @@ export default function DriverSettingsPage() {
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Task Updates</Label>
-              <p className="text-sm text-muted-foreground">Get notified about task status changes</p>
+              <Label>{t('driver.settings.taskUpdates')}</Label>
+              <p className="text-sm text-muted-foreground">{t('driver.settings.taskUpdatesDesc')}</p>
             </div>
             <Switch
               checked={settings.notifications.taskUpdates}
@@ -180,8 +192,8 @@ export default function DriverSettingsPage() {
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Weather Alerts</Label>
-              <p className="text-sm text-muted-foreground">Receive weather-related notifications</p>
+              <Label>{t('driver.settings.weatherAlerts')}</Label>
+              <p className="text-sm text-muted-foreground">{t('driver.settings.weatherAlertsDesc')}</p>
             </div>
             <Switch
               checked={settings.notifications.weatherAlerts}
@@ -193,8 +205,8 @@ export default function DriverSettingsPage() {
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>System Updates</Label>
-              <p className="text-sm text-muted-foreground">Get notified about app updates and maintenance</p>
+              <Label>{t('driver.settings.systemUpdates')}</Label>
+              <p className="text-sm text-muted-foreground">{t('driver.settings.systemUpdatesDesc')}</p>
             </div>
             <Switch
               checked={settings.notifications.systemUpdates}
@@ -209,13 +221,13 @@ export default function DriverSettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Moon className="h-5 w-5" />
-            Preferences
+            {t('driver.settings.preferences')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label>Theme</Label>
+              <Label>{t('driver.settings.theme')}</Label>
               <Select
                 value={settings.preferences.theme}
                 onValueChange={(value: 'light' | 'dark' | 'system') => updateSetting('preferences', 'theme', value)}
@@ -224,15 +236,15 @@ export default function DriverSettingsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="light">Light</SelectItem>
-                  <SelectItem value="dark">Dark</SelectItem>
-                  <SelectItem value="system">System</SelectItem>
+                  <SelectItem value="light">{t('driver.settings.themeLight')}</SelectItem>
+                  <SelectItem value="dark">{t('driver.settings.themeDark')}</SelectItem>
+                  <SelectItem value="system">{t('driver.settings.themeSystem')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label>Language</Label>
+              <Label>{t('driver.settings.language')}</Label>
               <Select
                 value={settings.preferences.language}
                 onValueChange={(value) => updateSetting('preferences', 'language', value)}
@@ -242,8 +254,10 @@ export default function DriverSettingsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="fr">French</SelectItem>
-                  <SelectItem value="es">Spanish</SelectItem>
+                  <SelectItem value="ha">Hausa</SelectItem>
+                  <SelectItem value="ig">Igbo</SelectItem>
+                  <SelectItem value="yo">Yoruba</SelectItem>
+                  <SelectItem value="pcm">Nigerian Pidgin</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -255,9 +269,9 @@ export default function DriverSettingsPage() {
             <div className="space-y-0.5">
               <Label className="flex items-center gap-2">
                 <Volume2 className="h-4 w-4" />
-                Sound Notifications
+                {t('driver.settings.soundNotifications')}
               </Label>
-              <p className="text-sm text-muted-foreground">Play sound for notifications</p>
+              <p className="text-sm text-muted-foreground">{t('driver.settings.soundNotificationsDesc')}</p>
             </div>
             <Switch
               checked={settings.preferences.soundEnabled}
@@ -271,9 +285,9 @@ export default function DriverSettingsPage() {
             <div className="space-y-0.5">
               <Label className="flex items-center gap-2">
                 <Car className="h-4 w-4" />
-                Auto-Accept Tasks
+                {t('driver.settings.autoAcceptTasks')}
               </Label>
-              <p className="text-sm text-muted-foreground">Automatically accept assigned tasks</p>
+              <p className="text-sm text-muted-foreground">{t('driver.settings.autoAcceptTasksDesc')}</p>
             </div>
             <Switch
               checked={settings.preferences.autoAcceptTasks}
@@ -288,14 +302,14 @@ export default function DriverSettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MapPin className="h-5 w-5" />
-            Privacy & Location
+            {t('driver.settings.privacyLocation')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Share Location</Label>
-              <p className="text-sm text-muted-foreground">Allow location sharing for task assignments</p>
+              <Label>{t('driver.settings.shareLocation')}</Label>
+              <p className="text-sm text-muted-foreground">{t('driver.settings.shareLocationDesc')}</p>
             </div>
             <Switch
               checked={settings.privacy.shareLocation}
@@ -307,8 +321,8 @@ export default function DriverSettingsPage() {
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Show Online Status</Label>
-              <p className="text-sm text-muted-foreground">Let others see when you're online</p>
+              <Label>{t('driver.settings.showOnlineStatus')}</Label>
+              <p className="text-sm text-muted-foreground">{t('driver.settings.showOnlineStatusDesc')}</p>
             </div>
             <Switch
               checked={settings.privacy.showOnlineStatus}

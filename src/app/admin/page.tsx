@@ -29,6 +29,7 @@ import DriverMap from "@/components/driver-map";
 import { useSituationData, type StateData } from "@/hooks/useSituationData";
 import { DisplacementMap } from "@/components/situation-room/displacement-map";
 import { ActivityItem } from "@/hooks/useSituationData";
+import { useTranslation } from "react-i18next";
 
 
 const getStatusBadgeVariant = (status: string) => {
@@ -121,6 +122,7 @@ const ActivityFeedItem = ({ item }: { item: ActivityItem }) => (
 );
 
 function RegionalDeepDiveModal({ state, isOpen, onClose, recentActivity }: { state: StateData | null, isOpen: boolean, onClose: () => void, recentActivity: ActivityItem[] }) {
+    const { t } = useTranslation();
     if (!state) return null;
 
     const occupancyRate = state.totalCapacity > 0 ? Math.round((state.occupiedCapacity / state.totalCapacity) * 100) : 0;
@@ -133,7 +135,7 @@ function RegionalDeepDiveModal({ state, isOpen, onClose, recentActivity }: { sta
                     <div className="flex items-center gap-3 mb-2">
                         <div className={cn("w-3 h-3 rounded-full", state.riskLevel === 'high' ? "bg-red-600" : "bg-blue-600")} />
                         <DialogTitle className="text-2xl font-black uppercase tracking-tighter tabular-nums">
-                            {state.name} Regional Deep-Dive
+                            {state.name} {t("admin.dashboard.regionalDeepDive")}
                         </DialogTitle>
                     </div>
                     <DialogDescription className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">
@@ -146,19 +148,19 @@ function RegionalDeepDiveModal({ state, isOpen, onClose, recentActivity }: { sta
                     <div className="md:col-span-1 space-y-4">
                         <Card className="bg-slate-50 border-slate-200 shadow-none">
                             <CardContent className="p-4">
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Displaced Population</p>
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t("admin.dashboard.displacedPopulation")}</p>
                                 <p className="text-3xl font-black text-slate-900 tabular-nums">{state.displacedCount.toLocaleString()}</p>
                             </CardContent>
                         </Card>
                         <Card className="bg-slate-50 border-slate-200 shadow-none">
                             <CardContent className="p-4">
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Active Shelters</p>
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t("admin.dashboard.activeShelters")}</p>
                                 <p className="text-3xl font-black text-slate-900 tabular-nums">{state.shelterCount}</p>
                             </CardContent>
                         </Card>
                         <Card className="bg-slate-50 border-slate-200 shadow-none">
                             <CardContent className="p-4">
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">SOS Alerts</p>
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t("admin.dashboard.sosAlerts")}</p>
                                 <p className={cn("text-3xl font-black tabular-nums", state.criticalAlerts > 0 ? "text-red-600" : "text-slate-900")}>
                                     {state.criticalAlerts}
                                 </p>
@@ -171,7 +173,7 @@ function RegionalDeepDiveModal({ state, isOpen, onClose, recentActivity }: { sta
                         <div className="space-y-4 bg-slate-900 p-6 rounded-xl text-white">
                             <div className="flex justify-between items-end mb-2">
                                 <div>
-                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Capacity Utilization</h4>
+                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t("admin.dashboard.capacityUtilization")}</h4>
                                     <p className="text-4xl font-black tracking-tighter">{occupancyRate}%</p>
                                 </div>
                                 <div className="text-right">
@@ -192,7 +194,7 @@ function RegionalDeepDiveModal({ state, isOpen, onClose, recentActivity }: { sta
                         {/* Regional Feed */}
                         <div className="space-y-4">
                             <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2 flex items-center gap-2">
-                                <Activity className="h-3 w-3" /> Regional SOS Feed
+                                <Activity className="h-3 w-3" /> {t("admin.dashboard.regionalSosFeed")}
                             </h4>
                             <ScrollArea className="h-[250px] pr-4">
                                 {regionalActivity.length > 0 ? (
@@ -218,6 +220,7 @@ function RegionalDeepDiveModal({ state, isOpen, onClose, recentActivity }: { sta
 
 
 function SosAlertOverlay({ alerts, onClear }: { alerts: SosAlert[], onClear: (id: string) => void }) {
+    const { t } = useTranslation();
     if (!alerts || alerts.length === 0) return null;
 
     // Sort alerts by timestamp to ensure consistent ordering (newest first)
@@ -264,7 +267,7 @@ function SosAlertOverlay({ alerts, onClear }: { alerts: SosAlert[], onClear: (id
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">
                                         <Activity className="h-3 w-3" />
-                                        <span>Incident Profile</span>
+                                        <span>{t("admin.dashboard.incidentProfile")}</span>
                                     </div>
                                     <p className="text-2xl font-black text-slate-900 leading-none tracking-tight">{alert.emergencyType}</p>
                                 </div>
@@ -272,7 +275,7 @@ function SosAlertOverlay({ alerts, onClear }: { alerts: SosAlert[], onClear: (id
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">
                                         <MapPin className="h-3 w-3" />
-                                        <span>Tactical Location</span>
+                                        <span>{t("admin.dashboard.tacticalLocation")}</span>
                                     </div>
                                     <p className="text-sm font-bold text-slate-700 leading-snug line-clamp-2">{alert.location.address || 'Coordinates Only'}</p>
                                     <a
@@ -281,7 +284,7 @@ function SosAlertOverlay({ alerts, onClear }: { alerts: SosAlert[], onClear: (id
                                         rel="noopener noreferrer"
                                         className="text-blue-600 hover:text-blue-800 hover:underline text-[10px] flex items-center gap-1 mt-1 font-black uppercase tracking-widest"
                                     >
-                                        Initiate Live Map Tracking →
+                                        {t("admin.dashboard.viewOnGoogleMaps")}
                                     </a>
                                 </div>
 
@@ -300,7 +303,7 @@ function SosAlertOverlay({ alerts, onClear }: { alerts: SosAlert[], onClear: (id
                                         )}
                                         onClick={() => onClear(alert.id)}
                                     >
-                                        Acknowledge & Deploy
+                                        {t("admin.dashboard.acknowledgeAndDeploy")}
                                     </Button>
                                 </div>
                             </CardContent>
@@ -315,6 +318,7 @@ function SosAlertOverlay({ alerts, onClear }: { alerts: SosAlert[], onClear: (id
 }
 
 export default function AdminDashboardPage() {
+    const { t } = useTranslation();
     const {
         alerts, persons, shelters, drivers, loading, permissionError,
         activeAlerts, locationHistory,
@@ -494,9 +498,9 @@ export default function AdminDashboardPage() {
         setIsFetchingHistory(false);
 
         if (history.length === 0) {
-            toast({ title: "No Route Data", description: "No signals recorded for this driver during the mission window." });
+            toast({ title: t("admin.dashboard.noRouteData"), description: "No signals recorded for this driver during the mission window." });
         } else {
-            toast({ title: "Tactical Replay Loaded", description: `Simulating mission route with ${history.length} signals.` });
+            toast({ title: t("admin.dashboard.tacticalReplayLoaded"), description: `Simulating mission route with ${history.length} signals.` });
         }
     };
 
@@ -708,7 +712,7 @@ export default function AdminDashboardPage() {
                                                 onClick={() => handleSimulateTaskRoute(selectedAlert)}
                                                 className="w-full bg-slate-900 hover:bg-black text-white font-black uppercase tracking-widest text-[10px] h-11 shadow-md border-t-2 border-slate-700"
                                             >
-                                                <Activity className="h-4 w-4 mr-2 text-blue-400" /> Simulate Mission Route Playback
+                                                <Activity className="h-4 w-4 mr-2 text-blue-400" /> {t("admin.dashboard.missionSimulation")}
                                             </Button>
                                         </div>
                                     )}
@@ -775,11 +779,11 @@ export default function AdminDashboardPage() {
                     <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
                         <div>
                             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-slate-800 via-blue-700 to-emerald-700 bg-clip-text text-transparent">
-                                Emergency Response Dashboard
+                                {t("admin.dashboard.title")}
                             </h1>
                             <p className="text-sm sm:text-base text-slate-600 flex items-center gap-2 mt-2">
                                 <Shield className="h-4 w-4 text-blue-500" />
-                                CARITAS Nigeria | CITI Foundation Project
+                                {t("admin.dashboard.projectInfo")}
                             </p>
                         </div>
                         {/* Tactical Digital Clock Segment */}

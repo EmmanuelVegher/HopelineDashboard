@@ -22,6 +22,7 @@ import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { NIGERIA_STATES } from "@/lib/nigeria-geography";
+import { useTranslation } from "react-i18next";
 
 type UserActionsProps = {
   userId: string;
@@ -33,16 +34,17 @@ type UserActionsProps = {
 
 const UserActionsMenu = ({ userId, currentRole, currentState, currentStatus, onUpdate }: UserActionsProps) => {
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const handleUpdate = async (field: string, value: string) => {
     try {
       const userRef = doc(db, "users", userId);
       await updateDoc(userRef, { [field]: value });
-      toast({ title: "Success", description: "User updated successfully." });
+      toast({ title: t("admin.userManagement.toasts.success") || "Success", description: t("admin.userManagement.toasts.updated") || "User updated successfully." });
       onUpdate();
     } catch (error) {
       console.error("Error updating user:", error);
-      toast({ title: "Error", description: "Failed to update user.", variant: "destructive" });
+      toast({ title: t("admin.userManagement.toasts.error") || "Error", description: t("admin.userManagement.toasts.updateFailed") || "Failed to update user.", variant: "destructive" });
     }
   };
 
@@ -50,19 +52,19 @@ const UserActionsMenu = ({ userId, currentRole, currentState, currentStatus, onU
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="h-8 w-8 p-0">
-          <span className="sr-only">Open menu</span>
+          <span className="sr-only">{t("admin.userManagement.actions.openMenu") || "Open menu"}</span>
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+        <DropdownMenuLabel>{t("admin.userManagement.actions.label") || "Actions"}</DropdownMenuLabel>
         <DropdownMenuSeparator />
 
         {/* Modify Permissions */}
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <ShieldAlert className="mr-2 h-4 w-4" />
-            <span>Modify Permissions</span>
+            <span>{t("admin.userManagement.actions.modifyPermissions") || "Modify Permissions"}</span>
           </DropdownMenuSubTrigger>
           <DropdownMenuPortal>
             <DropdownMenuSubContent>
@@ -98,7 +100,7 @@ const UserActionsMenu = ({ userId, currentRole, currentState, currentStatus, onU
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <MapPin className="mr-2 h-4 w-4" />
-            <span>Transfer Region</span>
+            <span>{t("admin.userManagement.actions.transferRegion") || "Transfer Region"}</span>
           </DropdownMenuSubTrigger>
           <DropdownMenuPortal>
             <DropdownMenuSubContent className="max-h-[300px] overflow-y-auto">
@@ -120,7 +122,7 @@ const UserActionsMenu = ({ userId, currentRole, currentState, currentStatus, onU
         <DropdownMenuSub>
           <DropdownMenuSubTrigger className="text-red-600 hover:text-red-700">
             <UserX className="mr-2 h-4 w-4" />
-            <span>Suspend Account</span>
+            <span>{t("admin.userManagement.actions.suspendAccount") || "Suspend Account"}</span>
           </DropdownMenuSubTrigger>
           <DropdownMenuPortal>
             <DropdownMenuSubContent>
@@ -152,6 +154,7 @@ function EditUserDialog({ user, isOpen, onClose, onSave }: { user: AdminUser | n
   const [mobile, setMobile] = React.useState(user?.mobile || '');
   const [loading, setLoading] = React.useState(false);
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   React.useEffect(() => {
     if (user) {
@@ -173,12 +176,12 @@ function EditUserDialog({ user, isOpen, onClose, onSave }: { user: AdminUser | n
         lastName,
         mobile
       });
-      toast({ title: "Success", description: "User profile updated." });
+      toast({ title: t("admin.userManagement.toasts.success") || "Success", description: t("admin.userManagement.toasts.profileUpdated") || "User profile updated." });
       onSave();
       onClose();
     } catch (error) {
       console.error("Error updating user:", error);
-      toast({ title: "Error", description: "Failed to update profile.", variant: "destructive" });
+      toast({ title: t("admin.userManagement.toasts.error") || "Error", description: t("admin.userManagement.toasts.profileUpdateFailed") || "Failed to update profile.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -188,35 +191,35 @@ function EditUserDialog({ user, isOpen, onClose, onSave }: { user: AdminUser | n
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Edit User Profile</DialogTitle>
+          <DialogTitle>{t("admin.userManagement.editDialog.title") || "Edit User Profile"}</DialogTitle>
           <DialogDescription>
-            Make changes to the user's profile information here. Click save when you're done.
+            {t("admin.userManagement.editDialog.description") || "Make changes to the user's profile information here. Click save when you're done."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="firstName" className="text-right"> First Name </Label>
+              <Label htmlFor="firstName" className="text-right"> {t("admin.userManagement.editDialog.firstName") || "First Name"} </Label>
               <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="lastName" className="text-right"> Last Name </Label>
+              <Label htmlFor="lastName" className="text-right"> {t("admin.userManagement.editDialog.lastName") || "Last Name"} </Label>
               <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="email" className="text-right"> Email </Label>
+              <Label htmlFor="email" className="text-right"> {t("admin.userManagement.editDialog.email") || "Email"} </Label>
               <Input id="email" value={user?.email || ''} disabled className="col-span-3 bg-muted" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="mobile" className="text-right"> Phone </Label>
+              <Label htmlFor="mobile" className="text-right"> {t("admin.userManagement.editDialog.phone") || "Phone"} </Label>
               <Input id="mobile" value={mobile} onChange={(e) => setMobile(e.target.value)} className="col-span-3" />
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={onClose}>{t("admin.userManagement.editDialog.cancel") || "Cancel"}</Button>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save changes
+              {t("admin.userManagement.editDialog.save") || "Save changes"}
             </Button>
           </DialogFooter>
         </form>
@@ -227,6 +230,7 @@ function EditUserDialog({ user, isOpen, onClose, onSave }: { user: AdminUser | n
 
 export default function UserManagementPage() {
   const { users, persons, drivers, loading, permissionError, fetchData } = useAdminData();
+  const { t } = useTranslation();
   const [currentPage, setCurrentPage] = React.useState(1);
   const [itemsPerPage] = React.useState(10);
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -351,7 +355,7 @@ export default function UserManagementPage() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <Card className="bg-white">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("admin.userManagement.stats.totalUsers") || "Total Users"}</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -361,7 +365,7 @@ export default function UserManagementPage() {
 
         <Card className="bg-red-50 border-red-100">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-red-700">Super Admins</CardTitle>
+            <CardTitle className="text-sm font-medium text-red-700">{t("admin.userManagement.stats.superAdmins") || "Super Admins"}</CardTitle>
             <ShieldCheck className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
@@ -371,7 +375,7 @@ export default function UserManagementPage() {
 
         <Card className="bg-blue-50 border-blue-100">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-blue-700">Admins</CardTitle>
+            <CardTitle className="text-sm font-medium text-blue-700">{t("admin.userManagement.stats.admins") || "Admins"}</CardTitle>
             <Shield className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
@@ -381,7 +385,7 @@ export default function UserManagementPage() {
 
         <Card className="bg-indigo-50 border-indigo-100">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-indigo-700">Agents</CardTitle>
+            <CardTitle className="text-sm font-medium text-indigo-700">{t("admin.userManagement.stats.agents") || "Agents"}</CardTitle>
             <UserCog className="h-4 w-4 text-indigo-600" />
           </CardHeader>
           <CardContent>
@@ -391,7 +395,7 @@ export default function UserManagementPage() {
 
         <Card className="bg-green-50 border-green-100">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-green-700">Beneficiaries</CardTitle>
+            <CardTitle className="text-sm font-medium text-green-700">{t("admin.userManagement.stats.beneficiaries") || "Beneficiaries"}</CardTitle>
             <Heart className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
@@ -402,7 +406,7 @@ export default function UserManagementPage() {
 
         <Card className="bg-gray-50 border-gray-100">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-gray-700">Regular Users</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-700">{t("admin.userManagement.stats.regularUsers") || "Regular Users"}</CardTitle>
             <UserCheck className="h-4 w-4 text-gray-600" />
           </CardHeader>
           <CardContent>
@@ -422,17 +426,17 @@ export default function UserManagementPage() {
           <div>
             <CardTitle className="flex items-center gap-2">
               <UserCog className="h-5 w-5" />
-              User Management
+              {t("admin.userManagement.title") || "User Management"}
             </CardTitle>
             <CardDescription>
-              View and manage all registered users in the system.
+              {t("admin.userManagement.subtitle") || "View and manage all registered users in the system."}
             </CardDescription>
           </div>
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="Search by name, email, or phone..."
+              placeholder={t("admin.userManagement.searchPlaceholder") || "Search by name, email, or phone..."}
               className="pl-9 w-full"
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
@@ -443,9 +447,9 @@ export default function UserManagementPage() {
           {permissionError && (
             <Alert variant="destructive" className="mb-4">
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Permission Denied</AlertTitle>
+              <AlertTitle>{t("admin.userManagement.permissionError.title") || "Permission Denied"}</AlertTitle>
               <AlertDescription>
-                You do not have permission to view users. Please check your Firestore security rules to allow read access to the 'users' collection for administrators.
+                {t("admin.userManagement.permissionError.description") || "You do not have permission to view users. Please check your Firestore security rules to allow read access to the 'users' collection for administrators."}
               </AlertDescription>
             </Alert>
           )}
@@ -474,19 +478,19 @@ export default function UserManagementPage() {
                         <div className="flex gap-2">
                           <Badge variant={getRoleBadgeVariant(user.role)} className="gap-1.5">
                             {getRoleIcon(user.role)}
-                            {user.role === 'displaced_person' ? 'Beneficiary' : user.role}
+                            {user.role === 'displaced_person' ? (t("admin.userManagement.stats.beneficiaries") || 'Beneficiary') : user.role}
                           </Badge>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <div>
-                          <p className="text-muted-foreground">Status</p>
+                          <p className="text-muted-foreground">{t("admin.userManagement.table.heads.status") || "Status"}</p>
                           <Badge variant={getStatusBadgeVariant(user.accountStatus)} className="mt-1">
                             {user.accountStatus}
                           </Badge>
                         </div>
                         <div>
-                          <p className="text-muted-foreground">Phone</p>
+                          <p className="text-muted-foreground">{t("admin.userManagement.table.heads.phone") || "Phone"}</p>
                           <p className="font-medium flex items-center gap-1 mt-1">
                             <Phone className="h-3 w-3 text-muted-foreground" />
                             {user.mobile}
@@ -494,7 +498,7 @@ export default function UserManagementPage() {
                         </div>
                       </div>
                       <div>
-                        <p className="text-sm text-muted-foreground mb-2">Profile Completion</p>
+                        <p className="text-sm text-muted-foreground mb-2">{t("admin.userManagement.table.heads.profileCompletion") || "Profile Completion"}</p>
                         <div className="flex items-center gap-2">
                           <div className="flex-1 bg-gray-200 rounded-full h-2">
                             <div
@@ -512,7 +516,7 @@ export default function UserManagementPage() {
 
                       <div className="flex justify-end pt-2 border-t mt-2 gap-2">
                         <Button variant="outline" size="sm" className="h-8" onClick={() => setEditingUser(user)}>
-                          <Edit className="mr-2 h-3 w-3" /> Edit
+                          <Edit className="mr-2 h-3 w-3" /> {t("admin.userManagement.buttons.edit") || "Edit"}
                         </Button>
                         <UserActionsMenu
                           userId={user.id}
@@ -537,13 +541,13 @@ export default function UserManagementPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="min-w-[120px]">Name</TableHead>
-                    <TableHead className="min-w-[150px]">Email</TableHead>
-                    <TableHead className="min-w-[100px]">Role</TableHead>
-                    <TableHead className="min-w-[80px]">Status</TableHead>
-                    <TableHead className="min-w-[120px]">Phone</TableHead>
-                    <TableHead className="min-w-[150px]">Profile Completion</TableHead>
-                    <TableHead className="min-w-[50px]">Actions</TableHead>
+                    <TableHead className="min-w-[120px]">{t("admin.userManagement.table.heads.name") || "Name"}</TableHead>
+                    <TableHead className="min-w-[150px]">{t("admin.userManagement.table.heads.email") || "Email"}</TableHead>
+                    <TableHead className="min-w-[100px]">{t("admin.userManagement.table.heads.role") || "Role"}</TableHead>
+                    <TableHead className="min-w-[80px]">{t("admin.userManagement.table.heads.status") || "Status"}</TableHead>
+                    <TableHead className="min-w-[120px]">{t("admin.userManagement.table.heads.phone") || "Phone"}</TableHead>
+                    <TableHead className="min-w-[150px]">{t("admin.userManagement.table.heads.profileCompletion") || "Profile Completion"}</TableHead>
+                    <TableHead className="min-w-[50px]">{t("admin.userManagement.table.heads.actions") || "Actions"}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -568,7 +572,7 @@ export default function UserManagementPage() {
                         <TableCell>
                           <Badge variant={getRoleBadgeVariant(user.role)} className="gap-1.5">
                             {getRoleIcon(user.role)}
-                            {user.role === 'displaced_person' ? 'Beneficiary' : user.role}
+                            {user.role === 'displaced_person' ? (t("admin.userManagement.stats.beneficiaries") || 'Beneficiary') : user.role}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -614,7 +618,7 @@ export default function UserManagementPage() {
                   ) : !permissionError ? (
                     <TableRow>
                       <TableCell colSpan={6} className="h-24 text-center">
-                        No users found.
+                        {t("admin.userManagement.table.noUsers") || "No users found."}
                       </TableCell>
                     </TableRow>
                   ) : null}

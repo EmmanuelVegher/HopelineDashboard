@@ -440,7 +440,7 @@ export default function AssistancePage() {
                 stream.getTracks().forEach(track => track.stop());
             };
             setMediaRecorder(recorder); recorder.start(); setIsRecording(true);
-        } catch (error) { toast({ title: "Error", description: "Could not access microphone", variant: "destructive" }); }
+        } catch (error) { toast({ title: t('common.error'), description: t('assistance.errors.micAccess'), variant: "destructive" }); }
     };
 
     const stopVoiceRecording = () => {
@@ -515,7 +515,7 @@ export default function AssistancePage() {
 
         } catch (error) {
             console.error("Error starting call:", error);
-            toast({ title: "Error", description: "Failed to start call", variant: "destructive" });
+            toast({ title: t('common.error'), description: t('assistance.errors.startCallFailed'), variant: "destructive" });
         }
     };
 
@@ -613,7 +613,7 @@ export default function AssistancePage() {
         } catch (error) {
             console.error("Error sending message:", error);
             setInputValue(originalText);
-            toast({ title: "Error", description: "Failed to send message", variant: "destructive" });
+            toast({ title: t('common.error'), description: t('assistance.errors.sendFailed'), variant: "destructive" });
         } finally {
             setSending(false);
         }
@@ -698,7 +698,7 @@ export default function AssistancePage() {
                 >
                     {agent.role === 'support agent' && !isOnline ? (
                         <>
-                            <Clock className="w-3.5 h-3.5 mr-1.5" /> Join Wait List
+                            <Clock className="w-3.5 h-3.5 mr-1.5" /> {t('assistance.interface.joinWaitList')}
                         </>
                     ) : (
                         <>
@@ -796,7 +796,7 @@ export default function AssistancePage() {
                                     <div className={cn("rounded-2xl px-4 py-2 shadow-sm",
                                         isMe ? "bg-blue-600 text-white rounded-tr-none" : "bg-white text-gray-800 border rounded-tl-none")}>
                                         {message.messageType === 'call_status' ? (
-                                            <p className="italic text-xs opacity-80">{message.content}</p>
+                                            <p className="italic text-xs opacity-80">{t(`assistance.call.${message.content.toLowerCase().replace(/\s+/g, '')}Label`)}</p>
                                         ) : (
                                             <>
                                                 <p className="text-sm">{message.userTranslatedText || message.content}</p>

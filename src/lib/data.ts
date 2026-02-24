@@ -23,6 +23,11 @@ export type Shelter = {
     lastUpdate: string;
     imageUrl?: string;
     phone: string;
+    geofence?: { lat: number, lng: number }[];
+    droneVideoUrl?: string;
+    photoGallery?: string[];
+    state?: string;
+    kmlUrl?: string;
 };
 
 export type Driver = {

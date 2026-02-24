@@ -437,7 +437,7 @@ export default function DashboardProfilePage() {
                 <Label htmlFor="language" className="text-sm font-semibold text-slate-700 dark:text-slate-300">{t('profile.language')}</Label>
                 <Select value={selectedLanguage} onValueChange={handleLanguageChange}>
                   <SelectTrigger className="h-12 border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20">
-                    <SelectValue placeholder={t('profile.placeholder.selectLanguage')} />
+                    <SelectValue placeholder={t('profile.languagePlaceholder.selectLanguage')} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="English">{t('profile.languageOptions.english')}</SelectItem>

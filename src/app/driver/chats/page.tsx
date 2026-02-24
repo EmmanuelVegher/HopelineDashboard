@@ -56,6 +56,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useAuthState } from "react-firebase-hooks/auth";
 import { CallInterface } from "@/components/chat/call-interface";
 import { generateChannelName } from "@/lib/agora";
+import { useTranslation } from 'react-i18next';
 
 interface ChatSession {
     id: string;
@@ -105,6 +106,7 @@ interface Message {
 }
 
 export default function DriverChatsPage() {
+    const { t } = useTranslation();
     const [user] = useAuthState(auth);
     const [userProfile, setUserProfile] = useState<any>(null);
     const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
@@ -261,7 +263,7 @@ export default function DriverChatsPage() {
                     await updateDoc(docRef, {
                         participants: arrayUnion(user.uid),
                         [`participantInfo.${user.uid}`]: {
-                            name: `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || 'Driver',
+                            name: `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || t('driver.chats.driverRole'),
                             role: userProfile.role || 'driver',
                             email: user.email || '',
                             avatar: userProfile.image || userProfile.imageUrl || userProfile.profileImage || userProfile.photoURL || userProfile.photoUrl || userProfile.avatar || ''
@@ -282,14 +284,14 @@ export default function DriverChatsPage() {
                                 participants: [user.uid],
                                 participantInfo: {
                                     [user.uid]: {
-                                        name: `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || 'Driver',
+                                        name: `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || t('driver.chats.driverRole'),
                                         role: userProfile.role || 'driver',
                                         email: user.email || ''
                                     }
                                 },
                                 createdAt: serverTimestamp(),
                                 updatedAt: serverTimestamp(),
-                                lastMessage: `Welcome to the ${groupName} community channel.`,
+                                lastMessage: t('driver.chats.welcomeMessage', { groupName }),
                                 lastMessageTime: serverTimestamp(),
                                 unreadCount: 0,
                                 status: 'active'
@@ -368,7 +370,7 @@ export default function DriverChatsPage() {
         }, (error) => {
             console.error("Message listener error:", error);
             if (error.code === 'permission-denied') {
-                toast({ title: "Access Restricted", description: "You don't have permission to view these messages.", variant: "destructive" });
+                toast({ title: t('driver.chats.accessRestricted'), description: t('driver.chats.accessRestrictedDesc'), variant: "destructive" });
             }
         });
 
@@ -386,7 +388,7 @@ export default function DriverChatsPage() {
         const file = e.target.files?.[0];
         if (file) {
             if (file.size > 10 * 1024 * 1024) {
-                toast({ title: "File too large", description: "Max file size is 10MB", variant: "destructive" });
+                toast({ title: t('driver.chats.fileTooLarge'), description: t('driver.chats.fileTooLargeDesc'), variant: "destructive" });
                 return;
             }
             setAttachment(file);
@@ -426,7 +428,7 @@ export default function DriverChatsPage() {
                 timerRef.current = setInterval(() => { }, 1000);
             } catch (error) {
                 console.error("Mic error:", error);
-                toast({ title: "Error", description: "Could not access microphone", variant: "destructive" });
+                toast({ title: t('driver.chats.error'), description: t('driver.chats.micError'), variant: "destructive" });
             }
         }
     };
@@ -442,7 +444,7 @@ export default function DriverChatsPage() {
             const recipients = isGroup ? (selectedChat.participants || []).filter(id => id !== user.uid) : (selectedChat.userId ? [selectedChat.userId] : []);
 
             if (recipients.length === 0) {
-                toast({ title: "Call Failed", description: "No participants to call", variant: "destructive" });
+                toast({ title: t('driver.chats.callFailed'), description: t('driver.chats.noParticipants'), variant: "destructive" });
                 return;
             }
 
@@ -471,7 +473,7 @@ export default function DriverChatsPage() {
 
             // ✅ Log call initiation to chat
             const callEmoji = '📞';
-            const callText = 'Voice call';
+            const callText = t('driver.chats.voiceCall');
 
             await addDoc(collection(db, 'chats', selectedChatId, 'messages'), {
                 content: `${callEmoji} ${callText}`,
@@ -504,7 +506,7 @@ export default function DriverChatsPage() {
             });
         } catch (error) {
             console.error('Call error:', error);
-            toast({ title: "Call Failed", description: "Could not initiate call.", variant: "destructive" });
+            toast({ title: t('driver.chats.callFailed'), description: t('driver.chats.callInitiateError'), variant: "destructive" });
         }
     };
 
@@ -519,7 +521,7 @@ export default function DriverChatsPage() {
             const recipients = isGroup ? (selectedChat.participants || []).filter(id => id !== user.uid) : (selectedChat.userId ? [selectedChat.userId] : []);
 
             if (recipients.length === 0) {
-                toast({ title: "Call Failed", description: "No participants to call", variant: "destructive" });
+                toast({ title: t('driver.chats.callFailed'), description: t('driver.chats.noParticipants'), variant: "destructive" });
                 return;
             }
 
@@ -548,7 +550,7 @@ export default function DriverChatsPage() {
 
             // ✅ Log call initiation to chat
             const callEmoji = '📹';
-            const callText = 'Video call';
+            const callText = t('driver.chats.videoCall');
 
             await addDoc(collection(db, 'chats', selectedChatId, 'messages'), {
                 content: `${callEmoji} ${callText}`,
@@ -581,7 +583,7 @@ export default function DriverChatsPage() {
             });
         } catch (error) {
             console.error('Video call error:', error);
-            toast({ title: "Call Failed", description: "Could not initiate video call.", variant: "destructive" });
+            toast({ title: t('driver.chats.callFailed'), description: t('driver.chats.videoCallInitiateError'), variant: "destructive" });
         }
     };
 
@@ -639,16 +641,16 @@ export default function DriverChatsPage() {
             });
 
             await updateDoc(doc(db, 'chats', selectedChatId), {
-                lastMessage: attachments.length > 0 ? (originalText || (attachments[0].type === 'audio' ? 'Voice Message' : 'Attachment')) : originalText,
+                lastMessage: attachments.length > 0 ? (originalText || (attachments[0].type === 'audio' ? t('driver.chats.voiceMessage') : t('driver.chats.attachment'))) : originalText,
                 lastMessageTimestamp: serverTimestamp(),
                 lastMessageSenderId: user?.uid,
-                lastMessageSenderName: `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || 'Driver',
+                lastMessageSenderName: `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || t('driver.chats.driverRole'),
                 unreadCount: 0
             });
         } catch (error) {
             console.error("Send error:", error);
             setInputValue(originalText);
-            toast({ title: "Error", description: "Failed to send message", variant: "destructive" });
+            toast({ title: t('driver.chats.error'), description: t('driver.chats.sendError'), variant: "destructive" });
         } finally {
             setSending(false);
         }
@@ -680,14 +682,14 @@ export default function DriverChatsPage() {
                         content: guideDoc.content
                     });
                 } else {
-                    toast({ title: "Not a guide", description: "This training is a video or document." });
+                    toast({ title: t('driver.chats.notAGuide'), description: t('driver.chats.notAGuideDesc') });
                 }
             } else {
-                toast({ title: "Not found", description: "This guide content is no longer available." });
+                toast({ title: t('driver.chats.notFound'), description: t('driver.chats.guideNotFoundDesc') });
             }
         } catch (error) {
             console.error("Error fetching legacy guide:", error);
-            toast({ title: "Error", description: "Failed to load guide content." });
+            toast({ title: t('driver.chats.error'), description: t('driver.chats.loadGuideError') });
         }
     };
 
@@ -709,7 +711,7 @@ export default function DriverChatsPage() {
                     userImage: targetUser.image || targetUser.imageUrl || targetUser.profileImage || targetUser.photoURL || targetUser.photoUrl || targetUser.avatar || '',
                     status: 'active',
                     createdAt: serverTimestamp(),
-                    lastMessage: 'Conversation started',
+                    lastMessage: t('driver.chats.conversationStarted'),
                     lastMessageTimestamp: serverTimestamp(),
                     unreadCount: 0,
                     type: 'p2p',
@@ -723,10 +725,10 @@ export default function DriverChatsPage() {
 
             setSelectedChatId(chatId);
             setIsNewChatOpen(false);
-            toast({ title: "Chat Started", description: `Conversation with ${targetUser.firstName} initiated.` });
+            toast({ title: t('driver.chats.chatStarted'), description: t('driver.chats.chatStartedDesc', { firstName: targetUser.firstName }) });
         } catch (error) {
             console.error("New chat error:", error);
-            toast({ title: "Error", description: "Failed to start conversation", variant: "destructive" });
+            toast({ title: t('driver.chats.error'), description: t('driver.chats.startChatError'), variant: "destructive" });
         }
     };
 
@@ -785,15 +787,15 @@ export default function DriverChatsPage() {
                 <div>
                     <h1 className="text-2xl font-bold flex items-center gap-2">
                         <MessageSquare className="h-6 w-6 text-blue-600" />
-                        Driver Messenger
+                        {t('driver.chats.title')}
                     </h1>
-                    <p className="text-sm text-muted-foreground">Chat with users and your community in {userProfile?.state}</p>
+                    <p className="text-sm text-muted-foreground">{t('driver.chats.subtitle', { state: userProfile?.state })}</p>
                 </div>
                 <div className="flex items-center gap-4">
                     <Tabs value={chatTab} onValueChange={(v) => setChatTab(v as any)} className="w-full sm:w-[300px]">
                         <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="p2p">Direct Messages</TabsTrigger>
-                            <TabsTrigger value="group">Group Chats</TabsTrigger>
+                            <TabsTrigger value="p2p">{t('driver.chats.directMessages')}</TabsTrigger>
+                            <TabsTrigger value="group">{t('driver.chats.groupChats')}</TabsTrigger>
                         </TabsList>
                     </Tabs>
                     <Button variant="outline" size="icon" onClick={() => setIsNewChatOpen(true)}>
@@ -808,7 +810,7 @@ export default function DriverChatsPage() {
                     <CardHeader className="p-4 border-b">
                         <div className="relative">
                             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input placeholder="Search chats..." className="pl-8 h-9" />
+                            <Input placeholder={t('driver.chats.searchChats')} className="pl-8 h-9" />
                         </div>
                     </CardHeader>
                     <CardContent className="p-0 flex-1 overflow-hidden">
@@ -819,7 +821,7 @@ export default function DriverChatsPage() {
                                 </div>
                             ) : sessionsWithNames.length === 0 ? (
                                 <div className="p-8 text-center text-muted-foreground text-sm">
-                                    <p>No conversations found</p>
+                                    <p>{t('driver.chats.noConversations')}</p>
                                 </div>
                             ) : (
                                 <div className="divide-y">
@@ -847,7 +849,7 @@ export default function DriverChatsPage() {
                                                     </div>
                                                     <p className="text-xs text-muted-foreground truncate italic">
                                                         {chat.resolvedLastSenderName ? (
-                                                            <span className="font-semibold not-italic mr-1">{chat.resolvedLastSenderName === `${userProfile?.firstName} ${userProfile?.lastName}` ? 'You' : chat.resolvedLastSenderName.split(' ')[0]}:</span>
+                                                            <span className="font-semibold not-italic mr-1">{chat.resolvedLastSenderName === `${userProfile?.firstName} ${userProfile?.lastName}` ? t('driver.chats.you') : chat.resolvedLastSenderName.split(' ')[0]}:</span>
                                                         ) : ''}
                                                         {chat.lastMessage}
                                                     </p>
@@ -904,7 +906,7 @@ export default function DriverChatsPage() {
                                     </Avatar>
                                     <div>
                                         <h3 className="font-semibold text-sm">{selectedChat.fullName}</h3>
-                                        <Badge variant="outline" className="text-[10px] h-4 py-0">{selectedChat.type === 'group' ? 'Community Group' : 'Direct Message'}</Badge>
+                                        <Badge variant="outline" className="text-[10px] h-4 py-0">{selectedChat.type === 'group' ? t('driver.chats.communityGroupBadge') : t('driver.chats.directMessageBadge')}</Badge>
                                     </div>
                                 </div>
                                 <div className="flex gap-1">
@@ -935,7 +937,7 @@ export default function DriverChatsPage() {
                                                     </Avatar>
 
                                                     <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[80%] gap-1`}>
-                                                        <span className="text-[11px] font-semibold text-slate-500 px-1">{isMe ? 'You' : resolvedSenderInfo.name}</span>
+                                                        <span className="text-[11px] font-semibold text-slate-500 px-1">{isMe ? t('driver.chats.you') : resolvedSenderInfo.name}</span>
                                                         <div className={`rounded-2xl p-3 shadow-sm ${isMe ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-white text-slate-900 border rounded-tl-none'}`}>
                                                             {msg.attachments && msg.attachments.map((a, i) => (
                                                                 <div key={i} className="mb-2 rounded overflow-hidden">
@@ -953,7 +955,7 @@ export default function DriverChatsPage() {
                                                                     className="mt-2 w-full bg-white/10 hover:bg-white/20 border-white/20 text-white"
                                                                     onClick={() => handleReadMore(msg)}
                                                                 >
-                                                                    Read More Guides
+                                                                    {t('driver.chats.readMoreGuides')}
                                                                 </Button>
                                                             )}
                                                             <div className="flex justify-end items-center gap-1 mt-1 opacity-70">
@@ -992,14 +994,14 @@ export default function DriverChatsPage() {
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400"><Paperclip className="h-5 w-5" /></Button></DropdownMenuTrigger>
                                             <DropdownMenuContent align="start">
-                                                <DropdownMenuItem onClick={() => handleAttachmentClick("image/*")}>Image</DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => handleAttachmentClick("video/*")}>Video</DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => handleAttachmentClick("audio/*")}>Audio</DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => handleAttachmentClick(".pdf,.doc,.docx")}>Document</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleAttachmentClick("image/*")}>{t('driver.chats.image')}</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleAttachmentClick("video/*")}>{t('driver.chats.video')}</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleAttachmentClick("audio/*")}>{t('driver.chats.audio')}</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleAttachmentClick(".pdf,.doc,.docx")}>{t('driver.chats.document')}</DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                         <Input
-                                            placeholder="Message..."
+                                            placeholder={t('driver.chats.messagePlaceholder')}
                                             value={inputValue}
                                             onChange={(e) => setInputValue(e.target.value)}
                                             onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
@@ -1032,9 +1034,9 @@ export default function DriverChatsPage() {
                             <div className="h-16 w-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
                                 <MessageSquare className="h-8 w-8 opacity-20" />
                             </div>
-                            <h3 className="text-lg font-semibold text-slate-900 mb-1">Your Driver Inbox</h3>
-                            <p className="max-w-[250px] mb-4 text-sm">Select a community group or search for a user to start chatting.</p>
-                            <Button className="rounded-full px-6" onClick={() => setIsNewChatOpen(true)}>New Conversation</Button>
+                            <h3 className="text-lg font-semibold text-slate-900 mb-1">{t('driver.chats.emptyInboxTitle')}</h3>
+                            <p className="max-w-[250px] mb-4 text-sm">{t('driver.chats.emptyInboxDesc')}</p>
+                            <Button className="rounded-full px-6" onClick={() => setIsNewChatOpen(true)}>{t('driver.chats.newConversation')}</Button>
                         </div>
                     )}
                 </Card>
@@ -1044,17 +1046,17 @@ export default function DriverChatsPage() {
             <Dialog open={isNewChatOpen} onOpenChange={setIsNewChatOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Start Conversation</DialogTitle>
-                        <DialogDescription>Find users in {userProfile?.state} to message directly.</DialogDescription>
+                        <DialogTitle>{t('driver.chats.startConversation')}</DialogTitle>
+                        <DialogDescription>{t('driver.chats.findUsersInState', { state: userProfile?.state })}</DialogDescription>
                     </DialogHeader>
                     <div className="relative my-2">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="Search name or role..." className="pl-9" value={userSearchTerm} onChange={(e) => setUserSearchTerm(e.target.value)} />
+                        <Input placeholder={t('driver.chats.searchNameOrRole')} className="pl-9" value={userSearchTerm} onChange={(e) => setUserSearchTerm(e.target.value)} />
                     </div>
                     <ScrollArea className="h-72 border rounded-xl">
                         <div className="p-2 space-y-1">
                             {filteredUsers.length === 0 ? (
-                                <p className="text-center text-xs text-muted-foreground py-10">No users found in your state.</p>
+                                <p className="text-center text-xs text-muted-foreground py-10">{t('driver.chats.noUsersFound')}</p>
                             ) : (
                                 filteredUsers.map(u => (
                                     <div key={u.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 cursor-pointer rounded-lg transition-colors" onClick={() => startNewChat(u)}>
@@ -1086,7 +1088,7 @@ export default function DriverChatsPage() {
             <Dialog open={!!selectedGuide} onOpenChange={(open) => !open && setSelectedGuide(null)}>
                 <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
                     <DialogHeader>
-                        <DialogTitle>{selectedGuide?.title || 'Training Guide'}</DialogTitle>
+                        <DialogTitle>{selectedGuide?.title || t('driver.chats.trainingGuide')}</DialogTitle>
                     </DialogHeader>
                     <ScrollArea className="flex-1 mt-4 pr-4">
                         <div className="text-sm whitespace-pre-wrap text-slate-700 pb-4">
@@ -1094,7 +1096,7 @@ export default function DriverChatsPage() {
                         </div>
                     </ScrollArea>
                     <DialogFooter>
-                        <Button onClick={() => setSelectedGuide(null)}>Close</Button>
+                        <Button onClick={() => setSelectedGuide(null)}>{t('driver.chats.close')}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

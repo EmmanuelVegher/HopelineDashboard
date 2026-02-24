@@ -18,6 +18,7 @@ import { User, Phone, Mail, Car, MapPin, ImagePlus, Trash2 } from 'lucide-react'
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { useToast } from '@/hooks/use-toast';
 import { type Vehicle } from '@/lib/data';
+import { useTranslation } from 'react-i18next';
 
 interface DriverProfile {
   firstName: string;
@@ -39,6 +40,7 @@ interface DriverProfile {
 }
 
 export default function DriverProfilePage() {
+  const { t } = useTranslation();
   const [profile, setProfile] = useState<DriverProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -50,6 +52,17 @@ export default function DriverProfilePage() {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'Available': return t('driver.profile.statuses.available');
+      case 'En Route': return t('driver.profile.statuses.enRoute');
+      case 'Assisting': return t('driver.profile.statuses.assisting');
+      case 'Emergency': return t('driver.profile.statuses.emergency');
+      case 'Off Duty': return t('driver.profile.statuses.offDuty');
+      default: return status;
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -101,8 +114,8 @@ export default function DriverProfilePage() {
         } catch (error) {
           console.error('Error loading profile:', error);
           toast({
-            title: 'Error',
-            description: 'Failed to load profile data.',
+            title: t('common.error'),
+            description: t('driver.profile.loadError'),
             variant: 'destructive',
           });
         }
@@ -111,7 +124,7 @@ export default function DriverProfilePage() {
     });
 
     return () => unsubscribe();
-  }, [toast]);
+  }, [toast, t]);
 
 
   useEffect(() => {
@@ -162,7 +175,7 @@ export default function DriverProfilePage() {
             },
             (error) => {
               console.error("Upload failed:", error);
-              toast({ title: "Image Upload Failed", description: "Could not upload profile image.", variant: "destructive" });
+              toast({ title: t('driver.profile.imageUploadFailed'), description: t('driver.profile.imageUploadDesc'), variant: "destructive" });
               setUploadProgress(null);
               reject(error);
             },
@@ -224,14 +237,14 @@ export default function DriverProfilePage() {
       setUploadProgress(null);
 
       toast({
-        title: 'Profile Updated',
-        description: 'Your profile has been successfully updated.',
+        title: t('driver.profile.profileUpdated'),
+        description: t('driver.profile.profileUpdatedDesc'),
       });
     } catch (error) {
       console.error('Error updating profile:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to update profile. Please try again.',
+        title: t('common.error'),
+        description: t('driver.profile.saveError'),
         variant: 'destructive',
       });
       setUploadProgress(null);
@@ -279,7 +292,7 @@ export default function DriverProfilePage() {
     console.log('Profile is null, showing not found message');
     return (
       <div className="text-center py-12">
-        <p className="text-muted-foreground">Profile not found.</p>
+        <p className="text-muted-foreground">{t('driver.profile.profileNotFound')}</p>
       </div>
     );
   }
@@ -290,7 +303,7 @@ export default function DriverProfilePage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Driver Profile</h1>
+          <h1 className="text-3xl font-bold">{t('driver.profile.title')}</h1>
           <Badge variant="outline">{profile.role}</Badge>
         </div>
 
@@ -323,18 +336,18 @@ export default function DriverProfilePage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <User className="h-5 w-5" />
-              Personal Information
+              {t('driver.profile.personalInfo')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
+                <Label htmlFor="name">{t('driver.profile.fullName')}</Label>
                 <p className="text-sm font-medium">{profile.name}</p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t('driver.profile.email')}</Label>
                 <p className="text-sm font-medium flex items-center gap-2">
                   <Mail className="h-4 w-4" />
                   {profile.email}
@@ -342,7 +355,7 @@ export default function DriverProfilePage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
+                <Label htmlFor="phone">{t('driver.profile.phoneNumber')}</Label>
                 <p className="text-sm font-medium flex items-center gap-2">
                   <Phone className="h-4 w-4" />
                   {profile.phone}
@@ -350,7 +363,7 @@ export default function DriverProfilePage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="vehicle">Vehicle ID / License Plate</Label>
+                <Label htmlFor="vehicle">{t('driver.profile.vehicleId')}</Label>
                 <p className="text-sm font-medium flex items-center gap-2">
                   <Car className="h-4 w-4" />
                   {profile.vehicle}
@@ -360,7 +373,7 @@ export default function DriverProfilePage() {
 
 
               <div className="space-y-2">
-                <Label htmlFor="location">Location</Label>
+                <Label htmlFor="location">{t('driver.profile.location')}</Label>
                 <p className="text-sm font-medium flex items-center gap-2">
                   <MapPin className="h-4 w-4" />
                   {profile.location}
@@ -368,26 +381,26 @@ export default function DriverProfilePage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="status">Current Status</Label>
-                <Badge variant="outline">{profile.status}</Badge>
+                <Label htmlFor="status">{t('driver.profile.currentStatus')}</Label>
+                <Badge variant="outline">{getStatusLabel(profile.status)}</Badge>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="task">Current Task</Label>
-                <p className="text-sm font-medium">{profile.task || 'No current task'}</p>
+                <Label htmlFor="task">{t('driver.profile.currentTask')}</Label>
+                <p className="text-sm font-medium">{profile.task || t('driver.profile.noCurrentTask')}</p>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="bio">Bio</Label>
-              <p className="text-sm text-muted-foreground">{profile.bio || 'No bio provided.'}</p>
+              <Label htmlFor="bio">{t('driver.profile.bio')}</Label>
+              <p className="text-sm text-muted-foreground">{profile.bio || t('driver.profile.noBio')}</p>
             </div>
 
             <div className="flex gap-2 pt-4">
               <Button onClick={() => {
                 setFormData(profile);
                 setEditing(true);
-              }}>Edit Profile</Button>
+              }}>{t('driver.profile.editProfile')}</Button>
             </div>
           </CardContent>
         </Card>
@@ -396,7 +409,7 @@ export default function DriverProfilePage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Car className="h-5 w-5" />
-              Assigned Vehicle
+              {t('driver.profile.assignedVehicle')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -411,41 +424,41 @@ export default function DriverProfilePage() {
                   <div className="space-y-3">
                     <div>
                       <h3 className="text-lg font-semibold">{selectedVehicle.make} {selectedVehicle.model}</h3>
-                      <p className="text-sm text-muted-foreground">Year: {selectedVehicle.year}</p>
+                      <p className="text-sm text-muted-foreground">{t('driver.profile.year')} {selectedVehicle.year}</p>
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="font-medium">License Plate:</span> {selectedVehicle.licensePlate}
+                        <span className="font-medium">{t('driver.profile.licensePlate')}</span> {selectedVehicle.licensePlate}
                       </div>
                       <div>
-                        <span className="font-medium">Type:</span> {selectedVehicle.type}
+                        <span className="font-medium">{t('driver.profile.type')}</span> {selectedVehicle.type}
                       </div>
                       <div>
-                        <span className="font-medium">Capacity:</span> {selectedVehicle.capacity} passengers
+                        <span className="font-medium">{t('driver.profile.capacity')}</span> {selectedVehicle.capacity} {t('driver.profile.passengers')}
                       </div>
                       <div>
-                        <span className="font-medium">Color:</span> {selectedVehicle.color || 'Not specified'}
+                        <span className="font-medium">{t('driver.profile.color')}</span> {selectedVehicle.color || t('driver.profile.notSpecified')}
                       </div>
                       <div>
-                        <span className="font-medium">Status:</span> <Badge variant="outline">{selectedVehicle.status}</Badge>
+                        <span className="font-medium">{t('driver.profile.status')}</span> <Badge variant="outline">{selectedVehicle.status}</Badge>
                       </div>
                       <div>
-                        <span className="font-medium">Fuel Type:</span> {selectedVehicle.fuelType || 'Not specified'}
+                        <span className="font-medium">{t('driver.profile.fuelType')}</span> {selectedVehicle.fuelType || t('driver.profile.notSpecified')}
                       </div>
                       {selectedVehicle.mileage && (
                         <div>
-                          <span className="font-medium">Mileage:</span> {selectedVehicle.mileage} miles
+                          <span className="font-medium">{t('driver.profile.mileage')}</span> {selectedVehicle.mileage} {t('driver.profile.miles')}
                         </div>
                       )}
                       {selectedVehicle.lastMaintenance && (
                         <div>
-                          <span className="font-medium">Last Maintenance:</span> {selectedVehicle.lastMaintenance}
+                          <span className="font-medium">{t('driver.profile.lastMaintenance')}</span> {selectedVehicle.lastMaintenance}
                         </div>
                       )}
                     </div>
                     {selectedVehicle.notes && (
                       <div>
-                        <span className="font-medium">Notes:</span> {selectedVehicle.notes}
+                        <span className="font-medium">{t('driver.profile.notes')}</span> {selectedVehicle.notes}
                       </div>
                     )}
                   </div>
@@ -454,7 +467,7 @@ export default function DriverProfilePage() {
             ) : (
               <div className="text-center py-8">
                 <Car className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">No vehicle assigned</p>
+                <p className="text-muted-foreground">{t('driver.profile.noVehicleAssigned')}</p>
               </div>
             )}
           </CardContent>
@@ -463,12 +476,12 @@ export default function DriverProfilePage() {
         <Dialog open={editing} onOpenChange={setEditing}>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Edit Profile</DialogTitle>
+              <DialogTitle>{t('driver.profile.editTitle')}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-firstName">First Name</Label>
+                  <Label htmlFor="edit-firstName">{t('driver.profile.firstName')}</Label>
                   <Input
                     id="edit-firstName"
                     value={formData.firstName || ''}
@@ -477,7 +490,7 @@ export default function DriverProfilePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="edit-lastName">Last Name</Label>
+                  <Label htmlFor="edit-lastName">{t('driver.profile.lastName')}</Label>
                   <Input
                     id="edit-lastName"
                     value={formData.lastName || ''}
@@ -486,7 +499,7 @@ export default function DriverProfilePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="edit-email">Email</Label>
+                  <Label htmlFor="edit-email">{t('driver.profile.email')}</Label>
                   <Input
                     id="edit-email"
                     type="email"
@@ -496,7 +509,7 @@ export default function DriverProfilePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="edit-phone">Phone Number</Label>
+                  <Label htmlFor="edit-phone">{t('driver.profile.phoneNumber')}</Label>
                   <Input
                     id="edit-phone"
                     value={formData.phone || ''}
@@ -505,7 +518,7 @@ export default function DriverProfilePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="edit-vehicle">Vehicle ID / License Plate</Label>
+                  <Label htmlFor="edit-vehicle">{t('driver.profile.vehicleId')}</Label>
                   <Input
                     id="edit-vehicle"
                     value={formData.vehicle || ''}
@@ -514,16 +527,16 @@ export default function DriverProfilePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="edit-selectedVehicle">Assigned Vehicle</Label>
+                  <Label htmlFor="edit-selectedVehicle">{t('driver.profile.assignedVehicleLabel')}</Label>
                   <Select
                     value={formData.selectedVehicleId || 'none'}
                     onValueChange={(value) => setFormData({ ...formData, selectedVehicleId: value === 'none' ? undefined : value })}
                   >
                     <SelectTrigger id="edit-selectedVehicle">
-                      <SelectValue placeholder="Select a vehicle" />
+                      <SelectValue placeholder={t('driver.profile.selectVehicle')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">No vehicle selected</SelectItem>
+                      <SelectItem value="none">{t('driver.profile.noVehicleSelected')}</SelectItem>
                       {vehicles.map(vehicle => (
                         <SelectItem key={vehicle.id} value={vehicle.id}>
                           {vehicle.make} {vehicle.model} ({vehicle.year}) - {vehicle.licensePlate}
@@ -534,18 +547,18 @@ export default function DriverProfilePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Assigned Vehicle Image</Label>
+                  <Label>{t('driver.profile.assignedVehicleImage')}</Label>
                   {selectedVehicle?.imageUrl ? (
                     <div className="w-24 h-24 rounded-md border overflow-hidden">
                       <img src={selectedVehicle.imageUrl} alt={`${selectedVehicle.make} ${selectedVehicle.model}`} className="object-cover w-full h-full" />
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No vehicle assigned or no image available</p>
+                    <p className="text-sm text-muted-foreground">{t('driver.profile.noVehicleImage')}</p>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="edit-location">Location</Label>
+                  <Label htmlFor="edit-location">{t('driver.profile.location')}</Label>
                   <Input
                     id="edit-location"
                     value={formData.location || ''}
@@ -554,26 +567,26 @@ export default function DriverProfilePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="edit-status">Current Status</Label>
+                  <Label htmlFor="edit-status">{t('driver.profile.currentStatus')}</Label>
                   <Select
                     value={formData.status}
                     onValueChange={(value: DriverProfile['status']) => setFormData({ ...formData, status: value })}
                   >
                     <SelectTrigger id="edit-status">
-                      <SelectValue placeholder="Select status" />
+                      <SelectValue placeholder={t('common.select')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Available">Available</SelectItem>
-                      <SelectItem value="En Route">En Route</SelectItem>
-                      <SelectItem value="Assisting">Assisting</SelectItem>
-                      <SelectItem value="Emergency">Emergency</SelectItem>
-                      <SelectItem value="Off Duty">Off Duty</SelectItem>
+                      <SelectItem value="Available">{t('driver.profile.statuses.available')}</SelectItem>
+                      <SelectItem value="En Route">{t('driver.profile.statuses.enRoute')}</SelectItem>
+                      <SelectItem value="Assisting">{t('driver.profile.statuses.assisting')}</SelectItem>
+                      <SelectItem value="Emergency">{t('driver.profile.statuses.emergency')}</SelectItem>
+                      <SelectItem value="Off Duty">{t('driver.profile.statuses.offDuty')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="edit-task">Current Task</Label>
+                  <Label htmlFor="edit-task">{t('driver.profile.currentTask')}</Label>
                   <Input
                     id="edit-task"
                     value={formData.task || ''}
@@ -583,7 +596,7 @@ export default function DriverProfilePage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="edit-bio">Bio</Label>
+                <Label htmlFor="edit-bio">{t('driver.profile.bio')}</Label>
                 <Textarea
                   id="edit-bio"
                   value={formData.bio || ''}
@@ -593,7 +606,7 @@ export default function DriverProfilePage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Profile Image</Label>
+                <Label>{t('driver.profile.profileImage')}</Label>
                 <div className="flex items-center gap-4">
                   <div className="w-24 h-24 rounded-md border border-dashed flex items-center justify-center bg-muted overflow-hidden">
                     {imagePreview || formData.image ? (
@@ -604,26 +617,26 @@ export default function DriverProfilePage() {
                   </div>
                   <div className="flex-1">
                     <Input id="profileImage" type="file" onChange={handleImageChange} accept="image/*" />
-                    <p className="text-xs text-muted-foreground mt-1">Upload a new profile image.</p>
+                    <p className="text-xs text-muted-foreground mt-1">{t('driver.profile.uploadImage')}</p>
                     {(imagePreview || formData.image) && (
                       <Button type="button" size="sm" variant="ghost" className="text-red-500 hover:text-red-600 mt-1" onClick={handleImageRemove}>
-                        <Trash2 className="mr-1 h-4 w-4" /> Remove Image
+                        <Trash2 className="mr-1 h-4 w-4" /> {t('driver.profile.removeImage')}
                       </Button>
                     )}
                   </div>
                 </div>
                 {uploadProgress !== null && (
                   <div className="space-y-1">
-                    <Label>Upload Progress</Label>
+                    <Label>{t('driver.profile.uploadProgress')}</Label>
                     <Progress value={uploadProgress} />
                   </div>
                 )}
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={handleCancel} disabled={saving}>Cancel</Button>
+              <Button variant="outline" onClick={handleCancel} disabled={saving}>{t('driver.profile.cancel')}</Button>
               <Button onClick={handleSave} disabled={saving}>
-                {saving ? 'Saving...' : 'Save Changes'}
+                {saving ? t('driver.profile.saving') : t('driver.profile.saveChanges')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -635,8 +648,8 @@ export default function DriverProfilePage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-red-600 mb-4">Something went wrong</h2>
-          <p className="text-muted-foreground mb-4">There was an error loading the profile page.</p>
+          <h2 className="text-2xl font-bold text-red-600 mb-4">{t('common.error')}</h2>
+          <p className="text-muted-foreground mb-4">{t('driver.profile.loadError')}</p>
           <p className="text-sm text-muted-foreground">Error: {error instanceof Error ? error.message : 'Unknown error'}</p>
         </div>
       </div>

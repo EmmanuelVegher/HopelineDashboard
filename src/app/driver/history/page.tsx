@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db, auth } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { SosAlert } from '@/ai/schemas/sos';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,11 +15,12 @@ import { MapPin, Clock, CheckCircle, Search, Filter, Route, Activity, Navigation
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
+import { useTranslation } from 'react-i18next';
 
 interface CompletedTask extends SosAlert {
   completedAt: Date;
   trackingData?: {
-    coordinates: Array<{lat: number, lng: number, timestamp: number}>;
+    coordinates: Array<{ lat: number, lng: number, timestamp: number }>;
     startTime: string;
     endTime: string;
     totalDistance: number;
@@ -28,6 +29,7 @@ interface CompletedTask extends SosAlert {
 }
 
 export default function DriverHistoryPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [tasks, setTasks] = useState<CompletedTask[]>([]);
   const [filteredTasks, setFilteredTasks] = useState<CompletedTask[]>([]);
@@ -60,33 +62,44 @@ export default function DriverHistoryPage() {
       return;
     }
 
-     console.log('Setting up query for userId:', userId);
-     const q = query(
-       collection(db, 'sosAlerts'),
-       where('assignedTeam.driverId', '==', userId),
-       where('status', '==', 'Resolved'),
-       orderBy('timestamp', 'desc')
-     );
+    console.log('Setting up query for userId:', userId);
+    const q = query(
+      collection(db, 'sosAlerts'),
+      where('assignedTeam.driverId', '==', userId),
+      where('status', '==', 'Resolved'),
+      orderBy('timestamp', 'desc')
+    );
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-       console.log('Query snapshot received, docs count:', querySnapshot.size);
-       const completedTasks: CompletedTask[] = [];
-       querySnapshot.forEach((doc) => {
-         const data = doc.data() as SosAlert;
-         completedTasks.push({
-           ...data,
-           id: doc.id,
-           completedAt: data.timestamp?.toDate() || new Date(),
-         });
-       });
-       console.log('Completed tasks:', completedTasks.length);
-       setTasks(completedTasks);
-       setFilteredTasks(completedTasks);
-       setLoading(false);
-     }, (error) => {
-       console.error('Error in onSnapshot:', error);
-       setLoading(false);
-     });
+      console.log('Query snapshot received, docs count:', querySnapshot.size);
+      const completedTasks: CompletedTask[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data() as SosAlert;
+        completedTasks.push({
+          ...data,
+          id: doc.id,
+          completedAt: data.timestamp?.toDate() || new Date(),
+          trackingData: data.trackingData ? {
+            coordinates: (data.trackingData.coordinates || []).map((c: any) => ({
+              lat: c.lat ?? c.latitude ?? 0,
+              lng: c.lng ?? c.longitude ?? 0,
+              timestamp: c.timestamp ?? 0
+            })),
+            startTime: data.trackingData.startTime || new Date().toISOString(),
+            endTime: data.trackingData.endTime || new Date().toISOString(),
+            totalDistance: (data.trackingData as any).totalDistance || 0,
+            averageSpeed: (data.trackingData as any).averageSpeed || 0
+          } : undefined
+        } as any);
+      });
+      console.log('Completed tasks:', completedTasks.length);
+      setTasks(completedTasks);
+      setFilteredTasks(completedTasks);
+      setLoading(false);
+    }, (error) => {
+      console.error('Error in onSnapshot:', error);
+      setLoading(false);
+    });
 
     return () => unsubscribe();
   }, [userId]);
@@ -131,9 +144,9 @@ export default function DriverHistoryPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Task History</h1>
+        <h1 className="text-3xl font-bold">{t('driver.history.title')}</h1>
         <Badge variant="outline" className="text-sm">
-          {tasks.length} Completed Task{tasks.length !== 1 ? 's' : ''}
+          {tasks.length} {tasks.length === 1 ? t('driver.history.completedTasks') : t('driver.history.completedTasksPlural')}
         </Badge>
       </div>
 
@@ -145,7 +158,7 @@ export default function DriverHistoryPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search tasks..."
+                  placeholder={t('driver.history.searchTasks')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -156,11 +169,11 @@ export default function DriverHistoryPage() {
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
                   <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Filter by status" />
+                  <SelectValue placeholder={t('driver.history.filterByStatus')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="Resolved">Resolved</SelectItem>
+                  <SelectItem value="all">{t('driver.history.allStatus')}</SelectItem>
+                  <SelectItem value="Resolved">{t('driver.history.resolvedStatus')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -176,10 +189,10 @@ export default function DriverHistoryPage() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-green-500" />
-                  SOS Alert
+                  {t('driver.history.sosAlert')}
                 </CardTitle>
                 <Badge className={getStatusColor(task.status)}>
-                  {task.status}
+                  {task.status === 'Resolved' ? t('driver.history.resolvedStatus') : task.status}
                 </Badge>
               </div>
             </CardHeader>
@@ -202,7 +215,7 @@ export default function DriverHistoryPage() {
 
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4" />
-                Completed {task.completedAt.toLocaleString()}
+                {t('driver.history.completed')} {task.completedAt.toLocaleString()}
               </div>
 
               <div className="pt-2">
@@ -215,7 +228,7 @@ export default function DriverHistoryPage() {
                     setDetailsModalOpen(true);
                   }}
                 >
-                  View Details
+                  {t('driver.history.viewDetails')}
                 </Button>
               </div>
             </CardContent>
@@ -228,12 +241,12 @@ export default function DriverHistoryPage() {
           <CardContent className="py-12 text-center">
             <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">
-              {tasks.length === 0 ? 'No Completed Tasks' : 'No Matching Tasks'}
+              {tasks.length === 0 ? t('driver.history.noCompletedTasks') : t('driver.history.noMatchingTasks')}
             </h3>
             <p className="text-muted-foreground">
               {tasks.length === 0
-                ? 'You haven\'t completed any tasks yet. Your completed tasks will appear here.'
-                : 'Try adjusting your search or filter criteria.'
+                ? t('driver.history.noCompletedDesc')
+                : t('driver.history.noMatchingDesc')
               }
             </p>
           </CardContent>
@@ -246,7 +259,7 @@ export default function DriverHistoryPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCircle className="h-5 w-5 text-green-500" />
-              Task Details
+              {t('driver.history.taskDetails')}
             </DialogTitle>
           </DialogHeader>
 
@@ -257,7 +270,7 @@ export default function DriverHistoryPage() {
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">{selectedTask.emergencyType}</h3>
                   <Badge className={getStatusColor(selectedTask.status)}>
-                    {selectedTask.status}
+                    {selectedTask.status === 'Resolved' ? t('driver.history.resolvedStatus') : selectedTask.status}
                   </Badge>
                 </div>
 
@@ -267,10 +280,10 @@ export default function DriverHistoryPage() {
                 <div className="flex items-start gap-3">
                   <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div>
-                    <p className="font-medium">Location</p>
+                    <p className="font-medium">{t('driver.history.location')}</p>
                     <p className="text-sm text-muted-foreground">
                       {selectedTask.location.address ||
-                       `${selectedTask.location.latitude.toFixed(6)}, ${selectedTask.location.longitude.toFixed(6)}`}
+                        `${selectedTask.location.latitude.toFixed(6)}, ${selectedTask.location.longitude.toFixed(6)}`}
                     </p>
                   </div>
                 </div>
@@ -280,7 +293,7 @@ export default function DriverHistoryPage() {
                   <div className="flex items-start gap-3">
                     <div className="h-5 w-5 text-muted-foreground mt-0.5">📝</div>
                     <div>
-                      <p className="font-medium">Additional Information</p>
+                      <p className="font-medium">{t('driver.history.additionalInfo')}</p>
                       <p className="text-sm text-muted-foreground">{selectedTask.additionalInfo}</p>
                     </div>
                   </div>
@@ -291,16 +304,16 @@ export default function DriverHistoryPage() {
                   <div className="flex items-center gap-3">
                     <Clock className="h-5 w-5 text-muted-foreground" />
                     <div>
-                      <p className="font-medium">Created</p>
+                      <p className="font-medium">{t('driver.history.created')}</p>
                       <p className="text-sm text-muted-foreground">
-                        {selectedTask.timestamp?.toDate().toLocaleString() || 'Unknown'}
+                        {selectedTask.timestamp?.toDate().toLocaleString() || t('driver.history.unknown')}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <CheckCircle className="h-5 w-5 text-green-500" />
                     <div>
-                      <p className="font-medium">Completed</p>
+                      <p className="font-medium">{t('driver.history.completed')}</p>
                       <p className="text-sm text-muted-foreground">
                         {selectedTask.completedAt.toLocaleString()}
                       </p>
@@ -316,14 +329,14 @@ export default function DriverHistoryPage() {
                   <div className="space-y-4">
                     <h4 className="text-md font-semibold flex items-center gap-2">
                       <Route className="h-4 w-4" />
-                      Trip Analytics
+                      {t('driver.history.tripAnalytics')}
                     </h4>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="flex items-center gap-3">
                         <Route className="h-5 w-5 text-muted-foreground" />
                         <div>
-                          <p className="font-medium">Distance Traveled</p>
+                          <p className="font-medium">{t('driver.history.distanceTraveled')}</p>
                           <p className="text-sm text-muted-foreground">
                             {(selectedTask.trackingData.totalDistance / 1000).toFixed(2)} km
                           </p>
@@ -333,7 +346,7 @@ export default function DriverHistoryPage() {
                       <div className="flex items-center gap-3">
                         <Activity className="h-5 w-5 text-muted-foreground" />
                         <div>
-                          <p className="font-medium">Average Speed</p>
+                          <p className="font-medium">{t('driver.history.averageSpeed')}</p>
                           <p className="text-sm text-muted-foreground">
                             {selectedTask.trackingData.averageSpeed.toFixed(1)} km/h
                           </p>
@@ -343,9 +356,9 @@ export default function DriverHistoryPage() {
                       <div className="flex items-center gap-3">
                         <Clock className="h-5 w-5 text-muted-foreground" />
                         <div>
-                          <p className="font-medium">Trip Duration</p>
+                          <p className="font-medium">{t('driver.history.tripDuration')}</p>
                           <p className="text-sm text-muted-foreground">
-                            {selectedTask.trackingData.coordinates?.length || 0} data points
+                            {selectedTask.trackingData.coordinates?.length || 0} {t('driver.history.dataPoints')}
                           </p>
                         </div>
                       </div>
@@ -353,9 +366,9 @@ export default function DriverHistoryPage() {
                       <div className="flex items-center gap-3">
                         <Navigation className="h-5 w-5 text-muted-foreground" />
                         <div>
-                          <p className="font-medium">Data Points</p>
+                          <p className="font-medium">{t('driver.history.dataPoints')}</p>
                           <p className="text-sm text-muted-foreground">
-                            {selectedTask.trackingData.coordinates?.length || 0} coordinates
+                            {selectedTask.trackingData.coordinates?.length || 0} {t('driver.history.coordinates')}
                           </p>
                         </div>
                       </div>
@@ -364,14 +377,14 @@ export default function DriverHistoryPage() {
                     {/* Trip Timeline */}
                     {selectedTask.trackingData.coordinates && selectedTask.trackingData.coordinates.length > 0 && (
                       <div className="mt-4">
-                        <p className="font-medium mb-2">Trip Timeline</p>
+                        <p className="font-medium mb-2">{t('driver.history.tripTimeline')}</p>
                         <div className="bg-muted p-3 rounded-lg text-sm">
                           <div className="flex justify-between items-center mb-2">
-                            <span>Started: {new Date(selectedTask.trackingData.startTime).toLocaleString()}</span>
-                            <span>Ended: {new Date(selectedTask.trackingData.endTime).toLocaleString()}</span>
+                            <span>{t('driver.history.started')} {new Date(selectedTask.trackingData.startTime).toLocaleString()}</span>
+                            <span>{t('driver.history.ended')} {new Date(selectedTask.trackingData.endTime).toLocaleString()}</span>
                           </div>
                           <p className="text-muted-foreground">
-                            Trip recorded with {selectedTask.trackingData.coordinates.length} location points
+                            {t('driver.history.tripRecorded', { count: selectedTask.trackingData.coordinates.length })}
                           </p>
                         </div>
                       </div>
@@ -387,7 +400,7 @@ export default function DriverHistoryPage() {
                   onClick={() => setDetailsModalOpen(false)}
                   className="flex-1"
                 >
-                  Close
+                  {t('driver.history.close')}
                 </Button>
                 {selectedTask.trackingData?.coordinates && selectedTask.trackingData.coordinates.length > 0 && (
                   <Button
@@ -400,7 +413,7 @@ export default function DriverHistoryPage() {
                     className="flex-1"
                   >
                     <Route className="h-4 w-4 mr-2" />
-                    View on Map
+                    {t('driver.history.viewOnMap')}
                   </Button>
                 )}
               </div>

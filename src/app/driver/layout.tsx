@@ -23,8 +23,9 @@ import {
 } from "lucide-react";
 import { useLocation, useNavigate, Outlet, Link } from "react-router-dom";
 import { useLoading } from '@/contexts/LoadingProvider';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { auth, db } from '@/lib/firebase';
+import { useTranslation } from 'react-i18next';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { LoadingSpinner } from '@/components/loading-spinner';
@@ -33,21 +34,24 @@ import { SosAlert } from '@/ai/schemas/sos';
 
 const driverRoles = ['driver', 'pilot', 'responder', 'rider', 'Driver', 'Pilot', 'Responder', 'Rider'];
 
-const navLinks = [
-  { to: "/driver/map", label: "Tasks", icon: Car },
-  { to: "/driver/chats", label: "Chats", icon: MessageSquare },
-  { to: "/driver/profile", label: "Profile", icon: User },
-  { to: "/driver/settings", label: "Settings", icon: Settings },
-  { to: "/driver/history", label: "History", icon: History },
-  { to: "/driver/training", label: "Training", icon: GraduationCap },
+const getNavLinks = (t: any) => [
+  { to: "/driver/map", label: t("driver.sidebar.tasks"), key: "tasks", icon: Car },
+  { to: "/driver/chats", label: t("driver.sidebar.chats"), key: "chats", icon: MessageSquare },
+  { to: "/driver/profile", label: t("driver.sidebar.profile"), key: "profile", icon: User },
+  { to: "/driver/settings", label: t("driver.sidebar.settings"), key: "settings", icon: Settings },
+  { to: "/driver/history", label: t("driver.sidebar.history"), key: "history", icon: History },
+  { to: "/driver/training", label: t("driver.sidebar.training"), key: "training", icon: GraduationCap },
 ];
 
 function DriverSidebar({ activeAlertsCount = 0, driverProfile }: { activeAlertsCount?: number; driverProfile?: { firstName: string; lastName: string; image?: string } | null }) {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const { state, isMobile, setOpenMobile } = useSidebar();
   const { setIsLoading } = useLoading();
   const { toast } = useToast();
+
+  const navLinks = useMemo(() => getNavLinks(t), [t]);
 
   // Auto-close mobile sidebar when navigating to a new page
   useEffect(() => {
@@ -65,8 +69,8 @@ function DriverSidebar({ activeAlertsCount = 0, driverProfile }: { activeAlertsC
       await signOut(auth);
       navigate('/login');
       toast({
-        title: 'Logged Out',
-        description: 'You have been successfully logged out.',
+        title: t("driver.sidebar.loggedOut"),
+        description: t("driver.sidebar.loggedOutDesc"),
       });
     } catch (error) {
       console.error('Error signing out:', error);
@@ -85,12 +89,12 @@ function DriverSidebar({ activeAlertsCount = 0, driverProfile }: { activeAlertsC
       <SidebarHeader>
         <div className="flex items-center gap-2">
           <img src="/shelter_logo.png" alt="Hopeline Logo" width={40} height={40} />
-          {state === 'expanded' && <h1 className="text-xl font-bold">Driver Panel</h1>}
+          {state === 'expanded' && <h1 className="text-xl font-bold">{t("driver.sidebar.panel")}</h1>}
         </div>
       </SidebarHeader>
       <SidebarContent className="p-2">
         <SidebarMenu>
-          {navLinks.map(({ to, label, icon: Icon }) => {
+          {navLinks.map(({ to, label, key, icon: Icon }) => {
             const isActive = location.pathname === to;
             console.log(`DriverSidebar: Checking ${label} - path: ${to}, current: ${location.pathname}, isActive: ${isActive}`);
             return (
@@ -99,7 +103,7 @@ function DriverSidebar({ activeAlertsCount = 0, driverProfile }: { activeAlertsC
                   <Link to={to} className="flex items-center gap-2">
                     <Icon />
                     <span>{label}</span>
-                    {label === 'Tasks' && activeAlertsCount > 0 && (
+                    {key === 'tasks' && activeAlertsCount > 0 && (
                       <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
                         {activeAlertsCount}
                       </span>
@@ -137,9 +141,9 @@ function DriverSidebar({ activeAlertsCount = 0, driverProfile }: { activeAlertsC
         )}
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={handleLogout} tooltip="Logout">
+            <SidebarMenuButton onClick={handleLogout} tooltip={t("driver.sidebar.logout")}>
               <LogOut />
-              Logout
+              {t("driver.sidebar.logout")}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -153,6 +157,7 @@ interface MapTask extends SosAlert {
 }
 
 export default function DriverLayout() {
+  const { t } = useTranslation();
   const { setIsLoading } = useLoading();
   const navigate = useNavigate();
   const [authLoading, setAuthLoading] = useState(true);
@@ -274,7 +279,7 @@ export default function DriverLayout() {
           <SidebarTrigger className="-ml-1" />
           <div className="flex items-center gap-2">
             <img src="/shelter_logo.png" alt="Driver Panel Logo" width={32} height={32} />
-            <h1 className="text-lg font-semibold">Driver Panel</h1>
+            <h1 className="text-lg font-semibold">{t("driver.sidebar.panel")}</h1>
           </div>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 sm:px-8 sm:py-6 bg-gray-50/50 dark:bg-gray-900/50 min-h-screen">

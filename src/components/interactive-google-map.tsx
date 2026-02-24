@@ -15,11 +15,13 @@ interface InteractiveGoogleMapProps {
   driverLocation?: LatLng;
   destination?: LatLng;
   trackingPath?: LatLng[];
+  geofences?: LatLng[][];
   className?: string;
   onError?: (error: string) => void;
   enableStreaming?: boolean;
   onLocationUpdate?: (location: LatLng) => void;
   followDriver?: boolean;
+  kmlUrls?: string[];
 }
 
 export default function InteractiveGoogleMap({
@@ -27,11 +29,13 @@ export default function InteractiveGoogleMap({
   driverLocation,
   destination,
   trackingPath = [],
+  geofences = [],
   className = 'h-96 w-full',
   onError,
   enableStreaming = false,
   onLocationUpdate,
   followDriver = true,
+  kmlUrls = [],
 }: InteractiveGoogleMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<google.maps.Map | null>(null);
@@ -41,6 +45,8 @@ export default function InteractiveGoogleMap({
   const trackingPathRef = useRef<google.maps.Polyline | null>(null);
   const driverMarkerRef = useRef<google.maps.Marker | null>(null);
   const destinationMarkerRef = useRef<google.maps.Marker | null>(null);
+  const geofencePolygonsRef = useRef<google.maps.Polygon[]>([]);
+  const kmlLayersRef = useRef<google.maps.KmlLayer[]>([]);
   const hasInitialCenteredRef = useRef(false);
 
   const [isLoaded, setIsLoaded] = useState(false);
@@ -189,7 +195,8 @@ export default function InteractiveGoogleMap({
       const mapOptions: google.maps.MapOptions = {
         center,
         zoom: 12,
-        mapTypeControl: false,
+        mapTypeId: mode === 'tracking' ? 'satellite' : 'roadmap',
+        mapTypeControl: true, // Allow user to switch back if they want
         streetViewControl: false,
         fullscreenControl: true,
         zoomControl: true,
@@ -492,6 +499,81 @@ export default function InteractiveGoogleMap({
       }
     }
   }, [isLoaded, mode, trackingPath]);
+
+  // Handle geofences - show polygons
+  useEffect(() => {
+    if (!isLoaded || !googleMapRef.current) return;
+
+    // Clear existing polygons
+    geofencePolygonsRef.current.forEach(p => p.setMap(null));
+    geofencePolygonsRef.current = [];
+
+    if (geofences && geofences.length > 0) {
+      geofences.forEach((paths) => {
+        if (paths.length > 2) {
+          const polygon = new google.maps.Polygon({
+            paths: paths,
+            strokeColor: '#f87171', // red-400
+            strokeOpacity: 0.8,
+            strokeWeight: 2,
+            fillColor: '#f87171',
+            fillOpacity: 0.35,
+            map: googleMapRef.current,
+          });
+          geofencePolygonsRef.current.push(polygon);
+        }
+      });
+    }
+  }, [isLoaded, geofences]);
+
+  // Handle KML layers
+  useEffect(() => {
+    if (!isLoaded || !googleMapRef.current) return;
+
+    // Clear existing layers
+    kmlLayersRef.current.forEach(layer => layer.setMap(null));
+    kmlLayersRef.current = [];
+
+    if (kmlUrls && kmlUrls.length > 0) {
+      kmlUrls.forEach(url => {
+        if (url) {
+          const kmlLayer = new google.maps.KmlLayer({
+            url: url,
+            suppressInfoWindows: false,
+            preserveViewport: true,
+            map: googleMapRef.current,
+          });
+
+          // Log status changes for debugging
+          kmlLayer.addListener('status_changed', () => {
+            console.log(`KML Layer [${url}] status:`, kmlLayer.getStatus());
+            if (kmlLayer.getStatus() !== 'OK') {
+              onError?.(`KML Error: ${kmlLayer.getStatus()} for URL: ${url}`);
+            }
+          });
+
+          kmlLayersRef.current.push(kmlLayer);
+        }
+      });
+    }
+  }, [isLoaded, kmlUrls]);
+
+  // Fit bounds to first geofence on initial load
+  useEffect(() => {
+    if (!isLoaded || !googleMapRef.current || hasInitialCenteredRef.current) return;
+
+    let bounds: google.maps.LatLngBounds | null = null;
+
+    if (geofences && geofences.length > 0 && geofences[0].length > 0) {
+      bounds = new google.maps.LatLngBounds();
+      geofences[0].forEach(point => bounds?.extend(point));
+    }
+
+    if (bounds) {
+      googleMapRef.current.fitBounds(bounds);
+      hasInitialCenteredRef.current = true;
+    }
+  }, [isLoaded, geofences]);
 
   // Center map on locations
   useEffect(() => {

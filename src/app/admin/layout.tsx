@@ -33,31 +33,35 @@ import { EmergencySignalModal } from "@/components/situation-room/emergency-sign
 import { UserManagementProvider } from "@/components/user-management-provider";
 import { NavLink } from "@/components/nav-link";
 import { useLoading } from "@/contexts/LoadingProvider";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
+import { useTranslation } from "react-i18next";
 import { LoadingSpinner } from "@/components/loading-spinner";
 import { User } from "lucide-react";
 
-const navLinks = [
-  { to: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/admin/profile", label: "Profile", icon: UserCheck },
-  { to: "/admin/track-drivers", label: "Fleet Drivers", icon: Car },
-  { to: "/admin/vehicle-management", label: "Fleet Vehicles", icon: Truck },
-  { to: "/admin/displaced-persons", label: "Beneficiaries", icon: Users },
-  { to: "/admin/track-shelter", label: "Shelters", icon: Building },
-  { to: "/admin/user-management", label: "User Management", icon: UserCog },
-  { to: "/admin/contact-management", label: "Contact Directory", icon: PhoneOutgoing },
-  { to: "/admin/chats", label: "Chat page", icon: MessageSquare },
-  { to: "/admin/training", label: "Training page", icon: BookOpen },
+const getNavLinks = (t: any) => [
+  { to: "/admin", label: t("admin.sidebar.dashboard"), icon: LayoutDashboard },
+  { to: "/admin/profile", label: t("admin.sidebar.profile"), icon: UserCheck },
+  { to: "/admin/track-drivers", label: t("admin.sidebar.fleetDrivers"), icon: Car },
+  { to: "/admin/vehicle-management", label: t("admin.sidebar.fleetVehicles"), icon: Truck },
+  { to: "/admin/displaced-persons", label: t("admin.sidebar.beneficiaries"), icon: Users },
+  { to: "/admin/track-shelter", label: t("admin.sidebar.shelters"), icon: Building },
+  { to: "/admin/user-management", label: t("admin.sidebar.userManagement"), icon: UserCog },
+  { to: "/admin/contact-management", label: t("admin.sidebar.contactDirectory"), icon: PhoneOutgoing },
+  { to: "/admin/chats", label: t("admin.sidebar.chats"), icon: MessageSquare },
+  { to: "/admin/training", label: t("admin.sidebar.training"), icon: BookOpen },
 ];
 
 function AdminSidebar({ adminProfile }: { adminProfile?: { firstName: string; lastName: string; image?: string } | null }) {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const { state, isMobile, setOpenMobile } = useSidebar();
   const { setIsLoading } = useLoading();
+
+  const navLinks = useMemo(() => getNavLinks(t), [t]);
 
   // Auto-close mobile sidebar when navigating to a new page
   useEffect(() => {
@@ -77,7 +81,7 @@ function AdminSidebar({ adminProfile }: { adminProfile?: { firstName: string; la
       <SidebarHeader>
         <div className="flex items-center gap-2">
           <img src="/shelter_logo.png" alt="Caritas Nigeria Logo" width={40} height={40} />
-          {state === 'expanded' && <h1 className="text-xl font-bold">Caritas Hopeline Tactical Command Center</h1>}
+          {state === 'expanded' && <h1 className="text-xl font-bold">{t("admin.sidebar.tacticalCommandCenter")}</h1>}
         </div>
       </SidebarHeader>
       <SidebarContent className="p-2">
@@ -121,7 +125,7 @@ function AdminSidebar({ adminProfile }: { adminProfile?: { firstName: string; la
         </div>
         {state === 'expanded' && (
           <div className="text-center px-2 py-4 space-y-4">
-            <p className="text-xs text-sidebar-foreground/70">Supported By</p>
+            <p className="text-xs text-sidebar-foreground/70">{t("admin.sidebar.supportedBy")}</p>
             <div className="flex justify-center items-center gap-4">
               <img src="/caritas-logo.png" alt="Caritas Nigeria Logo" width={100} height={40} />
               <img src="/citi-logo.png" alt="CITI Foundation Logo" width={100} height={40} className="mx-auto" />
@@ -131,9 +135,9 @@ function AdminSidebar({ adminProfile }: { adminProfile?: { firstName: string; la
         <SidebarSeparator />
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={handleLogout} tooltip="Logout">
+            <SidebarMenuButton onClick={handleLogout} tooltip={t("admin.sidebar.logout")}>
               <LogOut />
-              Logout
+              {t("admin.sidebar.logout")}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -155,6 +159,7 @@ function AdminModalWrapper() {
 
 
 export default function AdminLayout() {
+  const { t } = useTranslation();
   const { setIsLoading } = useLoading();
   const navigate = useNavigate();
   const [authLoading, setAuthLoading] = useState(true);
@@ -281,7 +286,7 @@ export default function AdminLayout() {
               <SidebarTrigger className="-ml-1" />
               <div className="flex items-center gap-2">
                 <img src="/shelter_logo.png" alt="Hopeline Admin Logo" width={32} height={32} />
-                <h1 className="text-lg font-semibold">Hopeline Admin</h1>
+                <h1 className="text-lg font-semibold">{t("admin.sidebar.dashboard")}</h1>
               </div>
             </header>
             <main className="flex flex-1 flex-col gap-4 p-4 sm:px-8 sm:py-6 bg-gray-50/50 dark:bg-gray-900/50 min-h-screen">

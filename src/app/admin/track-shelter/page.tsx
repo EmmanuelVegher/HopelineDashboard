@@ -22,6 +22,9 @@ import { Alert, AlertDescription as AlertDesc, AlertTitle as AlertDialogTitle } 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAdminData } from "@/contexts/AdminDataProvider";
 import { useNavigate } from "react-router-dom";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import InteractiveGoogleMap from "@/components/interactive-google-map";
+import { Video } from "lucide-react";
 
 
 const getStatusBadgeVariant = (status: string) => {
@@ -50,6 +53,14 @@ const getCardBorderColor = (status: string) => {
     }
 }
 
+const NIGERIAN_STATES = [
+    "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno",
+    "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu", "Gombe", "Imo",
+    "Jigawa", "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi", "Kwara", "Lagos",
+    "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo", "Plateau", "Rivers",
+    "Sokoto", "Taraba", "Yobe", "Zamfara", "Federal Capital Territory"
+];
+
 function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, onSave: () => void, onCancel: () => void }) {
     const [formData, setFormData] = useState<Partial<Shelter>>(shelter || {
         name: '',
@@ -67,6 +78,9 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
         requests: 0,
         trend: 'Stable',
         lastUpdate: new Date().toLocaleDateString(),
+        geofence: [{ lat: 0, lng: 0 }, { lat: 0, lng: 0 }, { lat: 0, lng: 0 }, { lat: 0, lng: 0 }],
+        droneVideoUrl: '',
+        photoGallery: [],
     });
     const [loading, setLoading] = useState(false);
     const { toast } = useToast();
@@ -87,6 +101,17 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
     }
 
     const [uploadingImage, setUploadingImage] = useState(false);
+    const [uploadingMedia, setUploadingMedia] = useState(false);
+
+    const handleGeofenceChange = (index: number, field: 'lat' | 'lng', value: string) => {
+        const newGeofence = [...(formData.geofence || [{ lat: 0, lng: 0 }, { lat: 0, lng: 0 }, { lat: 0, lng: 0 }, { lat: 0, lng: 0 }])];
+        newGeofence[index] = { ...newGeofence[index], [field]: parseFloat(value) || 0 };
+        setFormData(prev => ({ ...prev, geofence: newGeofence }));
+    };
+
+    const handlePhotoGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFormData(prev => ({ ...prev, photoGallery: e.target.value.split(',').map(p => p.trim()) }));
+    };
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
@@ -144,9 +169,29 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
                     <Input id="organization" name="organization" value={formData.organization} onChange={handleChange} />
                 </div>
             </div>
-            <div className="space-y-2">
-                <Label htmlFor="location">Location</Label>
-                <Input id="location" name="location" value={formData.location} onChange={handleChange} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="space-y-2">
+                    <Label htmlFor="location">Location</Label>
+                    <Input id="location" name="location" value={formData.location} onChange={handleChange} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="state">State</Label>
+                    <Select
+                        value={formData.state}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, state: value }))}
+                    >
+                        <SelectTrigger id="state">
+                            <SelectValue placeholder="Select State" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {NIGERIAN_STATES.map((state) => (
+                                <SelectItem key={state} value={state}>
+                                    {state}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
@@ -221,6 +266,84 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
                         />
                         <p className="text-[10px] text-muted-foreground">Recommend 800x600px or larger. Max 5MB.</p>
                     </div>
+                </div>
+            </div>
+
+            <div className="space-y-4 pt-4 border-t">
+                <h3 className="font-medium">Geofence (4 Corner Points)</h3>
+                <div className="grid grid-cols-2 gap-4">
+                    {[0, 1, 2, 3].map((i) => (
+                        <div key={i} className="space-y-2 p-3 border rounded-lg bg-slate-50">
+                            <Label className="text-xs font-semibold">Corner {i + 1}</Label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1">
+                                    <Label className="text-[10px]">Latitude</Label>
+                                    <Input
+                                        placeholder="Lat"
+                                        type="number"
+                                        step="any"
+                                        value={formData.geofence?.[i]?.lat || 0}
+                                        onChange={(e) => handleGeofenceChange(i, 'lat', e.target.value)}
+                                        className="h-8 text-xs"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px]">Longitude</Label>
+                                    <Input
+                                        placeholder="Lng"
+                                        type="number"
+                                        step="any"
+                                        value={formData.geofence?.[i]?.lng || 0}
+                                        onChange={(e) => handleGeofenceChange(i, 'lng', e.target.value)}
+                                        className="h-8 text-xs"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <div className="space-y-2 mt-4 p-3 border rounded-lg bg-blue-50/50">
+                    <Label htmlFor="kmlUrl" className="text-sm font-semibold flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-blue-600" />
+                        Google My Maps KML Integration
+                    </Label>
+                    <Input
+                        id="kmlUrl"
+                        name="kmlUrl"
+                        value={formData.kmlUrl || ''}
+                        onChange={handleChange}
+                        placeholder="e.g. https://www.google.com/maps/d/u/0/kml?mid=..."
+                        className="bg-white"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                        To use a Google My Map, make it public and use the KML export link.
+                        Example format: <code>.../kml?mid=[MAP_ID]&forcekml=1</code>
+                    </p>
+                </div>
+            </div>
+
+            <div className="space-y-4 pt-4 border-t">
+                <h3 className="font-medium">Media Assets</h3>
+                <div className="space-y-2">
+                    <Label htmlFor="droneVideoUrl">Drone Video URL</Label>
+                    <Input
+                        id="droneVideoUrl"
+                        name="droneVideoUrl"
+                        value={formData.droneVideoUrl || ''}
+                        onChange={handleChange}
+                        placeholder="e.g. https://storage.googleapis.com/videos/drone-view.mp4"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="photoGallery">Photo Gallery (comma-separated URLs)</Label>
+                    <Textarea
+                        id="photoGallery"
+                        name="photoGallery"
+                        value={formData.photoGallery?.join(', ') || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, photoGallery: e.target.value.split(',').map(p => p.trim()).filter(Boolean) }))}
+                        placeholder="url1, url2, url3"
+                        className="min-h-[80px]"
+                    />
                 </div>
             </div>
             <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0">
@@ -390,14 +513,65 @@ export default function TrackShelterPage() {
             </div>
 
             <Tabs defaultValue="overview">
-                <TabsList className="w-full overflow-x-auto">
-                    <TabsTrigger value="overview" className="truncate">Shelter Overview</TabsTrigger>
-                    <TabsTrigger value="capacity">
-                        <span className="sm:hidden text-center">Capacity<br />Management</span>
+                <TabsList className="w-full overflow-x-auto justify-start h-auto p-1 bg-muted/50">
+                    <TabsTrigger value="overview" className="px-4 py-2">Shelter Overview</TabsTrigger>
+                    <TabsTrigger value="map" className="px-4 py-2">Live Tracker & Geofence</TabsTrigger>
+                    <TabsTrigger value="capacity" className="px-4 py-2">
+                        <span className="sm:hidden text-center">Capacity</span>
                         <span className="hidden sm:inline">Capacity Management</span>
                     </TabsTrigger>
-                    <TabsTrigger value="operations" className="truncate">Operations</TabsTrigger>
+                    <TabsTrigger value="media" className="px-4 py-2">Media Assets</TabsTrigger>
+                    <TabsTrigger value="operations" className="px-4 py-2 truncate">Operations</TabsTrigger>
                 </TabsList>
+                <TabsContent value="map" className="mt-6">
+                    <Card className="overflow-hidden border-0 shadow-lg">
+                        <CardHeader className="bg-slate-900 text-white p-4">
+                            <div className="flex justify-between items-center text-white">
+                                <div>
+                                    <CardTitle className="text-xl">Shelter Geofencing & Live Tracking</CardTitle>
+                                    <p className="text-slate-400 text-sm">Real-time status and perimeter monitoring for all active shelters</p>
+                                </div>
+                                <div className="flex gap-4 text-sm mt-auto">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-3 h-3 bg-red-400 opacity-50 border border-red-500 rounded-sm"></div>
+                                        <span>Shelter Perimeter</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                        <span>Operational</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-0 relative">
+                            <InteractiveGoogleMap
+                                mode="tracking"
+                                className="h-[600px] w-full"
+                                geofences={shelters?.map(s => s.geofence).filter(Boolean) as any}
+                                kmlUrls={shelters?.map(s => s.kmlUrl).filter(Boolean) as string[]}
+                            />
+                            {/* Overlay info box */}
+                            <div className="absolute top-4 right-4 z-10 space-y-2 pointer-events-none">
+                                {shelters?.map(s => (
+                                    <div key={s.id} className="bg-white/90 backdrop-blur-sm p-3 rounded-lg shadow-md border text-[10px] w-48 pointer-events-auto">
+                                        <div className="flex justify-between items-start mb-1">
+                                            <span className="font-bold truncate pr-2">{s.name}</span>
+                                            <Badge variant={getStatusBadgeVariant(s.status)} className="scale-75 origin-right">{s.status}</Badge>
+                                        </div>
+                                        <div className="flex justify-between text-muted-foreground">
+                                            <span>Occupancy:</span>
+                                            <span className="font-medium text-slate-900">{Math.round(((s.capacity - s.availableCapacity) / s.capacity) * 100)}%</span>
+                                        </div>
+                                        <div className="w-full bg-slate-200 h-1 rounded-full mt-1">
+                                            <div className="bg-blue-500 h-full rounded-full" style={{ width: `${((s.capacity - s.availableCapacity) / s.capacity) * 100}%` }}></div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
                 <TabsContent value="overview" className="mt-6">
                     {permissionError && (
                         <Alert variant="destructive">
@@ -482,6 +656,97 @@ export default function TrackShelterPage() {
                         ) : null}
                     </div>
                 </TabsContent>
+                <TabsContent value="media" className="mt-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {shelters?.filter(s => s.droneVideoUrl || (s.photoGallery && s.photoGallery.length > 0)).map(shelter => (
+                            <Card key={shelter.id} className="overflow-hidden flex flex-col">
+                                <CardHeader className="p-4 bg-slate-50 border-b">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <CardTitle className="text-lg">{shelter.name}</CardTitle>
+                                            <CardDescription>{shelter.organization}</CardDescription>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            {shelter.droneVideoUrl && <Badge variant="secondary" className="gap-1"><Video className="h-3 w-3" /> Drone View</Badge>}
+                                            {shelter.photoGallery && <Badge variant="secondary" className="gap-1"><Building2 className="h-3 w-3" /> {shelter.photoGallery.length} Photos</Badge>}
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="p-4 space-y-4 flex-grow">
+                                    {/* Drone Video Section */}
+                                    {shelter.droneVideoUrl && (
+                                        <div className="space-y-2">
+                                            <h4 className="text-sm font-semibold flex items-center gap-2"><Video className="h-4 w-4" /> Drone Aerial Footage</h4>
+                                            <div className="aspect-video bg-black rounded-lg overflow-hidden border">
+                                                {/* Simple Video Player Placeholder - in production this would be a real player */}
+                                                <div className="w-full h-full flex flex-col items-center justify-center text-white/50 space-y-2 bg-slate-900">
+                                                    {shelter.droneVideoUrl.includes('youtube.com') || shelter.droneVideoUrl.includes('youtu.be') ? (
+                                                        <div className="text-center p-4">
+                                                            <p className="text-xs mb-2">YouTube Video Stream</p>
+                                                            <Button size="sm" variant="outline" className="text-white border-white/20 hover:bg-white/10" asChild>
+                                                                <a href={shelter.droneVideoUrl} target="_blank" rel="noopener noreferrer">Open YouTube</a>
+                                                            </Button>
+                                                        </div>
+                                                    ) : (
+                                                        <video
+                                                            src={shelter.droneVideoUrl}
+                                                            controls
+                                                            className="w-full h-full object-cover"
+                                                            poster={shelter.imageUrl}
+                                                        >
+                                                            Your browser does not support the video tag.
+                                                        </video>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Photo Gallery Section */}
+                                    {shelter.photoGallery && shelter.photoGallery.length > 0 && (
+                                        <div className="space-y-2">
+                                            <h4 className="text-sm font-semibold flex items-center gap-2"><Building2 className="h-4 w-4" /> Shelter Infrastructure Photos</h4>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {shelter.photoGallery.map((url, idx) => (
+                                                    <div
+                                                        key={idx}
+                                                        className="aspect-square rounded-md overflow-hidden border cursor-pointer hover:opacity-80 transition-opacity"
+                                                        onClick={() => setSelectedPreviewImage(url)}
+                                                    >
+                                                        <img src={url} alt={`Shelter asset ${idx + 1}`} className="w-full h-full object-cover" />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {(!shelter.droneVideoUrl && (!shelter.photoGallery || shelter.photoGallery.length === 0)) && (
+                                        <div className="h-48 flex flex-col items-center justify-center text-muted-foreground bg-slate-50 rounded-lg border border-dashed">
+                                            <Building2 className="h-8 w-8 mb-2 opacity-20" />
+                                            <p className="text-sm font-medium">No media assets available</p>
+                                            <Button variant="link" size="sm" onClick={() => handleManage(shelter)}>Add Media</Button>
+                                        </div>
+                                    )}
+                                </CardContent>
+                                <div className="p-3 bg-slate-50 border-t mt-auto flex justify-between items-center text-xs text-muted-foreground">
+                                    <span>Last site inspection: {shelter.lastUpdate}</span>
+                                    <Button size="sm" variant="ghost" className="h-8 text-blue-600" onClick={() => handleViewDetails(shelter)}>Full Report</Button>
+                                </div>
+                            </Card>
+                        ))}
+
+                        {shelters?.filter(s => s.droneVideoUrl || (s.photoGallery && s.photoGallery.length > 0)).length === 0 && (
+                            <Card className="col-span-full py-12 flex flex-col items-center justify-center border-dashed">
+                                <Video className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
+                                <h3 className="text-lg font-semibold">No Media Assets Uploaded</h3>
+                                <p className="text-muted-foreground max-w-sm text-center mt-2">
+                                    Drone videos and high-resolution site photos can be added via the "Manage" button in the Shelter Overview tab.
+                                </p>
+                            </Card>
+                        )}
+                    </div>
+                </TabsContent>
+
                 <TabsContent value="capacity" className="mt-6">
                     <Card className="max-w-4xl overflow-hidden">
                         <CardHeader className="p-3 sm:p-6">

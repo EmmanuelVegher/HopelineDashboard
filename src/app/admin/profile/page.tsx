@@ -18,6 +18,7 @@ import { type AdminUser } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { storage } from "@/lib/firebase";
+import { useTranslation } from "react-i18next";
 
 interface ValidationErrors {
     firstName?: string;
@@ -44,6 +45,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
 
 export default function AdminProfilePage() {
+    const { t } = useTranslation();
     const [currentUserProfile, setCurrentUserProfile] = useState<AdminUser | null>(null);
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
@@ -90,7 +92,7 @@ export default function AdminProfilePage() {
 
         // Required fields
         if (!editForm.firstName.trim()) {
-            errors.firstName = "First name is required";
+            errors.firstName = t("admin.profile.firstNameRequired");
         } else if (editForm.firstName.length > 50) {
             errors.firstName = "First name must be less than 50 characters";
         } else if (!validateUnicodeSurrogates(editForm.firstName)) {
@@ -107,17 +109,17 @@ export default function AdminProfilePage() {
 
         // Phone validation (optional but format check if provided)
         if (editForm.mobile && !/^\+?[1-9]\d{1,14}$/.test(editForm.mobile.replace(/\s+/g, ''))) {
-            errors.mobile = "Please enter a valid phone number";
+            errors.mobile = t("admin.profile.invalidPhone");
         }
 
         // Gender validation
         if (!editForm.gender) {
-            errors.gender = "Please select a gender";
+            errors.gender = t("admin.profile.selectAGender");
         }
 
         // Language validation
         if (!editForm.language) {
-            errors.language = "Please select a language";
+            errors.language = t("admin.profile.selectALanguage");
         }
 
         return errors;
@@ -126,11 +128,11 @@ export default function AdminProfilePage() {
     // File validation
     const validateImageFile = useCallback((file: File): string | null => {
         if (file.size > MAX_FILE_SIZE) {
-            return "Image file size must be less than 5MB";
+            return t("admin.profile.imageTooLarge");
         }
 
         if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-            return "Only image files (JPEG, PNG, GIF, WebP) are allowed";
+            return t("admin.profile.invalidImageType");
         }
 
         return null;
@@ -393,6 +395,12 @@ export default function AdminProfilePage() {
                 mobile: editForm.mobile.trim(),
                 gender: editForm.gender,
                 language: editForm.language,
+                settings: {
+                    language: editForm.language
+                },
+                preferences: {
+                    language: editForm.language
+                },
                 image: imageUrl
             };
 
@@ -438,8 +446,8 @@ export default function AdminProfilePage() {
             setRetryCount(0);
 
             toast({
-                title: "Profile Updated",
-                description: "Your profile has been successfully updated.",
+                title: t("admin.profile.profileUpdated"),
+                description: t("admin.profile.profileUpdatedDesc"),
             });
         } catch (error) {
             console.error("Error updating profile:", error);
@@ -453,7 +461,7 @@ export default function AdminProfilePage() {
                 });
             } else {
                 toast({
-                    title: "Update Failed",
+                    title: t("admin.profile.updateFailed"),
                     description: `Could not update your profile: ${errorMessage}. Please try again.`,
                     variant: "destructive",
                 });
@@ -502,8 +510,8 @@ export default function AdminProfilePage() {
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-3xl font-bold">Admin Profile</h1>
-                <p className="text-muted-foreground">View and manage your account details</p>
+                <h1 className="text-3xl font-bold">{t("admin.profile.title")}</h1>
+                <p className="text-muted-foreground">{t("admin.profile.subtitle")}</p>
             </div>
 
             <Card className="border-0 shadow-lg">
@@ -512,16 +520,16 @@ export default function AdminProfilePage() {
                         <div>
                             <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
                                 <UserCheck className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
-                                Profile Information
+                                {t("admin.profile.profileInformation")}
                             </CardTitle>
                             <CardDescription className="text-sm sm:text-base">
-                                Your account details and profile information.
+                                {t("admin.profile.profileInfoDesc")}
                             </CardDescription>
                         </div>
                         {!isEditing && (
                             <Button onClick={handleEdit} variant="outline" size="sm">
                                 <Edit className="h-4 w-4 mr-2" />
-                                Edit Profile
+                                {t("admin.profile.editProfile")}
                             </Button>
                         )}
                     </div>
@@ -596,7 +604,7 @@ export default function AdminProfilePage() {
                             </div>
                             {uploadProgress !== null && (
                                 <div className="mt-4">
-                                    <Label className="text-sm font-medium">Upload Progress</Label>
+                                    <Label className="text-sm font-medium">{t("admin.profile.uploadProgress") || "Upload Progress"}</Label>
                                     <Progress value={uploadProgress} className="mt-1" />
                                     <p className="text-xs text-muted-foreground mt-1">
                                         {uploadProgress !== null ? Math.round(uploadProgress) : 0}% uploaded
@@ -609,35 +617,35 @@ export default function AdminProfilePage() {
                                     <div className="flex items-center gap-2">
                                         <Mail className="h-4 w-4 text-muted-foreground" />
                                         <div>
-                                            <Label className="text-sm font-medium">Email</Label>
+                                            <Label className="text-sm font-medium">{t("admin.profile.emailLabel")}</Label>
                                             <p className="text-sm text-muted-foreground">{currentUserProfile?.email}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Shield className="h-4 w-4 text-muted-foreground" />
                                         <div>
-                                            <Label className="text-sm font-medium">Role</Label>
+                                            <Label className="text-sm font-medium">{t("admin.profile.roleLabel")}</Label>
                                             <p className="text-sm text-muted-foreground">{currentUserProfile?.role}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <User className="h-4 w-4 text-muted-foreground" />
                                         <div>
-                                            <Label className="text-sm font-medium">Display Name</Label>
-                                            <p className="text-sm text-muted-foreground">{currentUserProfile?.displayName || 'Not set'}</p>
+                                            <Label className="text-sm font-medium">{t("admin.profile.displayNameLabel")}</Label>
+                                            <p className="text-sm text-muted-foreground">{currentUserProfile?.displayName || t("admin.profile.notSet")}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Clock className="h-4 w-4 text-muted-foreground" />
                                         <div>
-                                            <Label className="text-sm font-medium">Account Status</Label>
-                                            <p className="text-sm text-muted-foreground">{currentUserProfile?.accountStatus || 'Active'}</p>
+                                            <Label className="text-sm font-medium">{t("admin.profile.accountStatusLabel")}</Label>
+                                            <p className="text-sm text-muted-foreground">{currentUserProfile?.accountStatus || t("admin.profile.online")}</p>
                                         </div>
                                     </div>
                                 </div>
                                 <div className="space-y-4">
                                     <div>
-                                        <Label className="text-sm font-medium">First Name *</Label>
+                                        <Label className="text-sm font-medium">{t("admin.profile.firstNameLabel")} *</Label>
                                         {isEditing ? (
                                             <>
                                                 <Input
@@ -654,11 +662,11 @@ export default function AdminProfilePage() {
                                                 )}
                                             </>
                                         ) : (
-                                            <p className="text-sm text-muted-foreground">{currentUserProfile?.firstName || 'Not set'}</p>
+                                            <p className="text-sm text-muted-foreground">{currentUserProfile?.firstName || t("admin.profile.notSet")}</p>
                                         )}
                                     </div>
                                     <div>
-                                        <Label className="text-sm font-medium">Last Name *</Label>
+                                        <Label className="text-sm font-medium">{t("admin.profile.lastNameLabel")} *</Label>
                                         {isEditing ? (
                                             <>
                                                 <Input
@@ -675,11 +683,11 @@ export default function AdminProfilePage() {
                                                 )}
                                             </>
                                         ) : (
-                                            <p className="text-sm text-muted-foreground">{currentUserProfile?.lastName || 'Not set'}</p>
+                                            <p className="text-sm text-muted-foreground">{currentUserProfile?.lastName || t("admin.profile.notSet")}</p>
                                         )}
                                     </div>
                                     <div>
-                                        <Label className="text-sm font-medium">Gender *</Label>
+                                        <Label className="text-sm font-medium">{t("admin.profile.genderLabel")} *</Label>
                                         {isEditing ? (
                                             <>
                                                 <Select
@@ -687,7 +695,7 @@ export default function AdminProfilePage() {
                                                     onValueChange={(value) => setEditForm(prev => ({ ...prev, gender: value }))}
                                                 >
                                                     <SelectTrigger className={`mt-1 ${validationErrors.gender ? 'border-red-500' : ''}`}>
-                                                        <SelectValue placeholder="Select gender" />
+                                                        <SelectValue placeholder={t("admin.profile.selectAGender") || "Select gender"} />
                                                     </SelectTrigger>
                                                     <SelectContent>
                                                         <SelectItem value="Male">Male</SelectItem>
@@ -704,11 +712,11 @@ export default function AdminProfilePage() {
                                                 )}
                                             </>
                                         ) : (
-                                            <p className="text-sm text-muted-foreground">{currentUserProfile?.gender || 'Not set'}</p>
+                                            <p className="text-sm text-muted-foreground">{currentUserProfile?.gender || t("admin.profile.notSet")}</p>
                                         )}
                                     </div>
                                     <div>
-                                        <Label className="text-sm font-medium">Phone</Label>
+                                        <Label className="text-sm font-medium">{t("admin.profile.phoneLabel")}</Label>
                                         {isEditing ? (
                                             <>
                                                 <PhoneInput
@@ -724,7 +732,7 @@ export default function AdminProfilePage() {
                                                 )}
                                             </>
                                         ) : (
-                                            <p className="text-sm text-muted-foreground">{currentUserProfile?.mobile || 'Not set'}</p>
+                                            <p className="text-sm text-muted-foreground">{currentUserProfile?.mobile || t("admin.profile.notSet")}</p>
                                         )}
                                     </div>
                                 </div>
@@ -732,7 +740,7 @@ export default function AdminProfilePage() {
                                     <div className="flex items-center gap-2">
                                         <Globe className="h-4 w-4 text-muted-foreground" />
                                         <div className="flex-1">
-                                            <Label className="text-sm font-medium">Language *</Label>
+                                            <Label className="text-sm font-medium">{t("admin.profile.languageLabel")} *</Label>
                                             {isEditing ? (
                                                 <>
                                                     <Select
@@ -740,7 +748,7 @@ export default function AdminProfilePage() {
                                                         onValueChange={(value) => setEditForm(prev => ({ ...prev, language: value }))}
                                                     >
                                                         <SelectTrigger className={`mt-1 ${validationErrors.language ? 'border-red-500' : ''}`}>
-                                                            <SelectValue placeholder="Select language" />
+                                                            <SelectValue placeholder={t("admin.profile.selectALanguage") || "Select language"} />
                                                         </SelectTrigger>
                                                         <SelectContent>
                                                             <SelectItem value="English">English</SelectItem>
@@ -765,17 +773,17 @@ export default function AdminProfilePage() {
                                     <div className="flex items-center gap-2">
                                         <Calendar className="h-4 w-4 text-muted-foreground" />
                                         <div>
-                                            <Label className="text-sm font-medium">Member Since</Label>
+                                            <Label className="text-sm font-medium">{t("admin.profile.memberSince")}</Label>
                                             <p className="text-sm text-muted-foreground">
                                                 {currentUserProfile?.createdAt ?
                                                     new Date(currentUserProfile.createdAt.seconds * 1000).toLocaleDateString() :
-                                                    'Not available'
+                                                    t("admin.profile.notAvailable")
                                                 }
                                             </p>
                                         </div>
                                     </div>
                                     <div>
-                                        <Label className="text-sm font-medium">User ID</Label>
+                                        <Label className="text-sm font-medium">{t("admin.profile.userId")}</Label>
                                         <p className="text-xs text-muted-foreground font-mono">{currentUserProfile?.uid || currentUserProfile?.id}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -785,9 +793,9 @@ export default function AdminProfilePage() {
                                             <WifiOff className="h-4 w-4 text-red-500" />
                                         )}
                                         <div>
-                                            <Label className="text-sm font-medium">Online Status</Label>
+                                            <Label className="text-sm font-medium">{t("admin.profile.onlineStatus")}</Label>
                                             <p className="text-sm text-muted-foreground">
-                                                {currentUserProfile?.isOnline ? 'Online' : 'Offline'}
+                                                {currentUserProfile?.isOnline ? t("admin.profile.online") : t("admin.profile.offline")}
                                             </p>
                                         </div>
                                     </div>
@@ -799,12 +807,12 @@ export default function AdminProfilePage() {
                                         {saving ? (
                                             <>
                                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                                {retryCount > 0 ? `Retrying... (${retryCount}/${RETRY_CONFIG.maxRetries})` : 'Saving...'}
+                                                {retryCount > 0 ? `Retrying... (${retryCount}/${RETRY_CONFIG.maxRetries})` : t("admin.profile.saving")}
                                             </>
                                         ) : (
                                             <>
                                                 <Save className="h-4 w-4 mr-2" />
-                                                Save Changes
+                                                {t("admin.profile.saveChanges")}
                                             </>
                                         )}
                                     </Button>

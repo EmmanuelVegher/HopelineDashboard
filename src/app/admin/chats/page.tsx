@@ -44,6 +44,7 @@ import { useToast } from "@/hooks/use-toast";
 import { MessageStatus } from "@/components/message-status"; // Restored correct import
 import { useAdminData } from "@/contexts/AdminDataProvider";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useTranslation } from "react-i18next";
 
 import { CallInterface } from "@/components/chat/call-interface"; // Restored correct path
 import { generateChannelName } from "@/lib/agora"; // Restored missing import
@@ -97,6 +98,7 @@ interface Message {
 }
 
 export default function AdminChatsPage() {
+    const { t } = useTranslation();
     const { users: allUsers, adminProfile } = useAdminData();
     const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
     const [privateChats, setPrivateChats] = useState<ChatSession[]>([]);
@@ -927,15 +929,15 @@ export default function AdminChatsPage() {
                 <div>
                     <h1 className="text-2xl font-bold flex items-center gap-2">
                         <MessageSquare className="h-6 w-6 text-blue-600" />
-                        Admin Chat
+                        {t("admin.sidebar.chats") || "Admin Chat"}
                     </h1>
-                    <p className="text-sm text-muted-foreground">Communicate with support agents and users</p>
+                    <p className="text-sm text-muted-foreground">{t("admin.chats.subtitle") || "Communicate with support agents and users"}</p>
                 </div>
                 <div className="flex items-center gap-4">
                     <Tabs value={chatTab} onValueChange={(v) => setChatTab(v as 'p2p' | 'group')} className="w-[300px]">
                         <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="p2p">Direct Messages</TabsTrigger>
-                            <TabsTrigger value="group">Group Chats</TabsTrigger>
+                            <TabsTrigger value="p2p">{t("admin.chats.p2pChats") || "Direct Messages"}</TabsTrigger>
+                            <TabsTrigger value="group">{t("admin.chats.systemGroups") || "Group Chats"}</TabsTrigger>
                         </TabsList>
                     </Tabs>
                     <Button variant="outline" size="icon" onClick={() => setIsNewChatOpen(true)}>
@@ -950,7 +952,7 @@ export default function AdminChatsPage() {
                     <CardHeader className="p-4 border-b">
                         <div className="relative">
                             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input placeholder="Search messages..." className="pl-8 h-9" />
+                            <Input placeholder={t("admin.chats.searchMessages") || "Search messages..."} className="pl-8 h-9" />
                         </div>
                     </CardHeader>
                     <CardContent className="p-0 flex-1 overflow-hidden">
@@ -969,7 +971,7 @@ export default function AdminChatsPage() {
                                 </div>
                             ) : chatSessions.length === 0 ? (
                                 <div className="p-8 text-center text-muted-foreground">
-                                    <p>No active conversations</p>
+                                    <p>{t("admin.chats.noConversations") || "No active conversations"}</p>
                                 </div>
                             ) : (
                                 <div className="divide-y">
@@ -1108,7 +1110,7 @@ export default function AdminChatsPage() {
                                                     <div className="flex items-center justify-end gap-1 mt-1">
                                                         <span className="text-[10px] opacity-50">
                                                             {(() => {
-                                                                if (!msg.timestamp) return 'sending...';
+                                                                if (!msg.timestamp) return t("admin.chats.sending") || 'sending...';
                                                                 let date;
                                                                 if (typeof msg.timestamp?.toDate === 'function') {
                                                                     date = msg.timestamp.toDate();
@@ -1171,7 +1173,7 @@ export default function AdminChatsPage() {
                                     <div className="mb-2 p-2 bg-red-50 text-red-600 rounded-md border border-red-100 flex items-center justify-between animate-pulse">
                                         <div className="flex items-center gap-2">
                                             <div className="h-2 w-2 bg-red-600 rounded-full animate-ping" />
-                                            <span className="text-xs font-semibold">Recording Voice Note... {formatTime(recordingTime)}</span>
+                                            <span className="text-xs font-semibold">{t("admin.chats.recordingVoiceNote") || "Recording Voice Note..."} {formatTime(recordingTime)}</span>
                                         </div>
                                         <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-red-100" onClick={handleVoiceRecord}>
                                             <Square className="h-3 w-3 fill-current" />
@@ -1190,7 +1192,7 @@ export default function AdminChatsPage() {
 
                                 <div className="relative flex-1">
                                     <Input
-                                        placeholder={isRecording ? "Recording..." : "Type a message..."}
+                                        placeholder={isRecording ? (t("admin.chats.recording") || "Recording...") : (t("admin.chats.typeMessage") || "Type a message...")}
                                         value={inputValue}
                                         onChange={(e) => setInputValue(e.target.value)}
                                         onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
@@ -1212,20 +1214,20 @@ export default function AdminChatsPage() {
                                             <DropdownMenuContent align="start">
                                                 <DropdownMenuItem onClick={() => handleAttachmentClick("image/*")}>
                                                     <ImageIcon className="mr-2 h-4 w-4" />
-                                                    <span>Image</span>
+                                                    <span>{t("admin.chats.image") || "Image"}</span>
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem onClick={() => handleAttachmentClick("video/*")}>
                                                     <Film className="mr-2 h-4 w-4" />
-                                                    <span>Video</span>
+                                                    <span>{t("admin.chats.video") || "Video"}</span>
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem onClick={() => handleAttachmentClick("audio/*")}>
                                                     <Mic className="mr-2 h-4 w-4" />
-                                                    <span>Audio File</span>
+                                                    <span>{t("admin.chats.audioFile") || "Audio File"}</span>
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator />
                                                 <DropdownMenuItem onClick={() => handleAttachmentClick(".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document")}>
                                                     <FileIcon className="mr-2 h-4 w-4" />
-                                                    <span>Document</span>
+                                                    <span>{t("admin.chats.document") || "Document"}</span>
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
@@ -1250,8 +1252,8 @@ export default function AdminChatsPage() {
                     ) : (
                         <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8">
                             <MessageSquare className="h-12 w-12 mb-4 opacity-20" />
-                            <p>Select a conversation to start chatting</p>
-                            <Button variant="link" onClick={() => setIsNewChatOpen(true)}>Or start a new one</Button>
+                            <p>{t("admin.chats.selectChat") || "Select a conversation to start chatting"}</p>
+                            <Button variant="link" onClick={() => setIsNewChatOpen(true)}>{t("admin.chats.orStartNew") || "Or start a new one"}</Button>
                         </div>
                     )}
                 </Card>
@@ -1261,14 +1263,14 @@ export default function AdminChatsPage() {
             <Dialog open={isNewChatOpen} onOpenChange={setIsNewChatOpen}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>New Conversation</DialogTitle>
-                        <DialogDescription>Search for a user or support agent to start a chat.</DialogDescription>
+                        <DialogTitle>{t("admin.chats.newConversation") || "New Conversation"}</DialogTitle>
+                        <DialogDescription>{t("admin.chats.newConversationDesc") || "Search for a user or support agent to start a chat."}</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
-                                placeholder="Search by name or email..."
+                                placeholder={t("admin.chats.searchPlaceholder") || "Search by name or email..."}
                                 className="pl-9"
                                 value={userSearchTerm}
                                 onChange={(e) => setUserSearchTerm(e.target.value)}
@@ -1277,7 +1279,7 @@ export default function AdminChatsPage() {
                         <ScrollArea className="h-[300px] border rounded-md p-2">
                             <div className="space-y-1">
                                 {filteredUsers.length === 0 ? (
-                                    <p className="text-center text-xs text-muted-foreground py-8">No matching users found</p>
+                                    <p className="text-center text-xs text-muted-foreground py-8">{t("admin.chats.noMatchingUsers") || "No matching users found"}</p>
                                 ) : (
                                     filteredUsers.map((user) => (
                                         <div

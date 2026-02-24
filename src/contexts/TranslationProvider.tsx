@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 
 interface TranslationContextType {
@@ -22,14 +22,27 @@ const LANGUAGE_MAP: Record<string, string> = {
   'French': 'fr',
   'Spanish': 'es',
   'Arabic': 'ar',
-  'Pidgin': 'pcm'
+  'Pidgin': 'pcm',
+  'Nigerian Pidgin': 'pcm'
 };
 
 const getLanguageCode = (lang: string) => {
   if (!lang) return 'en';
+  // Check direct mapping
   if (LANGUAGE_MAP[lang]) return LANGUAGE_MAP[lang];
+
   const lowerLang = lang.toLowerCase();
+
+  // Check if it's already a code (e.g., 'en', 'ha')
   if (Object.values(LANGUAGE_MAP).includes(lowerLang)) return lowerLang;
+
+  // Check keys in a case-insensitive way
+  for (const [key, value] of Object.entries(LANGUAGE_MAP)) {
+    if (key.toLowerCase() === lowerLang) {
+      return value;
+    }
+  }
+
   return 'en';
 };
 
@@ -52,33 +65,48 @@ export const TranslationProvider: React.FC<TranslationProviderProps> = ({ childr
 
   // Load user's language preference from Firebase
   useEffect(() => {
-    const loadUserLanguage = async () => {
-      const user = auth.currentUser;
+    let unsubscribeDoc: (() => void) | undefined;
+
+    const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
+      if (unsubscribeDoc) {
+        unsubscribeDoc();
+        unsubscribeDoc = undefined;
+      }
+
       if (!user) {
         setIsLoading(false);
         return;
       }
 
-      try {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          // Check root language first, then settings.language
-          const rawLanguage = userData.language || userData.settings?.language || 'en';
+      // Listen for real-time changes to the user document
+      unsubscribeDoc = onSnapshot(doc(db, 'users', user.uid), async (snapshot: any) => {
+        if (snapshot.exists()) {
+          const userData = snapshot.data();
+          // Priorities: root language > settings.language > preferences.language
+          const rawLanguage = userData.language || userData.settings?.language || userData.preferences?.language || 'en';
           const userLanguageCode = getLanguageCode(rawLanguage);
 
-          setCurrentLanguage(userLanguageCode);
-          await i18n.changeLanguage(userLanguageCode);
-        }
-      } catch (error) {
-        console.error('Error loading user language:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+          console.log(`TranslationProvider: Syncing language to "${userLanguageCode}" (raw: "${rawLanguage}")`);
 
-    loadUserLanguage();
-  }, [i18n]);
+          if (i18n.language !== userLanguageCode) {
+            await i18n.changeLanguage(userLanguageCode);
+            setCurrentLanguage(userLanguageCode);
+          } else if (currentLanguage !== userLanguageCode) {
+            setCurrentLanguage(userLanguageCode);
+          }
+        }
+        setIsLoading(false);
+      }, (error: any) => {
+        console.error('Error listening to user language:', error);
+        setIsLoading(false);
+      });
+    });
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeDoc) unsubscribeDoc();
+    };
+  }, [i18n, currentLanguage]);
 
   const changeLanguage = async (language: string) => {
     try {
@@ -93,10 +121,15 @@ export const TranslationProvider: React.FC<TranslationProviderProps> = ({ childr
       if (user) {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         if (userDoc.exists()) {
+          const userData = userDoc.data();
           await updateDoc(doc(db, 'users', user.uid), {
             language: language, // Save to root level
             settings: {
-              ...(userDoc.data().settings || {}),
+              ...(userData.settings || {}),
+              language: language
+            },
+            preferences: {
+              ...(userData.preferences || {}),
               language: language
             },
             updatedAt: new Date()

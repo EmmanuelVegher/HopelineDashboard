@@ -20,6 +20,7 @@ import { addDoc, collection, deleteDoc, doc, updateDoc } from "firebase/firestor
 import { type UssdCode } from "@/lib/data";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { NIGERIA_STATES } from "@/lib/nigeria-geography";
+import { useTranslation } from "react-i18next";
 
 
 function UssdForm({ ussdCode, onSave, onCancel }: { ussdCode?: UssdCode | null; onSave: () => void; onCancel: () => void }) {
@@ -34,11 +35,12 @@ function UssdForm({ ussdCode, onSave, onCancel }: { ussdCode?: UssdCode | null; 
   const [state, setState] = useState(defaultState);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !code) {
-      toast({ title: "Missing Fields", description: "Please provide both a name and a number/code.", variant: "destructive" });
+      toast({ title: t("admin.contactManagement.toasts.missingFields") || "Missing Fields", description: t("admin.contactManagement.toasts.missingFieldsDesc") || "Please provide both a name and a number/code.", variant: "destructive" });
       return;
     }
     setLoading(true);
@@ -50,16 +52,16 @@ function UssdForm({ ussdCode, onSave, onCancel }: { ussdCode?: UssdCode | null; 
         // Update
         const ussdRef = doc(db, "ussdCodes", ussdCode.id);
         await updateDoc(ussdRef, dataToSave);
-        toast({ title: "Success", description: "Contact number updated successfully." });
+        toast({ title: t("admin.contactManagement.toasts.success") || "Success", description: t("admin.contactManagement.toasts.updated") || "Contact number updated successfully." });
       } else {
         // Create
         await addDoc(collection(db, "ussdCodes"), dataToSave);
-        toast({ title: "Success", description: "Contact number added successfully." });
+        toast({ title: t("admin.contactManagement.toasts.success") || "Success", description: t("admin.contactManagement.toasts.added") || "Contact number added successfully." });
       }
       onSave();
     } catch (error) {
       console.error("Error saving contact number:", error);
-      toast({ title: "Error", description: "Could not save the contact number.", variant: "destructive" });
+      toast({ title: t("admin.contactManagement.toasts.error") || "Error", description: t("admin.contactManagement.toasts.saveError") || "Could not save the contact number.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -68,23 +70,23 @@ function UssdForm({ ussdCode, onSave, onCancel }: { ussdCode?: UssdCode | null; 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="name">Service Name</Label>
-        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Emergency SOS or Police" required />
+        <Label htmlFor="name">{t("admin.contactManagement.form.serviceName") || "Service Name"}</Label>
+        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("admin.contactManagement.form.servicePlaceholder") || "e.g., Emergency SOS or Police"} required />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="code">Number or Code</Label>
-        <Input id="code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g., *347*100# or 112" required />
+        <Label htmlFor="code">{t("admin.contactManagement.form.numberCode") || "Number or Code"}</Label>
+        <Input id="code" value={code} onChange={(e) => setCode(e.target.value)} placeholder={t("admin.contactManagement.form.numberPlaceholder") || "e.g., *347*100# or 112"} required />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="state">State</Label>
+        <Label htmlFor="state">{t("admin.contactManagement.form.state") || "State"}</Label>
         {isSuperAdmin ? (
           <Select value={state} onValueChange={setState}>
             <SelectTrigger>
-              <SelectValue placeholder="Select State (Optional)" />
+              <SelectValue placeholder={t("admin.contactManagement.form.statePlaceholder") || "Select State (Optional)"} />
             </SelectTrigger>
             <SelectContent className="max-h-[200px]">
-              <SelectItem value="All">All States (Nationwide)</SelectItem>
+              <SelectItem value="All">{t("admin.contactManagement.form.allStates") || "All States (Nationwide)"}</SelectItem>
               {NIGERIA_STATES.map((s) => (
                 <SelectItem key={s} value={s}>{s}</SelectItem>
               ))}
@@ -93,13 +95,13 @@ function UssdForm({ ussdCode, onSave, onCancel }: { ussdCode?: UssdCode | null; 
         ) : (
           <Input value={state} disabled className="bg-muted text-muted-foreground" />
         )}
-        {!isSuperAdmin && <p className="text-[10px] text-muted-foreground">Admin locked to assigned state.</p>}
+        {!isSuperAdmin && <p className="text-[10px] text-muted-foreground">{t("admin.contactManagement.form.adminLocked") || "Admin locked to assigned state."}</p>}
       </div>
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+        <Button type="button" variant="outline" onClick={onCancel}>{t("admin.contactManagement.form.cancel") || "Cancel"}</Button>
         <Button type="submit" disabled={loading}>
           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {loading ? 'Saving...' : 'Save Number'}
+          {loading ? (t("admin.contactManagement.form.saving") || 'Saving...') : (t("admin.contactManagement.form.save") || 'Save Number')}
         </Button>
       </DialogFooter>
     </form>
@@ -110,6 +112,7 @@ function UssdForm({ ussdCode, onSave, onCancel }: { ussdCode?: UssdCode | null; 
 export default function ContactManagementPage() {
   const { ussdCodes, loading, permissionError, fetchData } = useAdminData();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedUssd, setSelectedUssd] = useState<UssdCode | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -125,15 +128,15 @@ export default function ContactManagementPage() {
   };
 
   const handleDelete = async (codeId: string) => {
-    if (!window.confirm("Are you sure you want to delete this contact number?")) return;
+    if (!window.confirm(t("admin.contactManagement.deleteConfirm") || "Are you sure you want to delete this contact number?")) return;
     setActionLoading(true);
     try {
       await deleteDoc(doc(db, "ussdCodes", codeId));
-      toast({ title: "Success", description: "Contact number deleted." });
+      toast({ title: t("admin.contactManagement.toasts.success") || "Success", description: t("admin.contactManagement.toasts.deleted") || "Contact number deleted." });
       fetchData();
     } catch (error) {
       console.error("Error deleting contact number:", error);
-      toast({ title: "Error", description: "Could not delete the number.", variant: "destructive" });
+      toast({ title: t("admin.contactManagement.toasts.error") || "Error", description: t("admin.contactManagement.toasts.deleteError") || "Could not delete the number.", variant: "destructive" });
     } finally {
       setActionLoading(false);
     }
@@ -153,9 +156,9 @@ export default function ContactManagementPage() {
       <Dialog open={isFormOpen} onOpenChange={(isOpen) => { if (!isOpen) handleCancel(); else setIsFormOpen(true); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{selectedUssd ? "Edit Contact Number" : "Add New Contact Number"}</DialogTitle>
+            <DialogTitle>{selectedUssd ? (t("admin.contactManagement.form.editTitle") || "Edit Contact Number") : (t("admin.contactManagement.form.addTitle") || "Add New Contact Number")}</DialogTitle>
             <DialogDescription>
-              {selectedUssd ? "Update the details for this contact." : "Add a new USSD code or emergency number."}
+              {selectedUssd ? (t("admin.contactManagement.form.editDesc") || "Update the details for this contact.") : (t("admin.contactManagement.form.addDesc") || "Add a new USSD code or emergency number.")}
             </DialogDescription>
           </DialogHeader>
           <UssdForm ussdCode={selectedUssd} onSave={handleSave} onCancel={handleCancel} />
@@ -165,20 +168,20 @@ export default function ContactManagementPage() {
       <Card className="max-w-full overflow-hidden">
         <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <CardTitle>Contact Numbers Management</CardTitle>
+            <CardTitle>{t("admin.contactManagement.title") || "Contact Numbers Management"}</CardTitle>
             <CardDescription>
-              Add, edit, or delete USSD codes and emergency numbers that are displayed on user-facing pages.
+              {t("admin.contactManagement.subtitle") || "Add, edit, or delete USSD codes and emergency numbers that are displayed on user-facing pages."}
             </CardDescription>
           </div>
-          <Button onClick={handleAddNew} className="self-start sm:self-auto"><Plus className="mr-2 h-4 w-4" /> Add New Number</Button>
+          <Button onClick={handleAddNew} className="self-start sm:self-auto"><Plus className="mr-2 h-4 w-4" /> {t("admin.contactManagement.addNew") || "Add New Number"}</Button>
         </CardHeader>
         <CardContent className="p-2 sm:p-6">
           {permissionError && (
             <Alert variant="destructive" className="mb-4">
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Permission Denied</AlertTitle>
+              <AlertTitle>{t("admin.contactManagement.permissionError.title") || "Permission Denied"}</AlertTitle>
               <AlertDescription>
-                You do not have permission to manage contact numbers. Please check your Firestore security rules.
+                {t("admin.contactManagement.permissionError.description") || "You do not have permission to manage contact numbers. Please check your Firestore security rules."}
               </AlertDescription>
             </Alert>
           )}
@@ -204,10 +207,10 @@ export default function ContactManagementPage() {
                       </div>
                       <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={() => handleEdit(code)} className="flex-1">
-                          <Edit className="mr-2 h-4 w-4" /> Edit
+                          <Edit className="mr-2 h-4 w-4" /> {t("admin.contactManagement.form.edit") || "Edit"}
                         </Button>
                         <Button variant="outline" size="sm" className="text-red-600 flex-1" onClick={() => handleDelete(code.id)}>
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                          <Trash2 className="mr-2 h-4 w-4" /> {t("admin.contactManagement.form.delete") || "Delete"}
                         </Button>
                       </div>
                     </div>
@@ -225,10 +228,10 @@ export default function ContactManagementPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="min-w-[150px]">Service Name</TableHead>
-                    <TableHead className="min-w-[120px]">Number / Code</TableHead>
-                    <TableHead className="min-w-[100px]">State</TableHead>
-                    <TableHead className="text-right min-w-[100px]">Actions</TableHead>
+                    <TableHead className="min-w-[150px]">{t("admin.contactManagement.table.heads.serviceName") || "Service Name"}</TableHead>
+                    <TableHead className="min-w-[120px]">{t("admin.contactManagement.table.heads.numberCode") || "Number / Code"}</TableHead>
+                    <TableHead className="min-w-[100px]">{t("admin.contactManagement.table.heads.state") || "State"}</TableHead>
+                    <TableHead className="text-right min-w-[100px]">{t("admin.contactManagement.table.heads.actions") || "Actions"}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -249,7 +252,7 @@ export default function ContactManagementPage() {
                         </TableCell>
                         <TableCell>
                           {code.state ? (
-                            <Badge variant="secondary" className="font-normal">{code.state === 'All' ? 'Nationwide' : code.state}</Badge>
+                            <Badge variant="secondary" className="font-normal">{code.state === 'All' ? (t("admin.contactManagement.table.nationwide") || 'Nationwide') : code.state}</Badge>
                           ) : (
                             <span className="text-muted-foreground text-sm">-</span>
                           )}
@@ -258,19 +261,19 @@ export default function ContactManagementPage() {
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" className="h-8 w-8 p-0" disabled={actionLoading}>
-                                <span className="sr-only">Open menu</span>
+                                <span className="sr-only">{t("admin.userManagement.actions.openMenu") || "Open menu"}</span>
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuLabel>{t("admin.userManagement.actions.label") || "Actions"}</DropdownMenuLabel>
                               <DropdownMenuItem onClick={() => handleEdit(code)}>
                                 <Edit className="mr-2 h-4 w-4" />
-                                Edit
+                                {t("admin.contactManagement.form.edit") || "Edit"}
                               </DropdownMenuItem>
                               <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(code.id)}>
                                 <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
+                                {t("admin.contactManagement.form.delete") || "Delete"}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -280,7 +283,7 @@ export default function ContactManagementPage() {
                   ) : !permissionError ? (
                     <TableRow>
                       <TableCell colSpan={3} className="h-24 text-center">
-                        No contact numbers found.
+                        {t("admin.contactManagement.table.noContacts") || "No contact numbers found."}
                       </TableCell>
                     </TableRow>
                   ) : null}
