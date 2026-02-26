@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { collection, query, where, onSnapshot, orderBy, limit, doc, getDocs, getCountFromServer } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
+import { useTranslation } from "react-i18next";
 
 interface ChatSession {
   id: string;
@@ -54,10 +55,13 @@ export default function SupportAgentDashboard() {
     totalCalls: 0,
     onlineUsers: 0
   });
-  // const { toast } = useToast();
+  const { t } = useTranslation();
   const agentId = auth.currentUser?.uid;
 
   // Fetch agent profile first
+  // ... (omitting unchanged internal logic for brevity in this manual step, but I'll make sure the replacement is full)
+  // Actually, I'll do a multi-replace or use grep to find specific chunks.
+  // Let's replace the whole render logic section.
   useEffect(() => {
     const fetchAgentProfile = async () => {
       const agentId = auth.currentUser?.uid;
@@ -114,7 +118,7 @@ export default function SupportAgentDashboard() {
             chats.push({
               id: docSnap.id,
               userId: data.userId,
-              userName: userData.displayName || userData.firstName || userData.email || 'Unknown User',
+              userName: userData.displayName || userData.firstName || userData.email || t('common.unknownUser'),
               userImage: userData.image,
               lastMessage: data.lastMessage || '',
               lastMessageTime: data.lastMessageTimestamp?.toDate() || new Date(),
@@ -164,7 +168,7 @@ export default function SupportAgentDashboard() {
             calls.push({
               id: docSnap.id,
               userId: data.userId,
-              userName: userData.displayName || userData.firstName || userData.email || 'Unknown User',
+              userName: userData.displayName || userData.firstName || userData.email || t('common.unknownUser'),
               userImage: userData.image,
               status: data.status || 'ringing',
               startTime: data.startTime?.toDate(),
@@ -233,16 +237,16 @@ export default function SupportAgentDashboard() {
             <MessageSquare className="h-6 w-6 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-white" />
           </div>
           <h1 className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-2 sm:mb-3 lg:mb-4">
-            Support Agent Dashboard
+            {t('supportAgent.dashboard.title')}
           </h1>
           <p className="text-muted-foreground text-xs sm:text-sm lg:text-base xl:text-lg px-2 sm:px-0">
-            Manage active chats, voice calls, and provide assistance to users in need
+            {t('supportAgent.dashboard.subtitle')}
           </p>
           {agentProfile && (
             <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-primary/10 rounded-lg block overflow-x-hidden">
               <p className="text-xs sm:text-sm text-primary/foreground truncate">
                 <MapPin className="inline h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                Serving users in: <span className="font-semibold">{agentProfile.state || agentProfile.location?.split(',')[1]?.trim() || 'Nigeria'}</span>
+                {t('supportAgent.dashboard.servingUsersIn')} <span className="font-semibold">{agentProfile.state || agentProfile.location?.split(',')[1]?.trim() || t('supportAgent.dashboard.nigeria', 'Nigeria')}</span>
               </p>
             </div>
           )}
@@ -258,7 +262,7 @@ export default function SupportAgentDashboard() {
                 </div>
                 <div>
                   <p className="text-xl sm:text-2xl font-bold text-primary">{stats.activeChats}</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Active Chats</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">{t('supportAgent.dashboard.activeChats')}</p>
                 </div>
               </div>
             </CardContent>
@@ -272,7 +276,7 @@ export default function SupportAgentDashboard() {
                 </div>
                 <div>
                   <p className="text-xl sm:text-2xl font-bold text-green-600">{stats.totalCalls}</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Active Calls</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">{t('supportAgent.dashboard.activeCalls')}</p>
                 </div>
               </div>
             </CardContent>
@@ -286,7 +290,7 @@ export default function SupportAgentDashboard() {
                 </div>
                 <div>
                   <p className="text-xl sm:text-2xl font-bold text-purple-600">{stats.onlineUsers}</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Online Users</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">{t('supportAgent.dashboard.onlineUsers')}</p>
                 </div>
               </div>
             </CardContent>
@@ -300,7 +304,7 @@ export default function SupportAgentDashboard() {
                 </div>
                 <div>
                   <p className="text-xl sm:text-2xl font-bold text-orange-600">5</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Languages</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">{t('supportAgent.dashboard.languages')}</p>
                 </div>
               </div>
             </CardContent>
@@ -312,16 +316,16 @@ export default function SupportAgentDashboard() {
           <CardHeader className="p-2 sm:p-4 pb-2 sm:pb-3">
             <CardTitle className="flex items-center gap-2">
               <MessageCircle className="h-5 w-5" />
-              <span className="text-sm sm:text-base">Active Chat Sessions</span>
+              <span className="text-sm sm:text-base">{t('supportAgent.dashboard.activeChatSessions')}</span>
             </CardTitle>
-            <CardDescription className="text-xs sm:text-sm">Users currently waiting for chat support</CardDescription>
+            <CardDescription className="text-xs sm:text-sm">{t('supportAgent.dashboard.waitingForChatSupport')}</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             {activeChats.length === 0 ? (
               <div className="p-2 sm:p-4 text-center py-6">
                 <MessageSquare className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                <p className="text-muted-foreground">No active chat sessions assigned to you</p>
-                <p className="text-sm text-muted-foreground mt-2">Chats assigned to you will appear here when users need assistance</p>
+                <p className="text-muted-foreground">{t('supportAgent.dashboard.noActiveChats')}</p>
+                <p className="text-sm text-muted-foreground mt-2">{t('supportAgent.dashboard.noActiveChatsDesc')}</p>
               </div>
             ) : (
               <div className="p-2 sm:p-4 space-y-3 overflow-x-hidden">
@@ -360,7 +364,7 @@ export default function SupportAgentDashboard() {
                         className="bg-primary hover:bg-primary/90"
                       >
                         <MessageSquare className="h-4 w-4 mr-2" />
-                        Join Chat
+                        {t('supportAgent.dashboard.joinChat')}
                       </Button>
                     </div>
                   </div>
@@ -375,16 +379,16 @@ export default function SupportAgentDashboard() {
           <CardHeader className="p-2 sm:p-4 pb-2 sm:pb-3">
             <CardTitle className="flex items-center gap-2">
               <PhoneCall className="h-5 w-5" />
-              <span className="text-sm sm:text-base">Active Voice Calls</span>
+              <span className="text-sm sm:text-base">{t('supportAgent.dashboard.activeVoiceCalls')}</span>
             </CardTitle>
-            <CardDescription className="text-xs sm:text-sm">Voice calls requiring immediate attention</CardDescription>
+            <CardDescription className="text-xs sm:text-sm">{t('supportAgent.dashboard.voiceCallsAttention')}</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             {activeCalls.length === 0 ? (
               <div className="p-2 sm:p-4 text-center py-6">
                 <Phone className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                <p className="text-muted-foreground">No active voice calls assigned to you</p>
-                <p className="text-sm text-muted-foreground mt-2">Calls assigned to you will appear here when users need immediate assistance</p>
+                <p className="text-muted-foreground">{t('supportAgent.dashboard.noActiveCalls')}</p>
+                <p className="text-sm text-muted-foreground mt-2">{t('supportAgent.dashboard.noActiveCallsDesc')}</p>
               </div>
             ) : (
               <div className="p-2 sm:p-4 space-y-3 overflow-x-hidden">
@@ -402,7 +406,7 @@ export default function SupportAgentDashboard() {
                             variant={call.status === 'ringing' ? 'destructive' : 'default'}
                             className="text-xs"
                           >
-                            {call.status === 'ringing' ? 'Ringing' : 'Active'}
+                            {call.status === 'ringing' ? t('supportAgent.calls.ringing', 'Ringing') : t('supportAgent.calls.active', 'Active')}
                           </Badge>
                           <Badge variant="outline" className="text-xs">
                             <Globe className="h-3 w-3 mr-1" />
@@ -417,7 +421,7 @@ export default function SupportAgentDashboard() {
                         </div>
                         {call.startTime && (
                           <p className="text-xs text-muted-foreground mt-1">
-                            Started {call.startTime.toLocaleTimeString()}
+                            {t('supportAgent.dashboard.startedAt')} {call.startTime.toLocaleTimeString()}
                           </p>
                         )}
                       </div>
@@ -428,7 +432,7 @@ export default function SupportAgentDashboard() {
                         className={call.status === 'ringing' ? 'bg-green-600 hover:bg-green-700' : 'bg-primary hover:bg-primary/90'}
                       >
                         <Phone className="h-4 w-4 mr-2" />
-                        {call.status === 'ringing' ? 'Answer Call' : 'Join Call'}
+                        {call.status === 'ringing' ? t('supportAgent.dashboard.answerCall') : t('supportAgent.dashboard.joinCall')}
                       </Button>
                     </div>
                   </div>
@@ -447,8 +451,8 @@ export default function SupportAgentDashboard() {
           >
             <MessageSquare className="h-5 w-5 sm:h-6 sm:w-6 mr-2 sm:mr-3" />
             <div className="text-left">
-              <div className="font-medium text-sm sm:text-base">View All Chats</div>
-              <div className="text-xs opacity-75 hidden sm:block">Chat History</div>
+              <div className="font-medium text-sm sm:text-base">{t('supportAgent.dashboard.viewAllChats')}</div>
+              <div className="text-xs opacity-75 hidden sm:block">{t('supportAgent.dashboard.chatHistory')}</div>
             </div>
           </Button>
 
@@ -459,8 +463,8 @@ export default function SupportAgentDashboard() {
           >
             <Phone className="h-5 w-5 sm:h-6 sm:w-6 mr-2 sm:mr-3" />
             <div className="text-left">
-              <div className="font-medium text-sm sm:text-base">Voice Calls</div>
-              <div className="text-xs opacity-75 hidden sm:block">Call Management</div>
+              <div className="font-medium text-sm sm:text-base">{t('supportAgent.dashboard.voiceCalls')}</div>
+              <div className="text-xs opacity-75 hidden sm:block">{t('supportAgent.dashboard.callManagement')}</div>
             </div>
           </Button>
 
@@ -471,8 +475,8 @@ export default function SupportAgentDashboard() {
           >
             <MapPin className="h-5 w-5 sm:h-6 sm:w-6 mr-2 sm:mr-3" />
             <div className="text-left">
-              <div className="font-medium text-sm sm:text-base">Location Assist</div>
-              <div className="text-xs opacity-75 hidden sm:block">Map Support</div>
+              <div className="font-medium text-sm sm:text-base">{t('supportAgent.dashboard.locationAssist')}</div>
+              <div className="text-xs opacity-75 hidden sm:block">{t('supportAgent.dashboard.mapSupport')}</div>
             </div>
           </Button>
 
@@ -483,8 +487,8 @@ export default function SupportAgentDashboard() {
           >
             <Clock className="h-5 w-5 sm:h-6 sm:w-6 mr-2 sm:mr-3" />
             <div className="text-left">
-              <div className="font-medium text-sm sm:text-base">Availability</div>
-              <div className="text-xs opacity-75 hidden sm:block">Set Status</div>
+              <div className="font-medium text-sm sm:text-base">{t('supportAgent.dashboard.availability')}</div>
+              <div className="text-xs opacity-75 hidden sm:block">{t('supportAgent.dashboard.setStatus')}</div>
             </div>
           </Button>
         </div>

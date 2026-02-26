@@ -9,22 +9,20 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   MapPin,
-  Navigation,
-  Users,
   AlertTriangle,
   Phone,
+  Navigation,
   MessageSquare,
-  Globe,
-  Clock,
-  Crosshair,
   ZoomIn,
   ZoomOut,
-  RotateCcw
+  RotateCcw,
+  Globe,
+  Clock
 } from "lucide-react";
 import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
-import { useToast } from "@/hooks/use-toast";
+import { db } from "@/lib/firebase";
 import GoogleMap from "@/components/google-map";
+import { useTranslation } from "react-i18next";
 
 interface LocationRequest {
   id: string;
@@ -55,6 +53,7 @@ interface EmergencyLocation {
 }
 
 export default function SupportAgentMapPage() {
+  const { t } = useTranslation();
   const [locationRequests, setLocationRequests] = useState<LocationRequest[]>([]);
   const [emergencyLocations, setEmergencyLocations] = useState<EmergencyLocation[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<LocationRequest | null>(null);
@@ -62,7 +61,7 @@ export default function SupportAgentMapPage() {
   const [mapZoom, setMapZoom] = useState(6);
   const [filterType, setFilterType] = useState<string>('all');
   const [showEmergencies, setShowEmergencies] = useState(true);
-  const { toast } = useToast();
+  // const { toast } = useToast();
 
   useEffect(() => {
     // Listen for location assistance requests
@@ -109,7 +108,7 @@ export default function SupportAgentMapPage() {
         emergencies.push({
           id: doc.id,
           userId: data.userId,
-          userName: data.userName || 'Unknown User',
+          userName: data.userName || t('common.unknownUser'),
           latitude: data.latitude,
           longitude: data.longitude,
           emergencyType: data.emergencyType || 'Emergency',
@@ -207,10 +206,10 @@ export default function SupportAgentMapPage() {
             <MapPin className="h-8 w-8 sm:h-10 sm:w-10 text-primary-foreground" />
           </div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent mb-3 sm:mb-4">
-            Location Assistance
+            {t('supportAgent.map.title')}
           </h1>
           <p className="text-muted-foreground text-sm sm:text-base lg:text-lg">
-            Monitor and assist users with location-based requests and emergencies
+            {t('supportAgent.map.subtitle')}
           </p>
         </div>
 
@@ -222,10 +221,10 @@ export default function SupportAgentMapPage() {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <Navigation className="h-5 w-5" />
-                    Live Map
+                    {t('supportAgent.map.liveMap')}
                   </CardTitle>
                   <CardDescription>
-                    {mapMarkers.length} active locations • Zoom: {mapZoom}x
+                    {mapMarkers.length} {t('supportAgent.map.activeLocations')} • Zoom: {mapZoom}x
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
@@ -262,7 +261,7 @@ export default function SupportAgentMapPage() {
                   center={mapCenter}
                   zoom={mapZoom}
                   markers={mapMarkers}
-                  onMarkerClick={(marker) => {
+                  onMarkerClick={(marker: any) => {
                     if (marker.type === 'request') {
                       handleRequestSelect(marker.data);
                     } else if (marker.type === 'emergency') {
@@ -271,6 +270,7 @@ export default function SupportAgentMapPage() {
                   }}
                   showUserLocation={false}
                   showRouting={false}
+                  mapTypeId="satellite"
                 />
               </div>
             </CardContent>
@@ -281,33 +281,33 @@ export default function SupportAgentMapPage() {
             {/* Filters */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Filters</CardTitle>
+                <CardTitle className="text-lg">{t('supportAgent.map.filters')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium">Request Type</label>
+                  <label className="text-sm font-medium">{t('supportAgent.map.requestType')}</label>
                   <Select value={filterType} onValueChange={setFilterType}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      <SelectItem value="navigation">Navigation</SelectItem>
-                      <SelectItem value="shelter">Shelter</SelectItem>
-                      <SelectItem value="emergency">Emergency</SelectItem>
-                      <SelectItem value="location_share">Location Share</SelectItem>
+                      <SelectItem value="all">{t('supportAgent.map.types.all')}</SelectItem>
+                      <SelectItem value="navigation">{t('supportAgent.map.types.navigation')}</SelectItem>
+                      <SelectItem value="shelter">{t('supportAgent.map.types.shelter')}</SelectItem>
+                      <SelectItem value="emergency">{t('supportAgent.map.types.emergency')}</SelectItem>
+                      <SelectItem value="location_share">{t('supportAgent.map.types.location_share')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">Show Emergencies</label>
+                  <label className="text-sm font-medium">{t('supportAgent.map.showEmergencies')}</label>
                   <Button
                     variant={showEmergencies ? "default" : "outline"}
                     size="sm"
                     onClick={() => setShowEmergencies(!showEmergencies)}
                   >
-                    {showEmergencies ? 'Hide' : 'Show'}
+                    {showEmergencies ? t('supportAgent.map.hide') : t('supportAgent.map.show')}
                   </Button>
                 </div>
               </CardContent>
@@ -318,27 +318,26 @@ export default function SupportAgentMapPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MapPin className="h-5 w-5" />
-                  Location Requests
+                  {t('supportAgent.map.locationRequests')}
                 </CardTitle>
-                <CardDescription>{filteredRequests.length} active requests</CardDescription>
+                <CardDescription>{filteredRequests.length} {t('supportAgent.map.activeRequests')}</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
                 <ScrollArea className="h-[300px]">
                   {filteredRequests.length === 0 ? (
                     <div className="p-8 text-center text-slate-500">
                       <MapPin className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>No location requests</p>
+                      <p>{t('supportAgent.map.noLocationRequests')}</p>
                     </div>
                   ) : (
                     <div className="space-y-1">
                       {filteredRequests.map((request) => (
                         <div
                           key={request.id}
-                          className={`p-4 cursor-pointer hover:bg-muted transition-colors border-l-4 ${
-                            selectedRequest?.id === request.id
-                              ? 'border-blue-500 bg-blue-50'
-                              : 'border-transparent'
-                          }`}
+                          className={`p-4 cursor-pointer hover:bg-muted transition-colors border-l-4 ${selectedRequest?.id === request.id
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-transparent'
+                            }`}
                           onClick={() => handleRequestSelect(request)}
                         >
                           <div className="flex items-center gap-3">
@@ -379,16 +378,16 @@ export default function SupportAgentMapPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <AlertTriangle className="h-5 w-5 text-red-500" />
-                    Emergency Locations
+                    {t('supportAgent.map.emergencyLocations')}
                   </CardTitle>
-                  <CardDescription>{emergencyLocations.length} active emergencies</CardDescription>
+                  <CardDescription>{emergencyLocations.length} {t('supportAgent.map.activeEmergencies')}</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
                   <ScrollArea className="h-[200px]">
                     {emergencyLocations.length === 0 ? (
                       <div className="p-8 text-center text-slate-500">
                         <AlertTriangle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p>No active emergencies</p>
+                        <p>{t('supportAgent.map.noActiveEmergencies')}</p>
                       </div>
                     ) : (
                       <div className="space-y-1">
@@ -440,7 +439,7 @@ export default function SupportAgentMapPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
-                    <h4 className="font-medium mb-2">Request Details</h4>
+                    <h4 className="font-medium mb-2">{t('supportAgent.map.requestDetails')}</h4>
                     <div className="space-y-2 text-sm">
                       <div className="flex items-center gap-2">
                         <MapPin className="h-4 w-4 text-slate-400" />
@@ -459,41 +458,41 @@ export default function SupportAgentMapPage() {
 
                   {selectedRequest.description && (
                     <div>
-                      <h4 className="font-medium mb-2">Description</h4>
+                      <h4 className="font-medium mb-2">{t('supportAgent.map.description')}</h4>
                       <p className="text-sm text-muted-foreground">{selectedRequest.description}</p>
                     </div>
                   )}
                 </div>
 
                 <div className="space-y-4">
-                  <h4 className="font-medium">Actions</h4>
+                  <h4 className="font-medium">{t('supportAgent.map.actions')}</h4>
                   <div className="flex flex-wrap gap-2">
                     <Button
                       onClick={() => handleNavigateToRequest(selectedRequest)}
                       className="bg-primary hover:bg-primary/90"
                     >
                       <Navigation className="h-4 w-4 mr-2" />
-                      Navigate
+                      {t('supportAgent.map.navigate')}
                     </Button>
                     <Button
                       variant="outline"
                       onClick={() => handleContactUser(selectedRequest.userId, 'chat')}
                     >
                       <MessageSquare className="h-4 w-4 mr-2" />
-                      Chat
+                      {t('supportAgent.map.chat')}
                     </Button>
                     <Button
                       variant="outline"
                       onClick={() => handleContactUser(selectedRequest.userId, 'call')}
                     >
                       <Phone className="h-4 w-4 mr-2" />
-                      Call
+                      {t('supportAgent.map.call')}
                     </Button>
                   </div>
 
                   <div className="flex items-center gap-2">
                     <Badge className={`text-primary-foreground border-transparent ${getPriorityColor(selectedRequest.priority)}`}>
-                      {selectedRequest.priority.toUpperCase()} PRIORITY
+                      {selectedRequest.priority.toUpperCase()} {t('supportAgent.map.priorityLabel')}
                     </Badge>
                     <Badge variant="outline">
                       {selectedRequest.status}

@@ -34,6 +34,20 @@ interface GoogleMapProps {
   followDriver?: boolean;
   onLocationError?: (error: string) => void;
   className?: string;
+  mapTypeId?: string;
+  center?: { lat: number; lng: number };
+  zoom?: number;
+  markers?: Array<{
+    id: string;
+    position: { lat: number; lng: number };
+    title?: string;
+    icon?: string;
+    type?: string;
+    data?: any;
+  }>;
+  onMarkerClick?: (marker: any) => void;
+  showUserLocation?: boolean;
+  showRouting?: boolean;
 }
 
 export default function GoogleMap({
@@ -55,6 +69,13 @@ export default function GoogleMap({
   followDriver = false,
   onLocationError,
   className = 'h-96 w-full',
+  mapTypeId = 'roadmap',
+  center: propCenter,
+  zoom: propZoom = 12,
+  markers = [],
+  onMarkerClick,
+  showUserLocation = false,
+  showRouting = false,
 }: GoogleMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<google.maps.Map | null>(null);
@@ -149,8 +170,9 @@ export default function GoogleMap({
         lng: defaultCenter[1]
       };
 
-      // Use driver location as center if available
-      if (driverLocation) {
+      if (propCenter) {
+        center = propCenter;
+      } else if (driverLocation) {
         center = {
           lat: driverLocation.latitude,
           lng: driverLocation.longitude
@@ -159,7 +181,8 @@ export default function GoogleMap({
 
       const mapOptions: google.maps.MapOptions = {
         center,
-        zoom: 12,
+        zoom: propZoom,
+        mapTypeId: mapTypeId as any,
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: true,
@@ -193,10 +216,10 @@ export default function GoogleMap({
 
       // Check for billing-related errors
       if (error?.message?.includes('BillingNotEnabledMapError') ||
-          error?.message?.includes('billing') ||
-          error?.message?.includes('This API project is not authorized to use this API') ||
-          error?.message?.includes('Geocoding API') ||
-          error?.message?.includes('Maps API')) {
+        error?.message?.includes('billing') ||
+        error?.message?.includes('This API project is not authorized to use this API') ||
+        error?.message?.includes('Geocoding API') ||
+        error?.message?.includes('Maps API')) {
         setBillingError('Google Maps billing is not enabled for this API key. Please enable billing in your Google Cloud Console and ensure the Maps API is activated.');
         setLoadError(null);
       } else {
@@ -328,13 +351,39 @@ export default function GoogleMap({
         markersRef.current.push(currentLocationMarker);
       }
 
+      if (markers && markers.length > 0) {
+        markers.forEach(markerData => {
+          const customMarker = new google.maps.Marker({
+            position: markerData.position,
+            map: googleMapRef.current,
+            title: markerData.title,
+          });
+
+          if (markerData.icon) {
+            customMarker.setIcon({
+              url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`<svg width="32" height="32" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" fill="#ffffff" stroke="#e5e7eb" stroke-width="2"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-size="14">${markerData.icon}</text></svg>`)}`,
+              scaledSize: new google.maps.Size(32, 32),
+              anchor: new google.maps.Point(16, 16),
+            });
+          }
+
+          if (onMarkerClick) {
+            customMarker.addListener('click', () => {
+              onMarkerClick(markerData);
+            });
+          }
+
+          markersRef.current.push(customMarker);
+        });
+      }
+
     } catch (error: any) {
       console.error('Error updating markers:', error);
 
       // Check for billing-related errors during marker operations
       if (error?.message?.includes('BillingNotEnabledMapError') ||
-          error?.message?.includes('billing') ||
-          error?.message?.includes('This API project is not authorized to use this API')) {
+        error?.message?.includes('billing') ||
+        error?.message?.includes('This API project is not authorized to use this API')) {
         setBillingError('Google Maps billing is not enabled for this API key. Please enable billing in your Google Cloud Console and ensure the Maps API is activated.');
         setLoadError(null);
         setIsLoaded(false);
@@ -661,25 +710,33 @@ export default function GoogleMap({
   useEffect(() => {
     if (!isLoaded || !googleMapRef.current) return;
 
-    let center: google.maps.LatLngLiteral | null = null;
+    let centerPos: google.maps.LatLngLiteral | null = null;
+    let newZoom: number | null = null;
 
-    if (selectedTask) {
-      center = {
+    if (propCenter) {
+      centerPos = propCenter;
+      newZoom = propZoom;
+    } else if (selectedTask) {
+      centerPos = {
         lat: selectedTask.location.latitude,
         lng: selectedTask.location.longitude
       };
     } else if (driverLocation) {
-      center = {
+      centerPos = {
         lat: driverLocation.latitude,
         lng: driverLocation.longitude
       };
     }
 
-    if (center && !followDriver) { // Don't center if following driver
-      googleMapRef.current.setCenter(center);
-      googleMapRef.current.setZoom(15);
+    if (centerPos && !followDriver) { // Don't center if following driver
+      googleMapRef.current.panTo(centerPos);
+      if (newZoom !== null) {
+        googleMapRef.current.setZoom(newZoom);
+      } else {
+        googleMapRef.current.setZoom(15);
+      }
     }
-  }, [isLoaded, selectedTask, driverLocation, followDriver]);
+  }, [isLoaded, selectedTask, driverLocation, followDriver, propCenter, propZoom]);
 
   if (billingError) {
     return (

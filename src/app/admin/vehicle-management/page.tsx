@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAdminData } from "@/contexts/AdminDataProvider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { NIGERIA_STATE_BOUNDS } from "@/lib/nigeria-geography";
+import { useTranslation } from "react-i18next";
 
 const getStatusInfo = (status: string) => {
     switch (status) {
@@ -86,6 +87,7 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
     const [uploading, setUploading] = useState(false);
     const { toast } = useToast();
     const { adminProfile } = useAdminData();
+    const { t } = useTranslation();
     const role = adminProfile?.role?.toLowerCase() || '';
     const isSuperAdmin = role.includes('super');
     const adminState = adminProfile?.state || '';
@@ -120,11 +122,11 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
         const file = e.target.files?.[0];
         if (file) {
             if (file.size > 5 * 1024 * 1024) { // 5MB limit
-                toast({ title: "Error", description: "Image size must be less than 5MB.", variant: "destructive" });
+                toast({ title: t('admin.vehicleManagement.toasts.error'), description: t('admin.vehicleManagement.toasts.imageTooLarge'), variant: "destructive" });
                 return;
             }
             if (!file.type.startsWith('image/')) {
-                toast({ title: "Error", description: "Please select a valid image file.", variant: "destructive" });
+                toast({ title: t('admin.vehicleManagement.toasts.error'), description: t('admin.vehicleManagement.toasts.invalidImage'), variant: "destructive" });
                 return;
             }
             setImageFile(file);
@@ -189,16 +191,16 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
                 // Update existing vehicle
                 const vehicleRef = doc(db, "vehicles", vehicle.id);
                 await updateDoc(vehicleRef, dataToSave);
-                toast({ title: "Success", description: "Vehicle updated successfully." });
+                toast({ title: t('admin.vehicleManagement.toasts.success'), description: t('admin.vehicleManagement.toasts.vehicleUpdated') });
             } else {
                 // Create new vehicle
                 await addDoc(collection(db, "vehicles"), dataToSave);
-                toast({ title: "Success", description: "Vehicle added successfully." });
+                toast({ title: t('admin.vehicleManagement.toasts.success'), description: t('admin.vehicleManagement.toasts.vehicleAdded') });
             }
             onSave();
         } catch (error) {
             console.error("Error saving vehicle: ", error);
-            toast({ title: "Error", description: "Could not save vehicle details.", variant: "destructive" });
+            toast({ title: t('admin.vehicleManagement.toasts.error'), description: t('admin.vehicleManagement.toasts.saveFailed'), variant: "destructive" });
         } finally {
             setLoading(false);
             setUploading(false);
@@ -210,89 +212,89 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
         <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 max-h-[70vh] overflow-y-auto pr-2 sm:pr-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="make">Make</Label>
+                    <Label htmlFor="make">{t('admin.vehicleManagement.form.make')}</Label>
                     <Input id="make" name="make" value={formData.make} onChange={handleChange} required />
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="model">Model</Label>
+                    <Label htmlFor="model">{t('admin.vehicleManagement.form.model')}</Label>
                     <Input id="model" name="model" value={formData.model} onChange={handleChange} required />
                 </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="year">Year</Label>
+                    <Label htmlFor="year">{t('admin.vehicleManagement.form.year')}</Label>
                     <Input id="year" name="year" type="number" value={formData.year} onChange={handleChange} required />
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="licensePlate">License Plate</Label>
+                    <Label htmlFor="licensePlate">{t('admin.vehicleManagement.form.licensePlate')}</Label>
                     <Input id="licensePlate" name="licensePlate" value={formData.licensePlate} onChange={handleChange} required />
                 </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="status">Status</Label>
+                    <Label htmlFor="status">{t('admin.vehicleManagement.form.status')}</Label>
                     <Select value={formData.status} onValueChange={(value) => handleSelectChange('status', value)}>
                         <SelectTrigger id="status"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="Available">Available</SelectItem>
-                            <SelectItem value="In Use">In Use</SelectItem>
-                            <SelectItem value="Maintenance">Maintenance</SelectItem>
-                            <SelectItem value="Out of Service">Out of Service</SelectItem>
+                            <SelectItem value="Available">{t('admin.vehicleManagement.status.available')}</SelectItem>
+                            <SelectItem value="In Use">{t('admin.vehicleManagement.status.inUse')}</SelectItem>
+                            <SelectItem value="Maintenance">{t('admin.vehicleManagement.status.maintenance')}</SelectItem>
+                            <SelectItem value="Out of Service">{t('admin.vehicleManagement.status.outOfService')}</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="type">Type</Label>
+                    <Label htmlFor="type">{t('admin.vehicleManagement.form.type')}</Label>
                     <Select value={formData.type} onValueChange={(value) => handleSelectChange('type', value)}>
                         <SelectTrigger id="type"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="Car">Car</SelectItem>
-                            <SelectItem value="Truck">Truck</SelectItem>
-                            <SelectItem value="Bus">Bus</SelectItem>
-                            <SelectItem value="Ambulance">Ambulance</SelectItem>
-                            <SelectItem value="Motorcycle">Motorcycle</SelectItem>
-                            <SelectItem value="Other">Other</SelectItem>
+                            <SelectItem value="Car">{t('admin.vehicleManagement.type.car')}</SelectItem>
+                            <SelectItem value="Truck">{t('admin.vehicleManagement.type.truck')}</SelectItem>
+                            <SelectItem value="Bus">{t('admin.vehicleManagement.type.bus')}</SelectItem>
+                            <SelectItem value="Ambulance">{t('admin.vehicleManagement.type.ambulance')}</SelectItem>
+                            <SelectItem value="Motorcycle">{t('admin.vehicleManagement.type.motorcycle')}</SelectItem>
+                            <SelectItem value="Other">{t('admin.vehicleManagement.type.other')}</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="capacity">Capacity</Label>
+                    <Label htmlFor="capacity">{t('admin.vehicleManagement.form.capacity')}</Label>
                     <Input id="capacity" name="capacity" type="number" value={formData.capacity} onChange={handleChange} required />
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="fuelType">Fuel Type</Label>
+                    <Label htmlFor="fuelType">{t('admin.vehicleManagement.form.fuelType')}</Label>
                     <Select value={formData.fuelType} onValueChange={(value) => handleSelectChange('fuelType', value)}>
                         <SelectTrigger id="fuelType"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="Petrol">Petrol</SelectItem>
-                            <SelectItem value="Diesel">Diesel</SelectItem>
-                            <SelectItem value="Electric">Electric</SelectItem>
-                            <SelectItem value="Hybrid">Hybrid</SelectItem>
+                            <SelectItem value="Petrol">{t('admin.vehicleManagement.fuel.petrol')}</SelectItem>
+                            <SelectItem value="Diesel">{t('admin.vehicleManagement.fuel.diesel')}</SelectItem>
+                            <SelectItem value="Electric">{t('admin.vehicleManagement.fuel.electric')}</SelectItem>
+                            <SelectItem value="Hybrid">{t('admin.vehicleManagement.fuel.hybrid')}</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="color">Color</Label>
+                    <Label htmlFor="color">{t('admin.vehicleManagement.form.color')}</Label>
                     <Input id="color" name="color" value={formData.color} onChange={handleChange} />
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="mileage">Mileage (km)</Label>
+                    <Label htmlFor="mileage">{t('admin.vehicleManagement.form.mileageKm')}</Label>
                     <Input id="mileage" name="mileage" type="number" value={formData.mileage} onChange={handleChange} />
                 </div>
             </div>
             <div className="space-y-2">
-                <Label htmlFor="state">Assigned State</Label>
+                <Label htmlFor="state">{t('admin.vehicleManagement.form.assignedState')}</Label>
                 <Select
                     value={formData.state}
                     onValueChange={(value) => handleSelectChange('state', value)}
                     disabled={!isSuperAdmin}
                 >
                     <SelectTrigger id="state">
-                        <SelectValue placeholder="Select a state" />
+                        <SelectValue placeholder={t('admin.vehicleManagement.form.selectState')} />
                     </SelectTrigger>
                     <SelectContent>
                         {isSuperAdmin ? (
@@ -305,11 +307,11 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
                     </SelectContent>
                 </Select>
                 {!isSuperAdmin && (
-                    <p className="text-[10px] text-muted-foreground">Admin: Restricted to your assigned state.</p>
+                    <p className="text-[10px] text-muted-foreground">{t('admin.vehicleManagement.form.adminRestricted')}</p>
                 )}
             </div>
             <div className="space-y-2">
-                <Label>Vehicle Image</Label>
+                <Label>{t('admin.vehicleManagement.form.vehicleImage')}</Label>
                 <div className="space-y-4">
                     {imagePreview ? (
                         <div className="relative">
@@ -335,9 +337,9 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
                         >
                             <Upload className="mx-auto h-8 w-8 sm:h-12 sm:w-12 text-gray-400" />
                             <p className="mt-2 text-xs sm:text-sm text-gray-600">
-                                Click to upload or drag and drop
+                                {t('admin.vehicleManagement.form.uploadDrop')}
                             </p>
-                            <p className="text-xs text-gray-500">PNG, JPG up to 5MB</p>
+                            <p className="text-xs text-gray-500">{t('admin.vehicleManagement.form.uploadHint')}</p>
                         </div>
                     )}
                     <input
@@ -350,7 +352,7 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
                     {uploading && (
                         <div className="space-y-2">
                             <div className="flex justify-between text-sm">
-                                <span>Uploading...</span>
+                                <span>{t('admin.vehicleManagement.form.uploading')}</span>
                                 <span>{Math.round(uploadProgress)}%</span>
                             </div>
                             <div className="w-full bg-gray-200 rounded-full h-2">
@@ -365,13 +367,13 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea id="notes" name="notes" value={formData.notes} onChange={handleChange} placeholder="Additional notes..." />
+                <Label htmlFor="notes">{t('admin.vehicleManagement.form.notes')}</Label>
+                <Textarea id="notes" name="notes" value={formData.notes} onChange={handleChange} placeholder={t('admin.vehicleManagement.form.notesPlaceholder')} />
             </div>
 
             <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0">
-                <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">Cancel</Button>
-                <Button type="submit" disabled={loading} className="w-full sm:w-auto">{loading ? 'Saving...' : 'Save Vehicle'}</Button>
+                <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">{t('admin.vehicleManagement.form.cancel')}</Button>
+                <Button type="submit" disabled={loading} className="w-full sm:w-auto">{loading ? t('admin.vehicleManagement.form.saving') : t('admin.vehicleManagement.form.saveVehicle')}</Button>
             </DialogFooter>
         </form>
     );
@@ -389,6 +391,7 @@ export default function VehicleManagementPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize] = useState(12); // 12 vehicles per page
     const { toast } = useToast();
+    const { t } = useTranslation();
 
     // Debounce search term
     useEffect(() => {
@@ -445,21 +448,21 @@ export default function VehicleManagementPage() {
     };
 
     const handleDelete = async (vehicle: Vehicle) => {
-        if (!confirm(`Are you sure you want to delete ${vehicle.make} ${vehicle.model}?`)) return;
+        if (!confirm(t('admin.vehicleManagement.confirm.deleteOne', { make: vehicle.make, model: vehicle.model }))) return;
 
         try {
             await deleteDoc(doc(db, "vehicles", vehicle.id));
-            toast({ title: "Success", description: "Vehicle deleted successfully." });
+            toast({ title: t('admin.vehicleManagement.toasts.success'), description: t('admin.vehicleManagement.toasts.vehicleDeleted') });
             fetchData();
         } catch (error) {
             console.error("Error deleting vehicle: ", error);
-            toast({ title: "Error", description: "Could not delete vehicle.", variant: "destructive" });
+            toast({ title: t('admin.vehicleManagement.toasts.error'), description: t('admin.vehicleManagement.toasts.deleteFailed'), variant: "destructive" });
         }
     };
 
     const handleBulkDelete = async () => {
         if (selectedVehicles.size === 0) return;
-        if (!confirm(`Are you sure you want to delete ${selectedVehicles.size} vehicles?`)) return;
+        if (!confirm(t('admin.vehicleManagement.confirm.deleteMany', { count: selectedVehicles.size }))) return;
 
         try {
             const batch = writeBatch(db);
@@ -467,12 +470,12 @@ export default function VehicleManagementPage() {
                 batch.delete(doc(db, "vehicles", id));
             });
             await batch.commit();
-            toast({ title: "Success", description: `${selectedVehicles.size} vehicles deleted successfully.` });
+            toast({ title: t('admin.vehicleManagement.toasts.success'), description: t('admin.vehicleManagement.toasts.bulkDeleted', { count: selectedVehicles.size }) });
             setSelectedVehicles(new Set());
             fetchData();
         } catch (error) {
             console.error("Error deleting vehicles: ", error);
-            toast({ title: "Error", description: "Could not delete vehicles.", variant: "destructive" });
+            toast({ title: t('admin.vehicleManagement.toasts.error'), description: t('admin.vehicleManagement.toasts.bulkDeleteFailed'), variant: "destructive" });
         }
     };
 
@@ -504,9 +507,9 @@ export default function VehicleManagementPage() {
             <Dialog open={isFormOpen} onOpenChange={(isOpen) => { if (!isOpen) handleCancel(); else setIsFormOpen(true); }}>
                 <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle>{selectedVehicle ? "Edit Vehicle Details" : "Add New Vehicle"}</DialogTitle>
+                        <DialogTitle>{selectedVehicle ? t('admin.vehicleManagement.form.editTitle') : t('admin.vehicleManagement.form.addTitle')}</DialogTitle>
                         <DialogDescription>
-                            {selectedVehicle ? "Update the vehicle information." : "Fill in the vehicle details."}
+                            {selectedVehicle ? t('admin.vehicleManagement.form.editDesc') : t('admin.vehicleManagement.form.addDesc')}
                         </DialogDescription>
                     </DialogHeader>
                     <VehicleForm vehicle={selectedVehicle} onSave={handleSave} onCancel={handleCancel} />
@@ -515,13 +518,13 @@ export default function VehicleManagementPage() {
 
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold">Vehicle Management</h1>
-                    <p className="text-muted-foreground text-sm sm:text-base">Manage and track all vehicles in the fleet</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold">{t('admin.vehicleManagement.title')}</h1>
+                    <p className="text-muted-foreground text-sm sm:text-base">{t('admin.vehicleManagement.subtitle')}</p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
-                    <Button variant="outline" onClick={fetchData} disabled={loading} className="w-full sm:w-auto"><RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />Refresh</Button>
-                    <Button variant="outline" onClick={() => exportData('vehicles')} className="w-full sm:w-auto"><Download className="mr-2 h-4 w-4" />Export CSV</Button>
-                    <Button onClick={handleAddNew} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" />Add Vehicle</Button>
+                    <Button variant="outline" onClick={fetchData} disabled={loading} className="w-full sm:w-auto"><RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />{t('admin.vehicleManagement.refresh')}</Button>
+                    <Button variant="outline" onClick={() => exportData('vehicles')} className="w-full sm:w-auto"><Download className="mr-2 h-4 w-4" />{t('admin.vehicleManagement.exportCsv')}</Button>
+                    <Button onClick={handleAddNew} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" />{t('admin.vehicleManagement.addVehicle')}</Button>
                 </div>
             </div>
 
@@ -530,7 +533,7 @@ export default function VehicleManagementPage() {
                     <CardContent className="p-2 sm:p-4 flex items-center gap-2 sm:gap-4">
                         <Truck className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
                         <div>
-                            <p className="text-xs sm:text-sm text-muted-foreground">Total Vehicles</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground">{t('admin.vehicleManagement.stats.totalVehicles')}</p>
                             {loading ? <Skeleton className="h-6 sm:h-7 w-8 sm:w-10 mt-1" /> : <p className="text-xl sm:text-2xl font-bold">{totalVehicles}</p>}
                         </div>
                     </CardContent>
@@ -539,7 +542,7 @@ export default function VehicleManagementPage() {
                     <CardContent className="p-2 sm:p-4 flex items-center gap-2 sm:gap-4">
                         <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-green-500" />
                         <div>
-                            <p className="text-xs sm:text-sm text-muted-foreground">Available</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground">{t('admin.vehicleManagement.stats.available')}</p>
                             {loading ? <Skeleton className="h-6 sm:h-7 w-8 sm:w-10 mt-1" /> : <p className="text-xl sm:text-2xl font-bold">{availableCount}</p>}
                         </div>
                     </CardContent>
@@ -548,7 +551,7 @@ export default function VehicleManagementPage() {
                     <CardContent className="p-2 sm:p-4 flex items-center gap-2 sm:gap-4">
                         <Car className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500" />
                         <div>
-                            <p className="text-xs sm:text-sm text-muted-foreground">In Use</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground">{t('admin.vehicleManagement.stats.inUse')}</p>
                             {loading ? <Skeleton className="h-6 sm:h-7 w-8 sm:w-10 mt-1" /> : <p className="text-xl sm:text-2xl font-bold">{inUseCount}</p>}
                         </div>
                     </CardContent>
@@ -557,7 +560,7 @@ export default function VehicleManagementPage() {
                     <CardContent className="p-2 sm:p-4 flex items-center gap-2 sm:gap-4">
                         <Wrench className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-500" />
                         <div>
-                            <p className="text-xs sm:text-sm text-muted-foreground">Maintenance</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground">{t('admin.vehicleManagement.stats.maintenance')}</p>
                             {loading ? <Skeleton className="h-6 sm:h-7 w-8 sm:w-10 mt-1" /> : <p className="text-xl sm:text-2xl font-bold">{maintenanceCount}</p>}
                         </div>
                     </CardContent>
@@ -568,7 +571,7 @@ export default function VehicleManagementPage() {
                 <div className="relative flex-grow">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                     <Input
-                        placeholder="Search by make, model, or license plate..."
+                        placeholder={t('admin.vehicleManagement.search.placeholder')}
                         className="pl-10 h-9 sm:h-10"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -576,34 +579,34 @@ export default function VehicleManagementPage() {
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="w-full sm:w-[150px] h-9 sm:h-10">
-                        <SelectValue placeholder="All Statuses" />
+                        <SelectValue placeholder={t('admin.vehicleManagement.search.allStatuses')} />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="Available">Available</SelectItem>
-                        <SelectItem value="In Use">In Use</SelectItem>
-                        <SelectItem value="Maintenance">Maintenance</SelectItem>
-                        <SelectItem value="Out of Service">Out of Service</SelectItem>
+                        <SelectItem value="all">{t('admin.vehicleManagement.search.allStatuses')}</SelectItem>
+                        <SelectItem value="Available">{t('admin.vehicleManagement.status.available')}</SelectItem>
+                        <SelectItem value="In Use">{t('admin.vehicleManagement.status.inUse')}</SelectItem>
+                        <SelectItem value="Maintenance">{t('admin.vehicleManagement.status.maintenance')}</SelectItem>
+                        <SelectItem value="Out of Service">{t('admin.vehicleManagement.status.outOfService')}</SelectItem>
                     </SelectContent>
                 </Select>
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
                     <SelectTrigger className="w-full sm:w-[150px] h-9 sm:h-10">
-                        <SelectValue placeholder="All Types" />
+                        <SelectValue placeholder={t('admin.vehicleManagement.search.allTypes')} />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">All Types</SelectItem>
-                        <SelectItem value="Car">Car</SelectItem>
-                        <SelectItem value="Truck">Truck</SelectItem>
-                        <SelectItem value="Bus">Bus</SelectItem>
-                        <SelectItem value="Ambulance">Ambulance</SelectItem>
-                        <SelectItem value="Motorcycle">Motorcycle</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
+                        <SelectItem value="all">{t('admin.vehicleManagement.search.allTypes')}</SelectItem>
+                        <SelectItem value="Car">{t('admin.vehicleManagement.type.car')}</SelectItem>
+                        <SelectItem value="Truck">{t('admin.vehicleManagement.type.truck')}</SelectItem>
+                        <SelectItem value="Bus">{t('admin.vehicleManagement.type.bus')}</SelectItem>
+                        <SelectItem value="Ambulance">{t('admin.vehicleManagement.type.ambulance')}</SelectItem>
+                        <SelectItem value="Motorcycle">{t('admin.vehicleManagement.type.motorcycle')}</SelectItem>
+                        <SelectItem value="Other">{t('admin.vehicleManagement.type.other')}</SelectItem>
                     </SelectContent>
                 </Select>
                 {selectedVehicles.size > 0 && (
                     <Button variant="destructive" onClick={handleBulkDelete} className="w-full sm:w-auto">
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Delete ({selectedVehicles.size})
+                        {t('admin.vehicleManagement.bulkDelete')} ({selectedVehicles.size})
                     </Button>
                 )}
             </div>
@@ -611,9 +614,9 @@ export default function VehicleManagementPage() {
             {permissionError && (
                 <Alert variant="destructive">
                     <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Permission Denied</AlertTitle>
+                    <AlertTitle>{t('admin.vehicleManagement.permission.denied')}</AlertTitle>
                     <AlertDescription>
-                        You do not have permission to view vehicle data. Please check your Firestore security rules.
+                        {t('admin.vehicleManagement.permission.desc')}
                     </AlertDescription>
                 </Alert>
             )}
@@ -666,30 +669,30 @@ export default function VehicleManagementPage() {
                                     </div>
                                     <div className="space-y-1 sm:space-y-2 text-xs sm:text-sm">
                                         <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Capacity:</span>
-                                            <span>{vehicle.capacity} passengers</span>
+                                            <span className="text-muted-foreground">{t('admin.vehicleManagement.card.capacity')}</span>
+                                            <span>{vehicle.capacity} {t('admin.vehicleManagement.card.passengers')}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Fuel:</span>
+                                            <span className="text-muted-foreground">{t('admin.vehicleManagement.card.fuel')}</span>
                                             <span>{vehicle.fuelType}</span>
                                         </div>
                                         {vehicle.color && (
                                             <div className="flex justify-between">
-                                                <span className="text-muted-foreground">Color:</span>
+                                                <span className="text-muted-foreground">{t('admin.vehicleManagement.card.color')}</span>
                                                 <span>{vehicle.color}</span>
                                             </div>
                                         )}
                                         {vehicle.mileage && (
                                             <div className="flex justify-between">
-                                                <span className="text-muted-foreground">Mileage:</span>
+                                                <span className="text-muted-foreground">{t('admin.vehicleManagement.card.mileage')}</span>
                                                 <span>{vehicle.mileage.toLocaleString()} km</span>
                                             </div>
                                         )}
                                     </div>
                                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-2 sm:pt-4 border-t gap-2">
                                         <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
-                                            <Button size="sm" onClick={() => handleEdit(vehicle)} className="w-full sm:w-auto"><Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Edit</Button>
-                                            <Button size="sm" variant="destructive" onClick={() => handleDelete(vehicle)} className="w-full sm:w-auto"><Trash2 className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Delete</Button>
+                                            <Button size="sm" onClick={() => handleEdit(vehicle)} className="w-full sm:w-auto"><Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> {t('admin.vehicleManagement.card.edit')}</Button>
+                                            <Button size="sm" variant="destructive" onClick={() => handleDelete(vehicle)} className="w-full sm:w-auto"><Trash2 className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> {t('admin.vehicleManagement.card.delete')}</Button>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -698,8 +701,8 @@ export default function VehicleManagementPage() {
                     })
                 ) : !permissionError ? (
                     <div className="col-span-full text-center py-16">
-                        <h3 className="text-xl font-semibold">No vehicles found</h3>
-                        <p className="text-muted-foreground mt-2">Click the "Add Vehicle" button to register a new vehicle.</p>
+                        <h3 className="text-xl font-semibold">{t('admin.vehicleManagement.noVehicles.title')}</h3>
+                        <p className="text-muted-foreground mt-2">{t('admin.vehicleManagement.noVehicles.desc')}</p>
                     </div>
                 ) : null}
             </div>
@@ -711,17 +714,17 @@ export default function VehicleManagementPage() {
                         onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                         disabled={currentPage === 1}
                     >
-                        Previous
+                        {t('admin.vehicleManagement.pagination.previous')}
                     </Button>
                     <span className="text-sm text-muted-foreground">
-                        Page {currentPage} of {totalPages}
+                        {t('admin.vehicleManagement.pagination.pageOf', { current: currentPage, total: totalPages })}
                     </span>
                     <Button
                         variant="outline"
                         onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                         disabled={currentPage === totalPages}
                     >
-                        Next
+                        {t('admin.vehicleManagement.pagination.next')}
                     </Button>
                 </div>
             )}

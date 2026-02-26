@@ -145,7 +145,7 @@ export default function TrainingCenter({ canManage = false, userProfile }: Train
                 views: 0,
                 updatedAt: serverTimestamp(),
                 createdAt: serverTimestamp(),
-                publishedBy: userProfile?.firstName || 'Admin'
+                publishedBy: userProfile?.firstName || t('training.admin')
             });
 
             // Automated Messaging Logic (Similar to original)
@@ -177,7 +177,7 @@ export default function TrainingCenter({ canManage = false, userProfile }: Train
 
                     const isMedia = ['video', 'image', 'document'].includes(newModule.type) && downloadURL;
                     const isGuide = newModule.type === 'text';
-                    const messageContent = `📚 *New Training Module Published*\n\n*Title:* ${newModule.title}\n*Description:* ${newModule.description}`;
+                    const messageContent = `${t('training.notifications.newModuleTitle')}\n\n${t('training.notifications.titleLabel')} ${newModule.title}\n${t('training.notifications.descriptionLabel')} ${newModule.description}`;
 
                     for (const groupDoc of groupSnap.docs) {
                         const messagesRef = collection(db, 'chats', groupDoc.id, 'messages');
@@ -203,7 +203,7 @@ export default function TrainingCenter({ canManage = false, userProfile }: Train
                         });
 
                         await updateDoc(doc(db, 'chats', groupDoc.id), {
-                            lastMessage: `Training: ${newModule.title}`,
+                            lastMessage: `${t('training.trainingPrefix')} ${newModule.title}`,
                             lastMessageTimestamp: serverTimestamp(),
                             unreadCount: 0
                         });
@@ -402,7 +402,7 @@ export default function TrainingCenter({ canManage = false, userProfile }: Train
                                                 </span>
                                                 <span className="flex items-center gap-1">
                                                     <Eye className="h-3 w-3" />
-                                                    {t('training.views', { count: module.views.toLocaleString() })}
+                                                    {t('training.views', { count: module.views })}
                                                 </span>
                                             </div>
                                             <span>{t('training.updated', { date: module.updatedAt })}</span>

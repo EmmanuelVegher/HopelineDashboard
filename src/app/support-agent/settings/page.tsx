@@ -12,20 +12,16 @@ import { Slider } from "@/components/ui/slider";
 import {
   Settings,
   Bell,
-  Volume2,
-  VolumeX,
   Moon,
   Sun,
-  Globe,
   Shield,
   Clock,
   MessageSquare,
-  Phone,
   MapPin,
   Save,
   RotateCcw
 } from "lucide-react";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -85,7 +81,7 @@ export default function SupportAgentSettingsPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
   const { changeLanguage, currentLanguage } = useTranslationContext();
-  const { theme: providerTheme, setTheme } = useTheme();
+  const { setTheme } = useTheme();
 
   // Sync selectedLanguage with TranslationProvider's currentLanguage
   useEffect(() => {
@@ -93,66 +89,75 @@ export default function SupportAgentSettingsPage() {
   }, [currentLanguage]);
 
   useEffect(() => {
-    loadSettings();
-  }, []);
+    let unsubscribe: (() => void) | undefined;
 
-  const loadSettings = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    try {
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const defaultSettings: SupportAgentSettings = {
-          notifications: {
-            newChats: true,
-            newCalls: true,
-            emergencyAlerts: true,
-            systemUpdates: true,
-            soundEnabled: true,
-            vibrationEnabled: true
-          },
-          theme: 'system',
-          language: 'en',
-          profileVisibility: 'agents_only',
-          showOnlineStatus: true,
-          allowDirectMessages: true,
-          availability: 'online',
-          maxConcurrentChats: 3,
-          autoAcceptChats: false,
-          workingHours: {
-            enabled: false,
-            startTime: '09:00',
-            endTime: '17:00',
-            timezone: 'Africa/Lagos'
-          },
-          defaultLanguage: 'English',
-          autoTranslate: true,
-          voiceCallSettings: {
-            microphoneEnabled: true,
-            speakerEnabled: true,
-            noiseCancellation: true
-          },
-          locationSharing: true,
-          locationAccuracy: 'high'
-        };
-
-        // Merge with existing user settings
-        const userSettings = userData.settings || {};
-        const mergedSettings = { ...defaultSettings, ...userSettings };
-
-        setSettings(mergedSettings);
-        setSelectedLanguage(mergedSettings.language);
-        setTheme(mergedSettings.theme);
+    const setupListener = async () => {
+      const user = auth.currentUser;
+      if (!user) {
+        setLoading(false);
+        return;
       }
-    } catch (error) {
-      console.error("Error loading settings:", error);
-      toast({ title: "Error", description: "Failed to load settings", variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
+
+      unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snapshot) => {
+        if (snapshot.exists()) {
+          const userData = snapshot.data();
+          const defaultSettings: SupportAgentSettings = {
+            notifications: {
+              newChats: true,
+              newCalls: true,
+              emergencyAlerts: true,
+              systemUpdates: true,
+              soundEnabled: true,
+              vibrationEnabled: true
+            },
+            theme: 'system',
+            language: 'en',
+            profileVisibility: 'agents_only',
+            showOnlineStatus: true,
+            allowDirectMessages: true,
+            availability: 'online',
+            maxConcurrentChats: 3,
+            autoAcceptChats: false,
+            workingHours: {
+              enabled: false,
+              startTime: '09:00',
+              endTime: '17:00',
+              timezone: 'Africa/Lagos'
+            },
+            defaultLanguage: 'English',
+            autoTranslate: true,
+            voiceCallSettings: {
+              microphoneEnabled: true,
+              speakerEnabled: true,
+              noiseCancellation: true
+            },
+            locationSharing: true,
+            locationAccuracy: 'high'
+          };
+
+          // Merge with existing user settings
+          const userSettings = userData.settings || {};
+          const mergedSettings = { ...defaultSettings, ...userSettings };
+
+          setSettings(mergedSettings);
+          // Sync language selection with Firestore data
+          const currentLang = userData.language || userData.preferences?.language || mergedSettings.language;
+          setSelectedLanguage(currentLang);
+        }
+        setLoading(false);
+      }, (error) => {
+        console.error("Error in settings listener:", error);
+        toast({ title: t('common.error'), description: t('supportAgent.settings.failedToSyncSettings'), variant: "destructive" });
+        setLoading(false);
+      });
+    };
+
+    setupListener();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
 
   const handleSave = async () => {
     if (!auth.currentUser || !settings) return;
@@ -164,35 +169,53 @@ export default function SupportAgentSettingsPage() {
         updatedAt: new Date()
       });
 
-      toast({ title: "Success", description: "Settings saved successfully" });
+      toast({ title: t('common.success'), description: t('supportAgent.settings.settingsSaved') });
     } catch (error) {
       console.error("Error saving settings:", error);
-      toast({ title: "Error", description: "Failed to save settings", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('supportAgent.settings.failedToSaveSettings'), variant: "destructive" });
     } finally {
       setSaving(false);
     }
   };
 
-  const handleReset = () => {
-    loadSettings();
-    toast({ title: "Settings Reset", description: "Settings have been reset to defaults" });
+  const handleResetToDefaults = () => {
+    toast({ title: t('supportAgent.settings.note'), description: t('supportAgent.settings.adjustSettingsNote') });
   };
 
-  const updateSetting = (path: string, value: any) => {
+  const updateSetting = async (path: string, value: any) => {
     setSettings(prev => {
       if (!prev) return prev;
-
       const keys = path.split('.');
       const updated = { ...prev };
-
       let current: any = updated;
       for (let i = 0; i < keys.length - 1; i++) {
         current = current[keys[i]];
       }
       current[keys[keys.length - 1]] = value;
-
       return updated;
     });
+
+    // Special handling for language changes to trigger immediate UI translation
+    if (path === 'language' || path === 'defaultLanguage') {
+      console.log(`[Settings] Language change triggered via ${path}:`, value);
+
+      // Update i18n immediately
+      await changeLanguage(value);
+
+      // Persist to Firestore immediately so all pages/devices sync
+      if (auth.currentUser) {
+        try {
+          await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+            language: value, // Sync to root language
+            "preferences.language": value, // Sync to preferences for mobile/consistency
+            "settings.language": value, // Sync to internal settings
+            "settings.defaultLanguage": value // Sync the "Default Support Language" field too
+          });
+        } catch (err) {
+          console.error('Error auto-saving language:', err);
+        }
+      }
+    }
   };
 
   if (loading) {
@@ -241,7 +264,7 @@ export default function SupportAgentSettingsPage() {
 
         {/* Action Buttons */}
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={handleReset}>
+          <Button variant="outline" onClick={handleResetToDefaults}>
             <RotateCcw className="h-4 w-4 mr-2" />
             {t('supportAgent.settings.resetDefaults')}
           </Button>
@@ -340,7 +363,7 @@ export default function SupportAgentSettingsPage() {
                     console.log('Settings: Theme select changed to:', value);
                     if (!['light', 'dark', 'system'].includes(value)) {
                       console.log('Settings: Invalid theme selected:', value);
-                      toast({ title: "Error", description: "Invalid theme selected", variant: "destructive" });
+                      toast({ title: t('common.error'), description: t('supportAgent.settings.invalidTheme'), variant: "destructive" });
                       return;
                     }
                     console.log('Settings: Setting theme via provider:', value);
@@ -355,19 +378,19 @@ export default function SupportAgentSettingsPage() {
                     <SelectItem value="light">
                       <div className="flex items-center gap-2">
                         <Sun className="h-4 w-4" />
-                        Light
+                        {t('supportAgent.settings.appearance.light')}
                       </div>
                     </SelectItem>
                     <SelectItem value="dark">
                       <div className="flex items-center gap-2">
                         <Moon className="h-4 w-4" />
-                        Dark
+                        {t('supportAgent.settings.appearance.dark')}
                       </div>
                     </SelectItem>
                     <SelectItem value="system">
                       <div className="flex items-center gap-2">
                         <Settings className="h-4 w-4" />
-                        System
+                        {t('supportAgent.settings.appearance.system')}
                       </div>
                     </SelectItem>
                   </SelectContent>
@@ -390,12 +413,14 @@ export default function SupportAgentSettingsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="en">English</SelectItem>
-                    <SelectItem value="fr">Français</SelectItem>
-                    <SelectItem value="es">Español</SelectItem>
-                    <SelectItem value="ar">العربية</SelectItem>
-                    <SelectItem value="ha">Hausa</SelectItem>
-                    <SelectItem value="yo">Yoruba</SelectItem>
+                    <SelectItem value="en">{t('supportAgent.settings.appearance.languages.en')}</SelectItem>
+                    <SelectItem value="fr">{t('supportAgent.settings.appearance.languages.fr')}</SelectItem>
+                    <SelectItem value="es">{t('supportAgent.settings.appearance.languages.es')}</SelectItem>
+                    <SelectItem value="ar">{t('supportAgent.settings.appearance.languages.ar')}</SelectItem>
+                    <SelectItem value="ha">{t('supportAgent.settings.appearance.languages.ha')}</SelectItem>
+                    <SelectItem value="yo">{t('supportAgent.settings.appearance.languages.yo')}</SelectItem>
+                    <SelectItem value="ig">{t('supportAgent.settings.appearance.languages.ig')}</SelectItem>
+                    <SelectItem value="pcm">{t('supportAgent.settings.appearance.languages.pcm')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -519,12 +544,14 @@ export default function SupportAgentSettingsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="English">English</SelectItem>
-                    <SelectItem value="French">French</SelectItem>
-                    <SelectItem value="Spanish">Spanish</SelectItem>
-                    <SelectItem value="Arabic">Arabic</SelectItem>
-                    <SelectItem value="Hausa">Hausa</SelectItem>
-                    <SelectItem value="Yoruba">Yoruba</SelectItem>
+                    <SelectItem value="English">{t('supportAgent.settings.communication.languages.English')}</SelectItem>
+                    <SelectItem value="French">{t('supportAgent.settings.communication.languages.French')}</SelectItem>
+                    <SelectItem value="Spanish">{t('supportAgent.settings.communication.languages.Spanish')}</SelectItem>
+                    <SelectItem value="Arabic">{t('supportAgent.settings.communication.languages.Arabic')}</SelectItem>
+                    <SelectItem value="Hausa">{t('supportAgent.settings.communication.languages.Hausa')}</SelectItem>
+                    <SelectItem value="Yoruba">{t('supportAgent.settings.communication.languages.Yoruba')}</SelectItem>
+                    <SelectItem value="Igbo">{t('supportAgent.settings.communication.languages.Igbo')}</SelectItem>
+                    <SelectItem value="Pidgin">{t('supportAgent.settings.communication.languages.Pidgin')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

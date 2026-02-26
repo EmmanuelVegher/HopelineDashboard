@@ -10,7 +10,8 @@ import { Users, User, Check, CheckCircle, Heart, AlertTriangle, RefreshCw, Searc
 import { cn, formatTimestamp } from "@/lib/utils";
 import { NIGERIA_STATE_BOUNDS } from "@/lib/nigeria-geography";
 import { useGeolocation } from "@/hooks/useGeolocation";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { collection, doc, writeBatch, runTransaction, addDoc, updateDoc, setDoc } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { db } from "@/lib/firebase";
@@ -26,77 +27,84 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAdminData } from "@/contexts/AdminDataProvider";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import * as XLSX from 'xlsx';
 
-const getStatusInfo = (status: string) => {
+const getStatusInfo = (status: string, t: any) => {
     switch (status) {
         case 'Eligible for Shelter':
             return {
                 badgeVariant: 'default' as const,
                 cardClass: 'border-blue-200 bg-blue-50/50',
                 icon: <CheckCircle className="h-4 w-4 text-blue-600" />,
-                priority: 'Medium Priority',
-                priorityColor: 'bg-blue-500'
+                priority: t('admin.displacedPersons.priorityEnum.medium'),
+                priorityColor: 'bg-blue-500',
+                display: t('admin.displacedPersons.statusEnum.eligibleForShelter')
             };
         case 'Moving to Shelter':
             return {
                 badgeVariant: 'secondary' as const,
                 cardClass: 'border-yellow-200 bg-yellow-50/50',
                 icon: <Plane className="h-4 w-4 text-yellow-600" />,
-                priority: 'Medium Priority',
-                priorityColor: 'bg-yellow-500'
+                priority: t('admin.displacedPersons.priorityEnum.medium'),
+                priorityColor: 'bg-yellow-500',
+                display: t('admin.displacedPersons.statusEnum.movingToShelter')
             };
         case 'Needs Assistance':
             return {
                 badgeVariant: 'secondary' as const,
                 cardClass: 'border-orange-200 bg-orange-50/50',
                 icon: <Heart className="h-4 w-4 text-orange-600" />,
-                priority: 'Medium Priority',
-                priorityColor: 'bg-orange-500'
+                priority: t('admin.displacedPersons.priorityEnum.medium'),
+                priorityColor: 'bg-orange-500',
+                display: t('admin.displacedPersons.statusEnum.needsAssistance')
             };
         case 'Emergency':
             return {
                 badgeVariant: 'destructive' as const,
                 cardClass: 'border-red-200 bg-red-50/50',
                 icon: <AlertTriangle className="h-4 w-4 text-red-600" />,
-                priority: 'High Priority',
-                priorityColor: 'bg-red-600'
+                priority: t('admin.displacedPersons.priorityEnum.high'),
+                priorityColor: 'bg-red-600',
+                display: t('admin.displacedPersons.statusEnum.emergency')
             };
         case 'Safe':
             return {
                 badgeVariant: 'outline' as const,
                 cardClass: 'border-green-200 bg-green-50/20',
                 icon: <CheckCircle className="h-4 w-4 text-green-600" />,
-                priority: 'Low Priority',
-                priorityColor: 'bg-green-500'
+                priority: t('admin.displacedPersons.priorityEnum.low'),
+                priorityColor: 'bg-green-500',
+                display: t('admin.displacedPersons.statusEnum.safeAssigned')
             };
         case 'Resettled':
             return {
                 badgeVariant: 'outline' as const,
                 cardClass: 'border-green-300 bg-green-100/30',
                 icon: <CheckCircle className="h-4 w-4 text-green-700" />,
-                priority: 'Low Priority',
-                priorityColor: 'bg-green-600'
+                priority: t('admin.displacedPersons.priorityEnum.low'),
+                priorityColor: 'bg-green-600',
+                display: t('admin.displacedPersons.statusEnum.resettled')
             };
         case 'Homebound':
             return {
                 badgeVariant: 'outline' as const,
                 cardClass: 'border-slate-300 bg-slate-100',
                 icon: <RefreshCw className="h-4 w-4 text-slate-600" />,
-                priority: 'Low Priority',
-                priorityColor: 'bg-slate-500'
+                priority: t('admin.displacedPersons.priorityEnum.low'),
+                priorityColor: 'bg-slate-500',
+                display: t('admin.displacedPersons.statusEnum.homebound')
             };
         default:
             return {
                 badgeVariant: 'outline' as const,
                 cardClass: 'border-gray-200',
                 icon: <Search className="h-4 w-4 text-gray-500" />,
-                priority: 'Low Priority',
-                priorityColor: 'bg-gray-500'
+                priority: t('admin.displacedPersons.priorityEnum.low'),
+                priorityColor: 'bg-gray-500',
+                display: status
             };
     }
 };
@@ -144,11 +152,13 @@ const initialPersonState: Partial<DisplacedPerson> = {
 };
 
 function PersonForm({ person, existingPersons = [], onSave, onCancel, onSwitchToEdit }: { person?: DisplacedPerson | null, existingPersons?: DisplacedPerson[], onSave: () => void, onCancel: () => void, onSwitchToEdit?: (person: DisplacedPerson) => void }) {
+    const { t } = useTranslation();
     const [formData, setFormData] = useState<Partial<DisplacedPerson>>(initialPersonState);
     const [loading, setLoading] = useState(false);
     const [userSearch, setUserSearch] = useState('');
     const [nameSuggestions, setNameSuggestions] = useState<DisplacedPerson[]>([]);
     const [phoneDuplicate, setPhoneDuplicate] = useState<DisplacedPerson | null>(null);
+    const [activeTab, setActiveTab] = useState('basic');
     const { toast } = useToast();
     const { users, adminProfile } = useAdminData();
     const { getCurrentPosition } = useGeolocation();
@@ -384,25 +394,31 @@ function PersonForm({ person, existingPersons = [], onSave, onCancel, onSwitchTo
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-4">
-            <Tabs defaultValue="basic" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 mb-4">
-                    <TabsTrigger value="basic">Basic Info</TabsTrigger>
-                    <TabsTrigger value="assessment">Assessment</TabsTrigger>
-                    <TabsTrigger value="needs">shelter Needs</TabsTrigger>
+            <Tabs defaultValue="basic" value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="basic">{t('admin.displacedPersons.form.tabs.basic')}</TabsTrigger>
+                    <TabsTrigger value="assessment">{t('admin.displacedPersons.form.tabs.assessment')}</TabsTrigger>
+                    <TabsTrigger value="needs">{t('admin.displacedPersons.form.tabs.needs')}</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="basic" className="space-y-4">
-                    <div className="space-y-4 border rounded-lg p-4 bg-slate-50">
-                        <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-blue-600" />
-                            <h3 className="font-semibold text-sm">Link User Account</h3>
-                        </div>
-                        <p className="text-xs text-muted-foreground">Link this record to an existing app user to share status updates.</p>
+                    <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg mb-4 space-y-3">
+                        <h3 className="font-medium text-blue-900 flex justify-between items-center">
+                            {t('admin.displacedPersons.form.linkAccount')}
+                            {formData.userId && (
+                                <Badge variant="default" className="bg-blue-600">
+                                    {t('admin.displacedPersons.form.linkedTo')} {formData.userId}
+                                </Badge>
+                            )}
+                        </h3>
+                        <p className="text-sm text-blue-700">
+                            {t('admin.displacedPersons.form.linkAccountDesc')}
+                        </p>
                         <div className="relative">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                             <Input
-                                placeholder="Contact email or name..."
-                                className="pl-9 h-9"
+                                placeholder={t('admin.displacedPersons.form.searchContact')}
+                                className="pl-8 bg-white"
                                 value={userSearch}
                                 onChange={(e) => setUserSearch(e.target.value)}
                             />
@@ -428,28 +444,28 @@ function PersonForm({ person, existingPersons = [], onSave, onCancel, onSwitchTo
                             )}
                         </div>
                         {formData.userId && (
-                            <div className="flex items-center justify-between bg-blue-50 p-2 rounded border border-blue-100">
-                                <div className="flex items-center gap-2">
-                                    <CheckCircle className="h-4 w-4 text-blue-600" />
-                                    <p className="text-xs font-medium">Linked to: {users?.find(u => u.id === formData.userId)?.displayName}</p>
-                                </div>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    onClick={() => handleSelectChange('userId', '')}
-                                >
-                                    Unlink
-                                </Button>
-                            </div>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setFormData(prev => ({ ...prev, userId: undefined }))}
+                                className="text-red-600 border-red-200 hover:bg-red-50"
+                            >
+                                {t('admin.displacedPersons.form.unlink')}
+                            </Button>
                         )}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2 relative">
-                            <Label htmlFor="name">Full Name of Household Head</Label>
-                            <Input id="name" name="name" value={formData.name} onChange={handleChange} required placeholder="As per valid ID" autoComplete="off" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="name">{t('admin.displacedPersons.form.fullName')} *</Label>
+                            <Input
+                                id="name"
+                                value={formData.name || ''}
+                                onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                                placeholder={t('admin.displacedPersons.form.fullNamePlaceholder')}
+                                required
+                            />
                             {nameSuggestions.length > 0 && (
                                 <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-40 overflow-y-auto">
                                     <div className="p-2 text-xs font-semibold text-muted-foreground bg-slate-50 border-b">
@@ -471,45 +487,45 @@ function PersonForm({ person, existingPersons = [], onSave, onCancel, onSwitchTo
                             )}
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="phone">Phone Number / Contact</Label>
-                            <Input id="phone" name="phone" value={formData.phone} onChange={handleChange} required placeholder="Beneficiary or focal person" />
+                            <Label htmlFor="phone">{t('admin.displacedPersons.form.phone')} *</Label>
+                            <Input
+                                id="phone"
+                                value={formData.phone || ''}
+                                onChange={e => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                                placeholder={t('admin.displacedPersons.form.phonePlaceholder')}
+                                required
+                            />
                             {phoneDuplicate && (
                                 <Alert variant="destructive" className="mt-2 text-xs py-2">
                                     <AlertTriangle className="h-3 w-3" />
-                                    <AlertTitle className="text-xs font-semibold">Duplicate Phone Number</AlertTitle>
+                                    <AlertTitle className="text-xs font-semibold">{t('admin.displacedPersons.form.duplicatePhone')}</AlertTitle>
                                     <AlertDescription className="mt-1">
-                                        <p>This number matches <strong>{phoneDuplicate.name}</strong> ({phoneDuplicate.currentLocation}).</p>
+                                        <p>{t('admin.displacedPersons.form.matches')} <strong>{phoneDuplicate.name}</strong> ({phoneDuplicate.currentLocation}).</p>
                                         <div className="flex gap-2 mt-2">
                                             <Button type="button" variant="secondary" size="sm" className="h-6 text-[10px]" onClick={handleUseExisting}>
-                                                Use Existing Record
+                                                {t('admin.displacedPersons.form.useExisting')}
                                             </Button>
                                             <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] bg-red-50 border-red-200 text-red-700 hover:bg-red-100" onClick={() => setPhoneDuplicate(null)}>
-                                                Flag & Continue
+                                                {t('admin.displacedPersons.form.flagContinue')}
                                             </Button>
                                         </div>
                                     </AlertDescription>
                                 </Alert>
                             )}
                         </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="currentLocation">Current City/Village</Label>
-                            <Input id="currentLocation" name="currentLocation" value={formData.currentLocation} onChange={handleChange} required />
+                            <Label htmlFor="currentLocation">{t('admin.displacedPersons.form.cityVillage')} *</Label>
+                            <Input id="currentLocation" value={formData.currentLocation || ''} onChange={e => setFormData(prev => ({ ...prev, currentLocation: e.target.value }))} required />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="details">Other Identifying Details</Label>
-                            <Input id="details" name="details" value={formData.details} onChange={handleChange} placeholder="e.g., Age 45..." />
+                            <Label htmlFor="details">{t('admin.displacedPersons.form.otherDetails')}</Label>
+                            <Input id="details" value={formData.details || ''} onChange={e => setFormData(prev => ({ ...prev, details: e.target.value }))} placeholder="e.g., Age 45..." />
                         </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="gender">Sex</Label>
-                            <Select value={formData.gender} onValueChange={(v) => handleSelectChange('gender', v)}>
+                            <Label htmlFor="gender">{t('admin.displacedPersons.form.sex')} *</Label>
+                            <Select value={formData.gender || ''} onValueChange={(v) => setFormData(prev => ({ ...prev, gender: v }))}>
                                 <SelectTrigger id="gender">
-                                    <SelectValue placeholder="Select Gender" />
+                                    <SelectValue placeholder={t('admin.displacedPersons.form.selectGender')} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="Male">Male</SelectItem>
@@ -519,14 +535,14 @@ function PersonForm({ person, existingPersons = [], onSave, onCancel, onSwitchTo
                             </Select>
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="state">Current State</Label>
+                            <Label htmlFor="state">{t('admin.displacedPersons.form.currentState')} *</Label>
                             <Select
                                 value={formData.state || ''}
-                                onValueChange={(v) => handleSelectChange('state', v)}
+                                onValueChange={(v) => setFormData(prev => ({ ...prev, state: v }))}
                                 disabled={!isSuperAdmin && !!adminState}
                             >
                                 <SelectTrigger id="state">
-                                    <SelectValue placeholder="Select State" />
+                                    <SelectValue placeholder={t('admin.displacedPersons.form.selectState')} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {isSuperAdmin ? (
@@ -541,14 +557,17 @@ function PersonForm({ person, existingPersons = [], onSave, onCancel, onSwitchTo
                         </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="image">Location Image (Optional)</Label>
-                        <Input type="file" id="imagefile" accept="image/*" onChange={handleImageUpload} disabled={uploadingImage} />
-                        {formData.imageUrl && (
-                            <div className="mt-2 text-xs text-green-600 flex items-center gap-1">
-                                <CheckCircle className="h-3 w-3" /> Image Uploaded
-                            </div>
-                        )}
+                    <div className="space-y-2 mt-4 p-4 border rounded-lg bg-gray-50">
+                        <Label>{t('admin.displacedPersons.form.locationImage')}</Label>
+                        <div className="flex items-center gap-4">
+                            <Input type="file" accept="image/*" capture="environment" onChange={handleImageUpload} className="max-w-[250px]" disabled={uploadingImage} />
+                            {uploadingImage && <span className="text-sm text-muted-foreground animate-pulse">Uploading...</span>}
+                            {formData.imageUrl && !uploadingImage && (
+                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                    <CheckCircle className="mr-1 h-3 w-3" /> {t('admin.displacedPersons.form.imageUploaded')}
+                                </Badge>
+                            )}
+                        </div>
                         <Input
                             id="image"
                             name="imageUrl"
@@ -562,7 +581,7 @@ function PersonForm({ person, existingPersons = [], onSave, onCancel, onSwitchTo
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <div className="flex items-center justify-between h-5">
-                                <Label htmlFor="latitude">Latitude (Optional)</Label>
+                                <Label htmlFor="latitude">{t('admin.displacedPersons.form.latitudeOptional')}</Label>
                                 <Button
                                     type="button"
                                     variant="outline"
@@ -576,13 +595,13 @@ function PersonForm({ person, existingPersons = [], onSave, onCancel, onSwitchTo
                                     ) : (
                                         <Locate className="h-3 w-3" />
                                     )}
-                                    {fetchingLocation ? 'Fetching...' : 'Get Current Location'}
+                                    {fetchingLocation ? t('admin.displacedPersons.form.fetching') : t('admin.displacedPersons.form.getCurrentLocation')}
                                 </Button>
                             </div>
                             <Input type="number" id="latitude" name="latitude" value={formData.latitude || ''} onChange={handleChange} placeholder="e.g. 11.8333" step="any" />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="longitude">Longitude (Optional)</Label>
+                            <Label htmlFor="longitude">{t('admin.displacedPersons.form.longitudeOptional')}</Label>
                             <Input type="number" id="longitude" name="longitude" value={formData.longitude || ''} onChange={handleChange} placeholder="e.g. 13.1500" step="any" />
                         </div>
                     </div>
@@ -754,14 +773,15 @@ function PersonForm({ person, existingPersons = [], onSave, onCancel, onSwitchTo
             </Tabs>
 
             <DialogFooter className="pt-4 border-t sticky bottom-0 bg-white">
-                <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-                <Button type="submit" disabled={loading || !isFormValid}>{loading ? 'Saving...' : 'Save Person Record'}</Button>
+                <Button type="button" variant="outline" onClick={onCancel}>{t('admin.displacedPersons.form.cancel')}</Button>
+                <Button type="submit" disabled={loading || !isFormValid}>{loading ? t('admin.displacedPersons.form.saving') : t('admin.displacedPersons.form.save')}</Button>
             </DialogFooter>
         </form >
     );
 }
 
 function AssignShelterDialog({ person, allShelters, isOpen, onOpenChange, onAssign }: { person: DisplacedPerson | null, allShelters: Shelter[], isOpen: boolean, onOpenChange: (open: boolean) => void, onAssign: () => void }) {
+    const { t } = useTranslation();
     const [filteredShelters, setFilteredShelters] = useState<Shelter[]>([]);
     const [availableStates, setAvailableStates] = useState<string[]>([]);
     const [selectedState, setSelectedState] = useState('');
@@ -853,15 +873,15 @@ function AssignShelterDialog({ person, allShelters, isOpen, onOpenChange, onAssi
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Assign Transit Space for {person.name}</DialogTitle>
-                    <DialogDescription>Allocate a transit space for the individual. Amenities like bedding and food are provided by external partners.</DialogDescription>
+                    <DialogTitle>{t('admin.displacedPersons.assignShelter.title')} {person.name}</DialogTitle>
+                    <DialogDescription>{t('admin.displacedPersons.assignShelter.desc')}</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label htmlFor="state">Filter by State</Label>
+                        <Label htmlFor="state">{t('admin.displacedPersons.assignShelter.filterState')}</Label>
                         <Select value={selectedState} onValueChange={setSelectedState}>
                             <SelectTrigger id="state">
-                                <SelectValue placeholder="Choose a state" />
+                                <SelectValue placeholder={t('admin.displacedPersons.assignShelter.chooseState')} />
                             </SelectTrigger>
                             <SelectContent>
                                 {availableStates.map(s => (
@@ -873,15 +893,15 @@ function AssignShelterDialog({ person, allShelters, isOpen, onOpenChange, onAssi
                         </Select>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="shelter">Select Shelter</Label>
+                        <Label htmlFor="shelter">{t('admin.displacedPersons.assignShelter.selectShelter')}</Label>
                         <Select value={selectedShelter} onValueChange={setSelectedShelter} disabled={!selectedState}>
                             <SelectTrigger id="shelter">
-                                <SelectValue placeholder={!selectedState ? "Please select a state first" : "Choose a shelter"} />
+                                <SelectValue placeholder={!selectedState ? t('admin.displacedPersons.assignShelter.chooseState') : t('admin.displacedPersons.assignShelter.chooseShelter')} />
                             </SelectTrigger>
                             <SelectContent>
                                 {filteredShelters.map(s => (
                                     <SelectItem key={s.id} value={s.id} disabled={s.availableCapacity === 0}>
-                                        {s.name} ({s.availableCapacity} spots available)
+                                        {s.name} ({s.availableCapacity} {t('admin.displacedPersons.assignShelter.spotsAvailable')})
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -890,16 +910,16 @@ function AssignShelterDialog({ person, allShelters, isOpen, onOpenChange, onAssi
                     {selectedShelter && (
                         <>
                             <div className="space-y-2">
-                                <Label htmlFor="bed-number">Room / Space Number</Label>
-                                <Input id="bed-number" value={bedNumber} onChange={e => setBedNumber(e.target.value)} placeholder="e.g., Room 101 or Space B-12" />
+                                <Label htmlFor="bed-number">{t('admin.displacedPersons.assignShelter.roomNumber')}</Label>
+                                <Input id="bed-number" value={bedNumber} onChange={e => setBedNumber(e.target.value)} placeholder={t('admin.displacedPersons.assignShelter.roomPlaceholder')} />
                             </div>
                         </>
                     )}
                 </div>
                 <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0">
-                    <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">Cancel</Button>
+                    <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">{t('admin.displacedPersons.assignShelter.cancel')}</Button>
                     <Button onClick={handleSubmit} disabled={submitting || !selectedShelter} className="w-full sm:w-auto">
-                        {submitting ? 'Assigning...' : 'Confirm Assignment'}
+                        {submitting ? t('admin.displacedPersons.assignShelter.assigning') : t('admin.displacedPersons.assignShelter.confirm')}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -908,6 +928,7 @@ function AssignShelterDialog({ person, allShelters, isOpen, onOpenChange, onAssi
 }
 
 function LogActivityDialog({ person, isOpen, onOpenChange, onLog }: { person: DisplacedPerson | null, isOpen: boolean, onOpenChange: (open: boolean) => void, onLog: (personId: string, action: string, notes?: string) => void }) {
+    const { t } = useTranslation();
     const [action, setAction] = useState('General Assistance');
     const [notes, setNotes] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -930,29 +951,29 @@ function LogActivityDialog({ person, isOpen, onOpenChange, onLog }: { person: Di
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Log Activity for {person.name}</DialogTitle>
-                    <DialogDescription>Add a record of assistance or movement for this individual.</DialogDescription>
+                    <DialogTitle>{t('admin.displacedPersons.logActivity.title')} {person.name}</DialogTitle>
+                    <DialogDescription>{t('admin.displacedPersons.logActivity.desc')}</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label>Type of Activity</Label>
+                        <Label>{t('admin.displacedPersons.logActivity.type')}</Label>
                         <Select value={action} onValueChange={setAction}>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="Food Pack Delivered">Food Pack Delivered</SelectItem>
-                                <SelectItem value="Medical Checkup">Medical Checkup</SelectItem>
-                                <SelectItem value="Clothing/NFIs Provided">Clothing/NFIs Provided</SelectItem>
-                                <SelectItem value="Counseling Session">Counseling Session</SelectItem>
-                                <SelectItem value="Communication with Family">Communication with Family</SelectItem>
-                                <SelectItem value="Protection Screening">Protection Screening</SelectItem>
-                                <SelectItem value="General Assistance">General Assistance</SelectItem>
+                                <SelectItem value="Food Pack Delivered">{t('admin.displacedPersons.logActivity.types.food')}</SelectItem>
+                                <SelectItem value="Medical Checkup">{t('admin.displacedPersons.logActivity.types.medical')}</SelectItem>
+                                <SelectItem value="Clothing/NFIs Provided">{t('admin.displacedPersons.logActivity.types.clothing')}</SelectItem>
+                                <SelectItem value="Counseling Session">{t('admin.displacedPersons.logActivity.types.counseling')}</SelectItem>
+                                <SelectItem value="Communication with Family">{t('admin.displacedPersons.logActivity.types.communication')}</SelectItem>
+                                <SelectItem value="Protection Screening">{t('admin.displacedPersons.logActivity.types.protection')}</SelectItem>
+                                <SelectItem value="General Assistance">{t('admin.displacedPersons.logActivity.types.general')}</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
                     <div className="space-y-2">
-                        <Label>Notes / Details (Optional)</Label>
+                        <Label>{t('admin.displacedPersons.logActivity.notes')}</Label>
                         <Textarea
-                            placeholder="Enter specific details about the assistance provided..."
+                            placeholder={t('admin.displacedPersons.logActivity.notesPlaceholder')}
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                             className="min-h-[100px]"
@@ -960,9 +981,9 @@ function LogActivityDialog({ person, isOpen, onOpenChange, onLog }: { person: Di
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>{t('admin.displacedPersons.logActivity.cancel')}</Button>
                     <Button onClick={handleSubmit} disabled={submitting || !action}>
-                        {submitting ? 'Logging...' : 'Log Activity'}
+                        {submitting ? t('admin.displacedPersons.logActivity.logging') : t('admin.displacedPersons.logActivity.log')}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -971,15 +992,16 @@ function LogActivityDialog({ person, isOpen, onOpenChange, onLog }: { person: Di
 }
 
 function AccountCreationSummaryDialog({ summary, onClose }: { summary: { created: number, skipped: any[], errors: any[] } | null, onClose: () => void }) {
+    const { t } = useTranslation();
     if (!summary) return null;
 
     return (
         <Dialog open={!!summary} onOpenChange={onClose}>
             <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
                 <DialogHeader>
-                    <DialogTitle>Account Creation Summary</DialogTitle>
+                    <DialogTitle>{t('admin.displacedPersons.import.summaryTitle')}</DialogTitle>
                     <DialogDescription>
-                        Summary of user accounts created during import.
+                        {t('admin.displacedPersons.import.summaryDesc')}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -987,19 +1009,19 @@ function AccountCreationSummaryDialog({ summary, onClose }: { summary: { created
                     <Card className="bg-green-50 border-green-200">
                         <CardContent className="p-4 flex flex-col items-center justify-center text-center">
                             <span className="text-2xl font-bold text-green-700">{summary.created}</span>
-                            <span className="text-xs text-green-600 font-medium">Accounts Created</span>
+                            <span className="text-xs text-green-600 font-medium">{t('admin.displacedPersons.import.accountsCreated')}</span>
                         </CardContent>
                     </Card>
                     <Card className="bg-yellow-50 border-yellow-200">
                         <CardContent className="p-4 flex flex-col items-center justify-center text-center">
                             <span className="text-2xl font-bold text-yellow-700">{summary.skipped.length}</span>
-                            <span className="text-xs text-yellow-600 font-medium">Skipped (Duplicate)</span>
+                            <span className="text-xs text-yellow-600 font-medium">{t('admin.displacedPersons.import.skipped')}</span>
                         </CardContent>
                     </Card>
                     <Card className="bg-red-50 border-red-200">
                         <CardContent className="p-4 flex flex-col items-center justify-center text-center">
                             <span className="text-2xl font-bold text-red-700">{summary.errors.length}</span>
-                            <span className="text-xs text-red-600 font-medium">Errors</span>
+                            <span className="text-xs text-red-600 font-medium">{t('admin.displacedPersons.import.errors')}</span>
                         </CardContent>
                     </Card>
                 </div>
@@ -1009,15 +1031,15 @@ function AccountCreationSummaryDialog({ summary, onClose }: { summary: { created
                         <div className="mb-6">
                             <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
                                 <Info className="h-4 w-4 text-yellow-600" />
-                                Skipped Accounts
+                                {t('admin.displacedPersons.import.skippedAccounts')}
                             </h4>
                             <Table>
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>No.</TableHead>
-                                        <TableHead>Name</TableHead>
-                                        <TableHead>Phone</TableHead>
-                                        <TableHead>Reason</TableHead>
+                                        <TableHead>{t('admin.displacedPersons.import.table.name')}</TableHead>
+                                        <TableHead>{t('admin.displacedPersons.import.table.phone')}</TableHead>
+                                        <TableHead>{t('admin.displacedPersons.import.reason')}</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -1038,15 +1060,15 @@ function AccountCreationSummaryDialog({ summary, onClose }: { summary: { created
                         <div className="mb-6">
                             <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
                                 <AlertTriangle className="h-4 w-4 text-red-600" />
-                                Failed Accounts
+                                {t('admin.displacedPersons.import.failedAccounts')}
                             </h4>
                             <Table>
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>No.</TableHead>
-                                        <TableHead>Name</TableHead>
-                                        <TableHead>Phone</TableHead>
-                                        <TableHead>Reason</TableHead>
+                                        <TableHead>{t('admin.displacedPersons.import.table.name')}</TableHead>
+                                        <TableHead>{t('admin.displacedPersons.import.table.phone')}</TableHead>
+                                        <TableHead>{t('admin.displacedPersons.import.reason')}</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -1065,7 +1087,7 @@ function AccountCreationSummaryDialog({ summary, onClose }: { summary: { created
                 </div>
 
                 <DialogFooter>
-                    <Button onClick={onClose}>Close</Button>
+                    <Button onClick={onClose}>{t('admin.displacedPersons.import.close')}</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -1073,6 +1095,7 @@ function AccountCreationSummaryDialog({ summary, onClose }: { summary: { created
 }
 
 export default function DisplacedPersonsPage() {
+    const { t } = useTranslation();
     const { persons: displacedPersons, shelters, loading, permissionError, fetchData, adminProfile } = useAdminData();
     const isSuperAdmin = adminProfile?.role?.toLowerCase().includes('super');
     const [selectedPerson, setSelectedPerson] = useState<DisplacedPerson | null>(null);
@@ -1622,14 +1645,14 @@ export default function DisplacedPersonsPage() {
             <Dialog open={isImportInstructionsOpen} onOpenChange={setIsImportInstructionsOpen}>
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle>Import Data Instructions</DialogTitle>
+                        <DialogTitle>{t('admin.displacedPersons.import.title')}</DialogTitle>
                         <DialogDescription>
-                            Please ensure your Excel or CSV file includes the following headers. Data will be mapped automatically.
+                            {t('admin.displacedPersons.import.desc')}
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="my-4 p-4 bg-slate-50 border rounded-lg max-h-[40vh] overflow-y-auto">
-                        <h4 className="font-semibold text-sm mb-2">Required Headers:</h4>
+                        <h4 className="font-semibold text-sm mb-2">{t('admin.displacedPersons.import.requiredHeaders')}</h4>
                         <div className="grid grid-cols-2 gap-2 text-xs">
                             {Object.keys(EXPECTED_IMPORT_HEADERS).map(header => (
                                 <div key={header} className="p-1 bg-white border rounded px-2">
@@ -1643,7 +1666,7 @@ export default function DisplacedPersonsPage() {
                         <div className="flex items-center gap-4 border-t pt-4">
                             <Label htmlFor="file-upload" className="cursor-pointer bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded-md flex items-center gap-2">
                                 <Plus className="h-4 w-4" />
-                                Select File to Import
+                                {t('admin.displacedPersons.import.selectFile')}
                             </Label>
                             <Input
                                 id="file-upload"
@@ -1653,15 +1676,15 @@ export default function DisplacedPersonsPage() {
                                 onChange={handleExcelImport}
                                 disabled={importingExcel}
                             />
-                            {importingExcel && <span className="text-sm text-muted-foreground animate-pulse">Processing file...</span>}
+                            {importingExcel && <span className="text-sm text-muted-foreground animate-pulse">{t('admin.displacedPersons.import.processing')}</span>}
                         </div>
                     </div>
 
                     <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-between">
                         <Button variant="secondary" onClick={handleDownloadTemplate} className="w-full sm:w-auto">
-                            <Download className="mr-2 h-4 w-4" /> Download Template
+                            <Download className="mr-2 h-4 w-4" /> {t('admin.displacedPersons.import.downloadTemplate')}
                         </Button>
-                        <Button variant="outline" onClick={() => setIsImportInstructionsOpen(false)} className="w-full sm:w-auto">Cancel</Button>
+                        <Button variant="outline" onClick={() => setIsImportInstructionsOpen(false)} className="w-full sm:w-auto">{t('admin.displacedPersons.import.cancel')}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -1670,17 +1693,17 @@ export default function DisplacedPersonsPage() {
             <Dialog open={isExcelPreviewOpen} onOpenChange={setIsExcelPreviewOpen}>
                 <DialogContent className="max-w-7xl max-h-[90vh]">
                     <DialogHeader>
-                        <DialogTitle>Excel Import Preview</DialogTitle>
+                        <DialogTitle>{t('admin.displacedPersons.import.previewTitle')}</DialogTitle>
                         <DialogDescription>
-                            Review the imported data before confirming the bulk import to the database.
+                            {t('admin.displacedPersons.import.previewDesc')}
                             {skippedPhonesCount > 0 && (
                                 <span className="text-yellow-600 block mt-2 font-medium">
-                                    ⚠️ {skippedPhonesCount} rows will be skipped due to missing phone numbers.
+                                    ⚠️ {skippedPhonesCount} {t('admin.displacedPersons.import.skippedDesc')}
                                 </span>
                             )}
                             {excelImportErrors.length > 0 && (
                                 <span className="text-red-600 block mt-2">
-                                    {excelImportErrors.length} other errors found. Please review.
+                                    {excelImportErrors.length} {t('admin.displacedPersons.import.errorsFound')}
                                 </span>
                             )}
                         </DialogDescription>
@@ -1688,7 +1711,7 @@ export default function DisplacedPersonsPage() {
 
                     {excelImportErrors.length > 0 && (
                         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                            <h4 className="font-semibold text-red-800 mb-2">Import Errors:</h4>
+                            <h4 className="font-semibold text-red-800 mb-2">{t('admin.displacedPersons.import.importErrors')}</h4>
                             <ul className="text-sm text-red-700 space-y-1">
                                 {excelImportErrors.map((error, index) => (
                                     <li key={index}>• {error}</li>
@@ -1702,14 +1725,14 @@ export default function DisplacedPersonsPage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead className="w-16">#</TableHead>
-                                    <TableHead>Name</TableHead>
-                                    <TableHead>Phone</TableHead>
-                                    <TableHead>Details</TableHead>
-                                    <TableHead>Loc. Type</TableHead>
-                                    <TableHead>Location</TableHead>
-                                    <TableHead>Total HH</TableHead>
-                                    <TableHead>Valid</TableHead>
-                                    <TableHead className="w-24">Actions</TableHead>
+                                    <TableHead>{t('admin.displacedPersons.import.table.name')}</TableHead>
+                                    <TableHead>{t('admin.displacedPersons.import.table.phone')}</TableHead>
+                                    <TableHead>{t('admin.displacedPersons.import.table.details')}</TableHead>
+                                    <TableHead>{t('admin.displacedPersons.import.table.locType')}</TableHead>
+                                    <TableHead>{t('admin.displacedPersons.import.table.location')}</TableHead>
+                                    <TableHead>{t('admin.displacedPersons.import.table.totalHh')}</TableHead>
+                                    <TableHead>{t('admin.displacedPersons.import.table.valid')}</TableHead>
+                                    <TableHead className="w-24">{t('admin.displacedPersons.import.table.actions')}</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -1734,7 +1757,7 @@ export default function DisplacedPersonsPage() {
                                                 onClick={() => handleRemoveExcelRow(index)}
                                                 className="text-red-600 hover:text-red-700"
                                             >
-                                                Remove
+                                                {t('admin.displacedPersons.import.table.remove')}
                                             </Button>
                                         </TableCell>
                                     </TableRow>
@@ -1745,7 +1768,7 @@ export default function DisplacedPersonsPage() {
 
                     <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0">
                         <Button variant="outline" onClick={() => { setIsExcelPreviewOpen(false); setExcelImportData([]); }} className="w-full sm:w-auto">
-                            Cancel
+                            {t('admin.displacedPersons.import.cancel')}
                         </Button>
                         <Button
                             onClick={handleConfirmExcelImport}
@@ -1755,12 +1778,12 @@ export default function DisplacedPersonsPage() {
                             {importingExcel ? (
                                 <>
                                     <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                                    Importing...
+                                    {t('admin.displacedPersons.import.importing')}
                                 </>
                             ) : (
                                 <>
                                     <Send className="mr-2 h-4 w-4" />
-                                    Import {excelImportData.length} Records
+                                    {t('admin.displacedPersons.import.confirmImport')}
                                 </>
                             )}
                         </Button>
@@ -1770,12 +1793,12 @@ export default function DisplacedPersonsPage() {
 
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold">Beneficiaries Monitoring</h1>
-                    <p className="text-muted-foreground text-sm sm:text-base">Real-time tracking and assistance coordination for beneficiaries</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold">{t('admin.displacedPersons.title')}</h1>
+                    <p className="text-muted-foreground text-sm sm:text-base">{t('admin.displacedPersons.subtitle')}</p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
-                    <Button variant="outline" onClick={fetchData} disabled={loading} className="w-full sm:w-auto"><RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />Refresh</Button>
-                    <Button onClick={handleAddNew} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" />Add Beneficiary</Button>
+                    <Button variant="outline" onClick={fetchData} disabled={loading} className="w-full sm:w-auto"><RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />{t('admin.displacedPersons.refresh')}</Button>
+                    <Button onClick={handleAddNew} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" />{t('admin.displacedPersons.addBeneficiary')}</Button>
                     <div className="relative">
                         <Button
                             variant="outline"
@@ -1783,7 +1806,7 @@ export default function DisplacedPersonsPage() {
                             className="w-full sm:w-auto"
                         >
                             <Send className="mr-2 h-4 w-4" />
-                            Import Excel Data
+                            {t('admin.displacedPersons.importExcel')}
                         </Button>
                     </div>
                     {displacedPersons?.some(p => !p.userId && p.phone) && isSuperAdmin && (
@@ -1791,11 +1814,11 @@ export default function DisplacedPersonsPage() {
                             variant="outline"
                             size="sm"
                             className="h-9 gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 w-full sm:w-auto"
-                            onClick={handleCreateMissingAccounts}
+                            onClick={handleBulkCreateAccounts}
                             disabled={creatingAccounts || displacedPersons.filter(p => !p.userId && p.phone).length === 0}
                         >
                             {creatingAccounts ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <User className="mr-2 h-4 w-4" />}
-                            Create Missing Accounts ({displacedPersons.filter(p => !p.userId && p.phone).length})
+                            {t('admin.displacedPersons.createMissingAccounts')} ({displacedPersons.filter(p => !p.userId && p.phone).length})
                         </Button>
                     )}
                 </div>
@@ -1806,7 +1829,7 @@ export default function DisplacedPersonsPage() {
                     <CardContent className="p-2 sm:p-4 flex items-center gap-2 sm:gap-4">
                         <Users className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
                         <div>
-                            <p className="text-xs sm:text-sm text-muted-foreground">Total Tracked</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground">{t('admin.displacedPersons.stats.totalTracked')}</p>
                             {loading ? <Skeleton className="h-6 sm:h-7 w-8 sm:w-10 mt-1" /> : <p className="text-xl sm:text-2xl font-bold">{totalTracked}</p>}
                         </div>
                     </CardContent>
@@ -1815,7 +1838,7 @@ export default function DisplacedPersonsPage() {
                     <CardContent className="p-2 sm:p-4 flex items-center gap-2 sm:gap-4">
                         <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-green-500" />
                         <div>
-                            <p className="text-xs sm:text-sm text-muted-foreground">Safe</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground">{t('admin.displacedPersons.stats.safe')}</p>
                             {loading ? <Skeleton className="h-6 sm:h-7 w-8 sm:w-10 mt-1" /> : <p className="text-xl sm:text-2xl font-bold">{safeCount}</p>}
                         </div>
                     </CardContent>
@@ -1824,7 +1847,7 @@ export default function DisplacedPersonsPage() {
                     <CardContent className="p-2 sm:p-4 flex items-center gap-2 sm:gap-4">
                         <BedDouble className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500" />
                         <div>
-                            <p className="text-xs sm:text-sm text-muted-foreground">Eligible for Shelter</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground">{t('admin.displacedPersons.stats.eligible')}</p>
                             {loading ? <Skeleton className="h-6 sm:h-7 w-8 sm:w-10 mt-1" /> : <p className="text-xl sm:text-2xl font-bold">{eligibleCount}</p>}
                         </div>
                     </CardContent>
@@ -1833,7 +1856,7 @@ export default function DisplacedPersonsPage() {
                     <CardContent className="p-2 sm:p-4 flex items-center gap-2 sm:gap-4">
                         <Heart className="h-5 w-5 sm:h-6 sm:w-6 text-orange-500" />
                         <div>
-                            <p className="text-xs sm:text-sm text-muted-foreground">Need Assistance</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground">{t('admin.displacedPersons.stats.needAssistance')}</p>
                             {loading ? <Skeleton className="h-6 sm:h-7 w-8 sm:w-10 mt-1" /> : <p className="text-xl sm:text-2xl font-bold">{assistanceCount}</p>}
                         </div>
                     </CardContent>
@@ -1842,7 +1865,7 @@ export default function DisplacedPersonsPage() {
                     <CardContent className="p-2 sm:p-4 flex items-center gap-2 sm:gap-4">
                         <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-red-500" />
                         <div>
-                            <p className="text-xs sm:text-sm text-muted-foreground">Emergency</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground">{t('admin.displacedPersons.stats.emergency')}</p>
                             {loading ? <Skeleton className="h-6 sm:h-7 w-8 sm:w-10 mt-1" /> : <p className="text-xl sm:text-2xl font-bold">{emergencyCount}</p>}
                         </div>
                     </CardContent>
@@ -1853,7 +1876,7 @@ export default function DisplacedPersonsPage() {
                 <div className="relative flex-grow">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                     <Input
-                        placeholder="Search by name or ID..."
+                        placeholder={t('admin.displacedPersons.searchPlaceholder')}
                         className="pl-10 h-9 sm:h-10"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -1861,28 +1884,28 @@ export default function DisplacedPersonsPage() {
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="w-full sm:w-[180px] h-9 sm:h-10">
-                        <SelectValue placeholder="All Statuses" />
+                        <SelectValue placeholder={t('admin.displacedPersons.cardView.allStatuses')} />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="safe">Safe</SelectItem>
-                        <SelectItem value="eligible for shelter">Eligible for Shelter</SelectItem>
-                        <SelectItem value="moving to shelter">Moving to Shelter</SelectItem>
-                        <SelectItem value="needs assistance">Needs Assistance</SelectItem>
-                        <SelectItem value="emergency">Emergency</SelectItem>
-                        <SelectItem value="resettled">Resettled</SelectItem>
-                        <SelectItem value="homebound">Homebound</SelectItem>
+                        <SelectItem value="all">{t('admin.displacedPersons.cardView.allStatuses')}</SelectItem>
+                        <SelectItem value="safe">{t('admin.displacedPersons.statusEnum.safe')}</SelectItem>
+                        <SelectItem value="eligible for shelter">{t('admin.displacedPersons.statusEnum.eligibleForShelter')}</SelectItem>
+                        <SelectItem value="moving to shelter">{t('admin.displacedPersons.statusEnum.movingToShelter')}</SelectItem>
+                        <SelectItem value="needs assistance">{t('admin.displacedPersons.statusEnum.needsAssistance')}</SelectItem>
+                        <SelectItem value="emergency">{t('admin.displacedPersons.statusEnum.emergency')}</SelectItem>
+                        <SelectItem value="resettled">{t('admin.displacedPersons.statusEnum.resettled')}</SelectItem>
+                        <SelectItem value="homebound">{t('admin.displacedPersons.statusEnum.homebound')}</SelectItem>
                     </SelectContent>
                 </Select>
-                <Button variant="outline" className="h-9 sm:h-10 w-full sm:w-auto"><Filter className="mr-2 h-4 w-4" />More Filters</Button>
+                <Button variant="outline" className="h-9 sm:h-10 w-full sm:w-auto"><Filter className="mr-2 h-4 w-4" />{t('admin.displacedPersons.cardView.moreFilters')}</Button>
             </div>
 
             {permissionError && (
                 <Alert variant="destructive">
                     <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Permission Denied</AlertTitle>
+                    <AlertTitle>{t('admin.displacedPersons.cardView.permissionDenied')}</AlertTitle>
                     <AlertDescription>
-                        You do not have permission to view this data. Please check your Firestore security rules to allow read access to the &apos;displacedPersons&apos; collection for administrators.
+                        {t('admin.displacedPersons.cardView.permissionDeniedDesc')}
                     </AlertDescription>
                 </Alert>
             )}
@@ -1894,17 +1917,18 @@ export default function DisplacedPersonsPage() {
                     ))
                 ) : filteredPersons.length > 0 ? (
                     filteredPersons.map(person => {
-                        const statusInfo = getStatusInfo(person.status);
+                        const statusInfo = getStatusInfo(person.status, t);
+                        const displayPriority = person.priority === 'High Priority' ? t('admin.displacedPersons.priorityEnum.high') : person.priority === 'Medium Priority' ? t('admin.displacedPersons.priorityEnum.medium') : person.priority === 'Low Priority' ? t('admin.displacedPersons.priorityEnum.low') : person.priority;
                         return (
                             <Card key={person.id} className={cn("transition-shadow hover:shadow-lg max-w-[90vw] sm:max-w-full", statusInfo.cardClass)}>
                                 <CardContent className="p-2 sm:p-4 space-y-2 sm:space-y-4">
                                     <div className="flex justify-between items-start">
                                         <div>
                                             <p className="font-bold">{person.name}</p>
-                                            <p className="text-xs text-muted-foreground">{person.id} &middot; {person.details}</p>
+                                            <p className="text-xs text-muted-foreground">{person.id} &middot; {person.details === 'Head of family' ? t('admin.displacedPersons.cardView.headOfFamily') : person.details}</p>
                                         </div>
                                         <Badge variant={statusInfo.badgeVariant} className="flex gap-1.5 items-center">
-                                            {statusInfo.icon} {person.status}
+                                            {statusInfo.icon} {statusInfo.display}
                                         </Badge>
                                     </div>
                                     <div className="flex gap-2 pb-2">
@@ -1912,8 +1936,9 @@ export default function DisplacedPersonsPage() {
                                             variant="outline"
                                             size="sm"
                                             className="h-8 w-8 p-0 rounded-full border-blue-200 text-blue-600 hover:bg-blue-50"
-                                            onClick={() => handleCall(person.phone)}
+                                            onClick={() => handleCall(person.phone || '')}
                                             title="Call"
+                                            disabled={!person.phone}
                                         >
                                             <Phone className="h-3.5 w-3.5" />
                                         </Button>
@@ -1921,8 +1946,9 @@ export default function DisplacedPersonsPage() {
                                             variant="outline"
                                             size="sm"
                                             className="h-8 w-8 p-0 rounded-full border-slate-200 text-slate-600 hover:bg-slate-50"
-                                            onClick={() => handleSMS(person.phone)}
+                                            onClick={() => handleSMS(person.phone || '')}
                                             title="SMS"
+                                            disabled={!person.phone}
                                         >
                                             <MessageSquare className="h-3.5 w-3.5" />
                                         </Button>
@@ -1930,8 +1956,9 @@ export default function DisplacedPersonsPage() {
                                             variant="outline"
                                             size="sm"
                                             className="h-8 w-8 p-0 rounded-full border-green-200 text-green-600 hover:bg-green-50"
-                                            onClick={() => handleWhatsApp(person.phone)}
+                                            onClick={() => handleWhatsApp(person.phone || '')}
                                             title="WhatsApp"
+                                            disabled={!person.phone}
                                         >
                                             <MessageCircle className="h-3.5 w-3.5" />
                                         </Button>
@@ -1958,7 +1985,7 @@ export default function DisplacedPersonsPage() {
                                         <div className="flex items-start gap-2 sm:gap-3">
                                             <MapPin className="h-3 w-3 sm:h-4 sm:w-4 mt-0.5 text-muted-foreground" />
                                             <div>
-                                                <p className="font-medium text-xs text-muted-foreground">Current Location</p>
+                                                <p className="font-medium text-xs text-muted-foreground">{t('admin.displacedPersons.cardView.currentLocation')}</p>
                                                 <p>{person.currentLocation}</p>
                                             </div>
                                         </div>
@@ -1966,7 +1993,7 @@ export default function DisplacedPersonsPage() {
                                             <div className="flex items-start gap-2 sm:gap-3">
                                                 <Send className="h-3 w-3 sm:h-4 sm:w-4 mt-0.5 text-muted-foreground" />
                                                 <div>
-                                                    <p className="font-medium text-xs text-muted-foreground">Destination</p>
+                                                    <p className="font-medium text-xs text-muted-foreground">{t('admin.displacedPersons.cardView.destination')}</p>
                                                     <p>{person.destination}</p>
                                                 </div>
                                             </div>
@@ -1974,7 +2001,7 @@ export default function DisplacedPersonsPage() {
                                         <div className="flex items-start gap-2 sm:gap-3">
                                             <Info className="h-3 w-3 sm:h-4 sm:w-4 mt-0.5 text-muted-foreground" />
                                             <div>
-                                                <p className="font-medium text-xs text-muted-foreground">Vulnerabilities</p>
+                                                <p className="font-medium text-xs text-muted-foreground">{t('admin.displacedPersons.cardView.vulnerabilities')}</p>
                                                 <div className="flex flex-wrap gap-1 mt-1">
                                                     {(person.vulnerabilities ?? []).map(v => <Badge key={v} variant="secondary" className="font-normal text-xs">{v}</Badge>)}
                                                 </div>
@@ -1983,7 +2010,7 @@ export default function DisplacedPersonsPage() {
                                         <div className="flex flex-col gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200 mt-2">
                                             <div className="flex items-center justify-between">
                                                 <p className="font-semibold text-[10px] uppercase tracking-wider text-slate-500 flex items-center gap-1">
-                                                    <Clock className="h-3 w-3" /> Activity History
+                                                    <Clock className="h-3 w-3" /> {t('admin.displacedPersons.cardView.activityHistory')}
                                                 </p>
                                                 <Button
                                                     variant="ghost"
@@ -1994,7 +2021,7 @@ export default function DisplacedPersonsPage() {
                                                         setIsLogDialogOpen(true);
                                                     }}
                                                 >
-                                                    <Plus className="h-3 w-3 mr-1" /> Log Activity
+                                                    <Plus className="h-3 w-3 mr-1" /> {t('admin.displacedPersons.cardView.logActivity')}
                                                 </Button>
                                             </div>
                                             {person.activityLog && person.activityLog.length > 0 ? (
@@ -2015,14 +2042,14 @@ export default function DisplacedPersonsPage() {
                                                     </div>
                                                 </ScrollArea>
                                             ) : (
-                                                <p className="text-[10px] text-muted-foreground italic">No activities logged yet.</p>
+                                                <p className="text-[10px] text-muted-foreground italic">{t('admin.displacedPersons.cardView.noActivitiesLogged')}</p>
                                             )}
                                         </div>
                                         {person.medicalNeeds && person.medicalNeeds.length > 0 && (
                                             <div className="flex items-start gap-2 sm:gap-3">
                                                 <Heart className="h-3 w-3 sm:h-4 sm:w-4 mt-0.5 text-muted-foreground" />
                                                 <div>
-                                                    <p className="font-medium text-xs text-muted-foreground">Medical Needs</p>
+                                                    <p className="font-medium text-xs text-muted-foreground">{t('admin.displacedPersons.cardView.medicalNeeds')}</p>
                                                     <div className="flex flex-wrap gap-1 mt-1">
                                                         {(person.medicalNeeds ?? []).map(m => <Badge key={m} variant="destructive" className="bg-red-50 text-red-700 font-normal text-xs">{m}</Badge>)}
                                                     </div>
@@ -2032,14 +2059,14 @@ export default function DisplacedPersonsPage() {
                                         <div className="flex items-start gap-2 sm:gap-3">
                                             <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 mt-0.5 text-muted-foreground" />
                                             <div>
-                                                <p className="font-medium text-xs text-muted-foreground">Assistance Requested</p>
+                                                <p className="font-medium text-xs text-muted-foreground">{t('admin.displacedPersons.cardView.assistanceRequested')}</p>
                                                 <div className="p-2 bg-yellow-100/50 rounded-md text-yellow-800 mt-1 text-xs">{person.assistanceRequested}</div>
                                             </div>
                                         </div>
                                         <div className="flex items-start gap-2 sm:gap-3">
                                             <Clock className="h-3 w-3 sm:h-4 sm:w-4 mt-0.5 text-muted-foreground" />
                                             <div>
-                                                <p className="font-medium text-xs text-muted-foreground">Last update</p>
+                                                <p className="font-medium text-xs text-muted-foreground">{t('admin.displacedPersons.cardView.lastUpdate')}</p>
                                                 <p>{formatTimestamp(person.lastUpdate)}</p>
                                             </div>
                                         </div>
@@ -2047,19 +2074,19 @@ export default function DisplacedPersonsPage() {
                                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-2 sm:pt-4 border-t gap-2">
                                         <div className="flex flex-wrap gap-1 sm:gap-2">
                                             <Button size="sm" onClick={() => handleNavigate(person)} className="h-8 bg-blue-600 hover:bg-blue-700 text-white border-none">
-                                                <Navigation className="mr-1 h-3 w-3" /> Navigate
+                                                <Navigation className="mr-1 h-3 w-3" /> {t('admin.displacedPersons.cardView.navigate')}
                                             </Button>
                                             <Button size="sm" variant="outline" onClick={() => handleSatellite(person)} className="h-8">
-                                                <Globe className="mr-1 h-3 w-3" /> Satellite
+                                                <Globe className="mr-1 h-3 w-3" /> {t('admin.displacedPersons.cardView.satellite')}
                                             </Button>
-                                            <Button size="sm" variant="outline" onClick={() => handleEdit(person)} className="h-8"><Edit className="mr-1 h-3 w-3" /> Edit</Button>
+                                            <Button size="sm" variant="outline" onClick={() => handleEdit(person)} className="h-8"><Edit className="mr-1 h-3 w-3" /> {t('admin.displacedPersons.cardView.edit')}</Button>
                                             {person.status === 'Safe' ? (
                                                 <div className="flex gap-1">
                                                     <Button size="sm" variant="outline" className="h-8 border-green-200 text-green-700 hover:bg-green-50" onClick={() => handleUpdateStatus(person.id, 'Resettled')}>
-                                                        Resettle
+                                                        {t('admin.displacedPersons.cardView.resettle')}
                                                     </Button>
                                                     <Button size="sm" variant="outline" className="h-8 border-slate-200 text-slate-700 hover:bg-slate-50" onClick={() => handleUpdateStatus(person.id, 'Homebound')}>
-                                                        Homebound
+                                                        {t('admin.displacedPersons.cardView.homebound')}
                                                     </Button>
                                                 </div>
                                             ) : (
@@ -2070,11 +2097,11 @@ export default function DisplacedPersonsPage() {
                                                     onClick={() => handleOpenAssignDialog(person)}
                                                     disabled={person.status === 'Resettled' || person.status === 'Homebound'}
                                                 >
-                                                    <BedDouble className="mr-2 h-3 w-3" /> Assign Shelter
+                                                    <BedDouble className="mr-2 h-3 w-3" /> {t('admin.displacedPersons.cardView.assignShelter')}
                                                 </Button>
                                             )}
                                         </div>
-                                        <Badge className={cn(getPriorityColor(person.priority), "font-semibold text-[10px] sm:text-xs")}>{person.priority}</Badge>
+                                        <Badge className={cn(getPriorityColor(person.priority), "font-semibold text-[10px] sm:text-xs")}>{displayPriority}</Badge>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -2082,8 +2109,8 @@ export default function DisplacedPersonsPage() {
                     })
                 ) : !permissionError ? (
                     <div className="col-span-2 text-center py-16">
-                        <h3 className="text-xl font-semibold">No displaced persons found</h3>
-                        <p className="text-muted-foreground mt-2">Click the "Add Person" button to register a new individual in need of assistance.</p>
+                        <h3 className="text-xl font-semibold">{t('admin.displacedPersons.cardView.noPersonsFound')}</h3>
+                        <p className="text-muted-foreground mt-2">{t('admin.displacedPersons.cardView.addPersonPrompt')}</p>
                     </div>
                 ) : null}
             </div>

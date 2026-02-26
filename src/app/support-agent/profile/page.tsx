@@ -26,7 +26,7 @@ import {
   Star
 } from "lucide-react";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, auth, storage } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -258,7 +258,7 @@ export default function SupportAgentProfilePage() {
                     {profile.isOnline ? t('supportAgent.dashboard.online') : t('supportAgent.dashboard.offline')}
                   </Badge>
                   <Badge variant="outline">
-                    {profile.availability}
+                    {t(`supportAgent.dashboard.${profile.availability}`)}
                   </Badge>
                 </div>
               </div>
@@ -488,7 +488,7 @@ export default function SupportAgentProfilePage() {
                     variant={profile.availability === 'online' ? 'default' : 'secondary'}
                     className="mt-1"
                   >
-                    {profile.availability}
+                    {t(`supportAgent.dashboard.${profile.availability}`)}
                   </Badge>
                 )}
               </div>

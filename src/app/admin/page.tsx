@@ -638,7 +638,7 @@ export default function AdminDashboardPage() {
                             <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
                                     <AlertTriangle className="text-red-500 h-5 w-5 sm:h-6 sm:w-6" />
-                                    SOS Alert Details
+                                    {t("admin.dashboard.sosAlertDetails")}
                                 </DialogTitle>
                                 <DialogDescription className="text-sm sm:text-base">
                                     ID: {selectedAlert.id}
@@ -647,21 +647,21 @@ export default function AdminDashboardPage() {
                             <div className="space-y-4 py-4 text-sm sm:text-base">
                                 <div className="flex flex-wrap gap-2">
                                     <Badge variant="secondary" className="font-medium">{selectedAlert.emergencyType}</Badge>
-                                    <Badge variant={getPriorityBadgeVariant("High Priority")}>High Priority</Badge>
+                                    <Badge variant={getPriorityBadgeVariant("High Priority")}>{t("admin.dashboard.highPriority")}</Badge>
                                     <Badge variant={getStatusBadgeVariant(selectedAlert.status)}>{selectedAlert.status}</Badge>
                                 </div>
                                 <div className="grid gap-4">
                                     <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
                                         <User className="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 text-slate-500 flex-shrink-0" />
                                         <div>
-                                            <p className="font-medium text-slate-800">User</p>
+                                            <p className="font-medium text-slate-800">{t("admin.dashboard.user")}</p>
                                             <p className="text-slate-600">{selectedAlert.userEmail || 'Anonymous'}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
                                         <MapPin className="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 text-slate-500 flex-shrink-0" />
                                         <div className="flex-1">
-                                            <p className="font-medium text-slate-800">Location</p>
+                                            <p className="font-medium text-slate-800">{t("admin.dashboard.location")}</p>
                                             <p className="text-slate-600">{selectedAlert.location.address || 'Address not specified'}</p>
                                             <a
                                                 href={`https://www.google.com/maps/search/?api=1&query=${selectedAlert.location.latitude},${selectedAlert.location.longitude}`}
@@ -669,14 +669,14 @@ export default function AdminDashboardPage() {
                                                 rel="noopener noreferrer"
                                                 className="text-blue-500 hover:underline text-xs sm:text-sm inline-block mt-1"
                                             >
-                                                View on Google Maps →
+                                                {t("admin.dashboard.viewOnGoogleMaps")}
                                             </a>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
                                         <Calendar className="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 text-slate-500 flex-shrink-0" />
                                         <div>
-                                            <p className="font-medium text-slate-800">Time</p>
+                                            <p className="font-medium text-slate-800">{t("admin.dashboard.time")}</p>
                                             <p className="text-slate-600">{formatTimestamp(selectedAlert.timestamp)}</p>
                                         </div>
                                     </div>
@@ -684,7 +684,7 @@ export default function AdminDashboardPage() {
                                         <div className="flex items-start gap-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
                                             <FileText className="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 text-yellow-600 flex-shrink-0" />
                                             <div>
-                                                <p className="font-medium text-yellow-800">Additional Info</p>
+                                                <p className="font-medium text-yellow-800">{t("admin.dashboard.additionalInfo")}</p>
                                                 <p className="text-yellow-700 p-2 bg-yellow-100 rounded-md mt-1 text-sm sm:text-base">{selectedAlert.additionalInfo}</p>
                                             </div>
                                         </div>
@@ -696,12 +696,12 @@ export default function AdminDashboardPage() {
                                                 <div className="flex-1">
                                                     <div className="flex justify-between items-start">
                                                         <div>
-                                                            <p className="font-medium text-blue-800">Assigned Team</p>
+                                                            <p className="font-medium text-blue-800">{t("admin.dashboard.assignedTeam")}</p>
                                                             <p className="text-blue-700">{selectedAlert.assignedTeam.driverName} ({selectedAlert.assignedTeam.vehicle})</p>
                                                         </div>
                                                         {(selectedAlert as any).assignedAt && (
                                                             <div className="text-right">
-                                                                <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Assigned At</p>
+                                                                <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest">{t("admin.dashboard.assignedAt")}</p>
                                                                 <p className="text-xs font-bold text-blue-600">{formatTimestamp((selectedAlert as any).assignedAt)}</p>
                                                             </div>
                                                         )}
@@ -726,8 +726,8 @@ export default function AdminDashboardPage() {
             <Dialog open={!!assignAlert} onOpenChange={() => setAssignAlert(null)}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle className="text-lg sm:text-xl">Assign Dispatch Team</DialogTitle>
-                        <DialogDescription className="text-sm sm:text-base">Select an available driver to respond to this SOS alert.</DialogDescription>
+                        <DialogTitle className="text-lg sm:text-xl">{t("admin.dashboard.assignDispatchTeam")}</DialogTitle>
+                        <DialogDescription className="text-sm sm:text-base">{t("admin.dashboard.selectDriver")}</DialogDescription>
                     </DialogHeader>
                     <div className="py-4 max-h-[60vh] overflow-y-auto">
                         {driversLoading ? (
@@ -764,7 +764,7 @@ export default function AdminDashboardPage() {
                         ) : (
                             <div className="text-center py-8">
                                 <AlertCircle className="h-12 w-12 text-slate-400 mx-auto mb-3" />
-                                <p className="text-slate-500">No drivers are currently available.</p>
+                                <p className="text-slate-500">{t("admin.dashboard.noDriversAvailable")}</p>
                             </div>
                         )}
                     </div>
@@ -808,7 +808,7 @@ export default function AdminDashboardPage() {
                     <div className="flex items-center gap-4">
                         <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-full animate-pulse">
                             <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                            <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Live System Active</span>
+                            <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">{t("admin.dashboard.liveSystemActive")}</span>
                         </div>
 
                         {/* Audio Toggle/Unlock */}
@@ -824,7 +824,7 @@ export default function AdminDashboardPage() {
                             )}
                         >
                             <Siren className={cn("mr-2 h-4 w-4", !isAudioUnlocked && "animate-pulse")} />
-                            {isAudioUnlocked ? "Alarm Audio Active" : "Enable Alarm Audio"}
+                            {isAudioUnlocked ? t("admin.dashboard.alarmAudioActive") : t("admin.dashboard.enableAlarmAudio")}
                         </Button>
 
                         <Button
@@ -833,7 +833,7 @@ export default function AdminDashboardPage() {
                             className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 h-10"
                         >
                             <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-                            Refresh Data
+                            {t("admin.dashboard.refreshData")}
                         </Button>
                     </div>
                 </div>
@@ -842,7 +842,7 @@ export default function AdminDashboardPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                     <Card className="bg-gradient-to-br from-red-50 to-orange-50 border-red-200/50 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                         <CardHeader className="flex flex-row items-center justify-between pb-3">
-                            <CardTitle className="text-sm font-semibold text-red-800">Active Alerts</CardTitle>
+                            <CardTitle className="text-sm font-semibold text-red-800">{t("admin.dashboard.activeAlerts")}</CardTitle>
                             <div className="bg-red-100 p-2 rounded-lg">
                                 <AlertTriangle className="h-4 w-4 text-red-600" />
                             </div>
@@ -851,14 +851,14 @@ export default function AdminDashboardPage() {
                             <div className="text-2xl sm:text-3xl font-bold text-red-800">{alerts.filter(a => a.status === 'Active').length}</div>
                             <p className="text-xs text-red-600 flex items-center mt-1">
                                 <ArrowUp className="h-3 w-3 mr-1" />
-                                from last hour
+                                {t("admin.dashboard.fromLastHour")}
                             </p>
                         </CardContent>
                     </Card>
 
                     <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200/50 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                         <CardHeader className="flex flex-row items-center justify-between pb-3">
-                            <CardTitle className="text-sm font-semibold text-blue-800">People Assisted</CardTitle>
+                            <CardTitle className="text-sm font-semibold text-blue-800">{t("admin.dashboard.peopleAssisted")}</CardTitle>
                             <div className="bg-blue-100 p-2 rounded-lg">
                                 <Users className="h-4 w-4 text-blue-600" />
                             </div>
@@ -866,36 +866,36 @@ export default function AdminDashboardPage() {
                         <CardContent>
                             <div className="text-2xl sm:text-3xl font-bold text-blue-800">{dashboardStats.totalOccupied.toLocaleString()}</div>
                             <p className="text-xs text-blue-600 mt-1">
-                                Total individuals in shelters
+                                {t("admin.dashboard.totalIndividualsInShelters")}
                             </p>
                         </CardContent>
                     </Card>
 
                     <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200/50 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                         <CardHeader className="flex flex-row items-center justify-between pb-3">
-                            <CardTitle className="text-sm font-semibold text-green-800">Shelter Occupancy</CardTitle>
+                            <CardTitle className="text-sm font-semibold text-green-800">{t("admin.dashboard.shelterOccupancy")}</CardTitle>
                             <div className="bg-green-100 p-2 rounded-lg">
                                 <Shield className="h-4 w-4 text-green-600" />
                             </div>
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl sm:text-3xl font-bold text-green-800">{dashboardStats.occupancyPercentage}%</div>
-                            <p className="text-xs text-green-600 mt-1">{dashboardStats.totalOccupied.toLocaleString()}/{dashboardStats.totalCapacity.toLocaleString()} capacity</p>
+                            <p className="text-xs text-green-600 mt-1">{dashboardStats.totalOccupied.toLocaleString()}/{dashboardStats.totalCapacity.toLocaleString()} {t("admin.dashboard.capacity")}</p>
                         </CardContent>
                     </Card>
 
                     <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200/50 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                         <CardHeader className="flex flex-row items-center justify-between pb-3">
-                            <CardTitle className="text-sm font-semibold text-purple-800">Avg Response Time</CardTitle>
+                            <CardTitle className="text-sm font-semibold text-purple-800">{t("admin.dashboard.avgResponseTime")}</CardTitle>
                             <div className="bg-purple-100 p-2 rounded-lg">
                                 <Clock className="h-4 w-4 text-purple-600" />
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl sm:text-3xl font-bold text-purple-800">12.5 min</div>
+                            <div className="text-2xl sm:text-3xl font-bold text-purple-800">12.5 {t("admin.dashboard.min")}</div>
                             <p className="text-xs text-purple-600 flex items-center mt-1">
                                 <ArrowDown className="h-3 w-3 mr-1" />
-                                -1.2 min from yesterday
+                                -1.2 {t("admin.dashboard.min")} {t("admin.dashboard.fromYesterday")}
                             </p>
                         </CardContent>
                     </Card>
@@ -906,22 +906,22 @@ export default function AdminDashboardPage() {
                     <TabsList className="grid w-full grid-cols-5 h-12 bg-slate-100 p-1 rounded-lg">
                         <TabsTrigger value="situation-map" className="text-sm sm:text-base font-medium transition-all duration-200 data-[state=active]:bg-white data-[state=active]:shadow-md">
                             <MapPin className="h-4 w-4 mr-2" />
-                            Situation Map
+                            {t("admin.dashboard.situationMap")}
                         </TabsTrigger>
                         <TabsTrigger value="active-alerts" className="text-sm sm:text-base font-medium transition-all duration-200 data-[state=active]:bg-white data-[state=active]:shadow-md">
                             <AlertTriangle className="h-4 w-4 mr-2" />
-                            Active Alerts
+                            {t("admin.dashboard.activeAlerts")}
                         </TabsTrigger>
                         <TabsTrigger value="shelter-status" className="text-sm sm:text-base font-medium transition-all duration-200 data-[state=active]:bg-white data-[state=active]:shadow-md">
                             <Shield className="h-4 w-4 mr-2" />
-                            Shelter Status
+                            {t("admin.dashboard.shelterStatus")}
                         </TabsTrigger>
                         <TabsTrigger value="driver-tracking" className="px-6 py-2.5 rounded-full data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300 font-bold text-xs uppercase tracking-widest border border-slate-200">
-                            <Car className="h-4 w-4 mr-2" /> Fleet Tracking
+                            <Car className="h-4 w-4 mr-2" /> {t("admin.dashboard.fleetTracking")}
                         </TabsTrigger>
                         <TabsTrigger value="analytics" className="text-sm sm:text-base font-medium transition-all duration-200 data-[state=active]:bg-white data-[state=active]:shadow-md">
                             <BarChart3 className="h-4 w-4 mr-2" />
-                            Analytics
+                            {t("admin.dashboard.analytics")}
                         </TabsTrigger>
                     </TabsList>
 
@@ -935,14 +935,14 @@ export default function AdminDashboardPage() {
                                             <div className="space-y-1">
                                                 <div className="flex items-center gap-2">
                                                     <MapPin className="h-5 w-5 text-blue-600" />
-                                                    <CardTitle className="text-lg text-slate-900 font-bold">Regional Impact Assessment</CardTitle>
+                                                    <CardTitle className="text-lg text-slate-900 font-bold">{t("admin.dashboard.regionalImpactAssessment")}</CardTitle>
                                                 </div>
-                                                <CardDescription className="text-slate-500 text-xs">Real-time heat coverage of all 37 states</CardDescription>
+                                                <CardDescription className="text-slate-500 text-xs">{t("admin.dashboard.realtimeHeatCoverage")}</CardDescription>
                                             </div>
                                             <div className="flex gap-2">
-                                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-100 font-semibold px-3">Critical</Badge>
-                                                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-100 font-semibold px-3">Warning</Badge>
-                                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 font-semibold px-3">Stable</Badge>
+                                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-100 font-semibold px-3">{t("admin.dashboard.critical")}</Badge>
+                                                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-100 font-semibold px-3">{t("admin.dashboard.warning")}</Badge>
+                                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 font-semibold px-3">{t("admin.dashboard.stable")}</Badge>
                                             </div>
                                         </div>
                                     </CardHeader>
@@ -983,7 +983,7 @@ export default function AdminDashboardPage() {
                                             ) : (
                                                 <>
                                                     <Activity className="h-4 w-4 text-blue-600" />
-                                                    <span>Regional SOS Feed</span>
+                                                    <span>{t("admin.dashboard.regionalSosFeed")}</span>
                                                 </>
                                             )}
                                         </CardTitle>
@@ -995,17 +995,17 @@ export default function AdminDashboardPage() {
                                                     <div className="grid grid-cols-2 gap-4">
                                                         <div className="bg-slate-50 p-5 rounded-xl border border-slate-100 shadow-sm">
                                                             <div className="text-3xl font-bold text-slate-900">{selectedState.shelterCount}</div>
-                                                            <div className="text-xs text-slate-500 font-medium mt-1 uppercase tracking-wider text-[10px]">Active Shelters</div>
+                                                            <div className="text-xs text-slate-500 font-medium mt-1 uppercase tracking-wider text-[10px]">{t("admin.dashboard.activeShelters")}</div>
                                                         </div>
                                                         <div className="bg-slate-50 p-5 rounded-xl border border-slate-100 shadow-sm">
                                                             <div className="text-3xl font-bold text-slate-900">{selectedState.displacedCount.toLocaleString()}</div>
-                                                            <div className="text-xs text-slate-500 font-medium mt-1 uppercase tracking-wider text-[10px]">Displaced Persons</div>
+                                                            <div className="text-xs text-slate-500 font-medium mt-1 uppercase tracking-wider text-[10px]">{t("admin.dashboard.displacedPopulation")}</div>
                                                         </div>
                                                     </div>
 
                                                     <div className="space-y-4">
                                                         <div className="flex justify-between text-sm items-end font-bold text-slate-900">
-                                                            <span className="text-slate-500 uppercase text-[10px] tracking-widest font-bold">Resource Usage</span>
+                                                            <span className="text-slate-500 uppercase text-[10px] tracking-widest font-bold">{t("admin.dashboard.resourceUsage")}</span>
                                                             <span className={cn("font-bold text-sm",
                                                                 selectedState.occupiedCapacity / selectedState.totalCapacity > 0.8 ? "text-red-600" : "text-emerald-600"
                                                             )}>
@@ -1019,13 +1019,13 @@ export default function AdminDashboardPage() {
                                                             className={cn("h-2 bg-slate-100 rounded-full", selectedState.riskLevel === 'high' ? "[&>div]:bg-red-500" : "[&>div]:bg-emerald-500")}
                                                         />
                                                         <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                                                            <span>{selectedState.occupiedCapacity.toLocaleString()} Occupied</span>
-                                                            <span>{selectedState.totalCapacity.toLocaleString()} Total</span>
+                                                            <span>{selectedState.occupiedCapacity.toLocaleString()} {t("admin.dashboard.occupied")}</span>
+                                                            <span>{selectedState.totalCapacity.toLocaleString()} {t("admin.dashboard.total")}</span>
                                                         </div>
                                                     </div>
 
                                                     <div className="space-y-4">
-                                                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Recent Regional Events</h4>
+                                                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">{t("admin.dashboard.recentRegionalEvents")}</h4>
                                                         {recentActivity.filter(a => a.location.includes(selectedState.name)).length > 0 ? (
                                                             <div className="space-y-4 pt-2">
                                                                 {recentActivity.filter(a => a.location.includes(selectedState.name)).map(item => (
@@ -1033,7 +1033,7 @@ export default function AdminDashboardPage() {
                                                                 ))}
                                                             </div>
                                                         ) : (
-                                                            <div className="text-center py-12 text-slate-400 italic text-sm">No recent activity logs for this region.</div>
+                                                            <div className="text-center py-12 text-slate-400 italic text-sm">{t("admin.dashboard.noRecentActivity")}</div>
                                                         )}
                                                     </div>
                                                 </div>
@@ -1048,7 +1048,7 @@ export default function AdminDashboardPage() {
                                                             <div className="inline-block p-4 rounded-full bg-slate-50 text-slate-300">
                                                                 <CheckCircle className="h-8 w-8" />
                                                             </div>
-                                                            <p className="text-slate-500 text-sm font-medium">All national sectors reporting stable.</p>
+                                                            <p className="text-slate-500 text-sm font-medium">{t("admin.dashboard.allSectorsStable")}</p>
                                                         </div>
                                                     )}
                                                 </div>
@@ -1066,18 +1066,18 @@ export default function AdminDashboardPage() {
                                 <div>
                                     <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                                         <AlertTriangle className="text-red-500 h-5 w-5 sm:h-6 sm:w-6" />
-                                        Emergency SOS Alerts
+                                        {t("admin.dashboard.emergencySosAlerts")}
                                     </CardTitle>
-                                    <CardDescription className="text-sm sm:text-base">Active emergency situations requiring immediate attention</CardDescription>
+                                    <CardDescription className="text-sm sm:text-base">{t("admin.dashboard.activeEmergencies")}</CardDescription>
                                 </div>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 {permissionError && (
                                     <Alert variant="destructive" className="border-red-200 bg-red-50">
                                         <AlertTriangle className="h-4 w-4" />
-                                        <AlertTitle className="text-red-800">Permission Denied</AlertTitle>
+                                        <AlertTitle className="text-red-800">{t("admin.dashboard.permissionDenied")}</AlertTitle>
                                         <AlertDescription className="text-red-700">
-                                            You do not have permission to view SOS alerts. Please check your Firestore security rules to allow read access to the 'sosAlerts' collection for administrators.
+                                            {t("admin.dashboard.permissionDeniedDesc")}
                                         </AlertDescription>
                                     </Alert>
                                 )}
@@ -1089,53 +1089,53 @@ export default function AdminDashboardPage() {
                                                     <div className="flex-1">
                                                         <div className="flex flex-wrap gap-2 mb-3">
                                                             <Badge variant="secondary" className="font-medium">{alert.emergencyType}</Badge>
-                                                            <Badge variant={getPriorityBadgeVariant("High Priority")}>High Priority</Badge>
+                                                            <Badge variant={getPriorityBadgeVariant("High Priority")}>{t("admin.dashboard.highPriority")}</Badge>
                                                             <span className="text-xs font-mono text-slate-500 bg-slate-100 px-2 py-1 rounded">{alert.id.substring(0, 6)}...</span>
                                                         </div>
                                                         <div>
-                                                            <p className="font-semibold text-slate-800 mb-1">{alert.location.address || 'Location not specified'}</p>
+                                                            <p className="font-semibold text-slate-800 mb-1">{alert.location.address || t("admin.dashboard.locationNotSpecified")}</p>
                                                             <p className="text-sm text-slate-600 mb-2">
-                                                                User: {alert.userEmail || 'Anonymous'}
+                                                                {t("admin.dashboard.user")}: {alert.userEmail || 'Anonymous'}
                                                             </p>
                                                             {alert.additionalInfo && (
-                                                                <p className="text-sm bg-yellow-50 border border-yellow-200 p-3 rounded-md mb-2 text-yellow-800">Note: {alert.additionalInfo}</p>
+                                                                <p className="text-sm bg-yellow-50 border border-yellow-200 p-3 rounded-md mb-2 text-yellow-800">{t("admin.dashboard.note")}: {alert.additionalInfo}</p>
                                                             )}
                                                             {alert.assignedTeam && (
-                                                                <p className="text-sm bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md">Assigned to: {alert.assignedTeam.driverName} ({alert.assignedTeam.vehicle})</p>
+                                                                <p className="text-sm bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md">{t("admin.dashboard.assignedTo")}: {alert.assignedTeam.driverName} ({alert.assignedTeam.vehicle})</p>
                                                             )}
                                                         </div>
                                                         <div className="flex flex-wrap gap-2 mt-4">
                                                             <Button size="sm" onClick={() => setSelectedAlert(alert)} className="bg-blue-600 hover:bg-blue-700 text-white">
-                                                                View Details
+                                                                {t("admin.dashboard.viewDetails")}
                                                             </Button>
                                                             <Button size="sm" variant="outline" onClick={() => handleOpenAssignDialog(alert)} disabled={alert.status === 'Resolved'}>
-                                                                Assign Team
+                                                                {t("admin.dashboard.assignTeam")}
                                                             </Button>
                                                             {(alert.status === 'Active' || alert.status === 'Investigating') && (
                                                                 <>
                                                                     <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(alert.id, 'Responding')} className="border-blue-200 text-blue-700 hover:bg-blue-50">
-                                                                        Mark Responding
+                                                                        {t("admin.dashboard.markResponding")}
                                                                     </Button>
                                                                     {alert.status !== 'Investigating' && (
                                                                         <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(alert.id, 'Investigating')} className="border-amber-200 text-amber-700 hover:bg-amber-50">
-                                                                            Investigating
+                                                                            {t("admin.dashboard.investigating")}
                                                                         </Button>
                                                                     )}
                                                                     <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(alert.id, 'False Alarm')} className="border-slate-200 text-slate-600 hover:bg-slate-50">
-                                                                        False Alarm
+                                                                        {t("admin.dashboard.falseAlarm")}
                                                                     </Button>
                                                                 </>
                                                             )}
                                                             {alert.status === 'Responding' && (
                                                                 <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(alert.id, 'Resolved')}>
-                                                                    Mark Resolved
+                                                                    {t("admin.dashboard.markResolved")}
                                                                 </Button>
                                                             )}
                                                         </div>
                                                     </div>
                                                     <div className="text-right flex-shrink-0">
                                                         <Badge variant={getStatusBadgeVariant(alert.status)} className="mb-3">{alert.status}</Badge>
-                                                        <p className="text-xs text-slate-500">Time</p>
+                                                        <p className="text-xs text-slate-500">{t("admin.dashboard.time")}</p>
                                                         <p className="font-medium text-slate-800">{formatTimestamp(alert.timestamp)}</p>
                                                     </div>
                                                 </div>
@@ -1145,8 +1145,8 @@ export default function AdminDashboardPage() {
                                 ) : !permissionError ? (
                                     <div className="text-center py-12">
                                         <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                                        <p className="text-lg font-medium text-slate-800">No active SOS alerts</p>
-                                        <p className="text-slate-600 mt-1">All systems are running smoothly.</p>
+                                        <p className="text-lg font-medium text-slate-800">{t("admin.dashboard.noActiveSosAlerts")}</p>
+                                        <p className="text-slate-600 mt-1">{t("admin.dashboard.allSystemsSmooth")}</p>
                                     </div>
                                 ) : null}
                             </CardContent>
@@ -1169,7 +1169,7 @@ export default function AdminDashboardPage() {
                                             ) : (
                                                 <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 bg-slate-50">
                                                     <HomeIcon className="h-12 w-12 mb-2 opacity-20" />
-                                                    <span className="text-xs font-medium uppercase tracking-widest opacity-40">No Image</span>
+                                                    <span className="text-xs font-medium uppercase tracking-widest opacity-40">{t("admin.dashboard.noImage")}</span>
                                                 </div>
                                             )}
                                             <div className="absolute top-3 right-3">
@@ -1188,32 +1188,32 @@ export default function AdminDashboardPage() {
                                         <CardContent className="p-4 flex-1 flex flex-col gap-4">
                                             <div className="space-y-2">
                                                 <div className="flex justify-between text-sm">
-                                                    <span className="text-slate-500 font-medium text-xs uppercase tracking-wider">Occupancy</span>
+                                                    <span className="text-slate-500 font-medium text-xs uppercase tracking-wider">{t("admin.dashboard.occupancy")}</span>
                                                     <span className={cn("font-bold", percentage > 90 ? "text-red-600" : "text-emerald-600")}>
                                                         {percentage}%
                                                     </span>
                                                 </div>
                                                 <Progress value={percentage} className={cn("h-2", percentage > 90 ? "[&>div]:bg-red-500" : "[&>div]:bg-emerald-500")} />
                                                 <div className="flex justify-between text-xs text-slate-400 font-medium">
-                                                    <span>{occupied.toLocaleString()} Occupied</span>
-                                                    <span>{shelter.availableCapacity.toLocaleString()} Available</span>
+                                                    <span>{occupied.toLocaleString()} {t("admin.dashboard.occupied")}</span>
+                                                    <span>{shelter.availableCapacity.toLocaleString()} {t("admin.dashboard.available")}</span>
                                                 </div>
                                             </div>
 
                                             <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-100 mt-auto">
                                                 <div className="text-center p-2 bg-slate-50 rounded-lg">
-                                                    <div className="text-slate-400 font-bold uppercase tracking-tighter text-[10px]">Total Capacity</div>
+                                                    <div className="text-slate-400 font-bold uppercase tracking-tighter text-[10px]">{t("admin.dashboard.totalCapacity")}</div>
                                                     <div className="font-bold text-slate-700 text-sm">{shelter.capacity.toLocaleString()}</div>
                                                 </div>
                                                 <div className="text-center p-2 bg-slate-50 rounded-lg">
-                                                    <div className="text-slate-400 font-bold uppercase tracking-tighter text-[10px]">Requests</div>
+                                                    <div className="text-slate-400 font-bold uppercase tracking-tighter text-[10px]">{t("admin.dashboard.requests")}</div>
                                                     <div className="font-bold text-slate-700 text-sm">{shelter.requests || 0}</div>
                                                 </div>
                                             </div>
 
                                             <Button variant="outline" className="w-full mt-2 border-blue-100 text-blue-600 hover:bg-blue-50 group-hover:border-blue-200" asChild>
                                                 <Link to={`/admin/track-shelter`}>
-                                                    Manage Shelter <ArrowUp className="ml-2 h-3 w-3 rotate-45" />
+                                                    {t("admin.dashboard.manageShelter")} <ArrowUp className="ml-2 h-3 w-3 rotate-45" />
                                                 </Link>
                                             </Button>
                                         </CardContent>
@@ -1227,17 +1227,17 @@ export default function AdminDashboardPage() {
                             <CardHeader className="border-b border-slate-100 bg-slate-50/50">
                                 <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
                                     <Car className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
-                                    Fleet Tracking Intelligence
+                                    {t("admin.dashboard.fleetTrackingIntelligence")}
                                 </CardTitle>
                                 <CardDescription className="text-sm sm:text-base">
-                                    Real-time fleet monitoring and historical mission intelligence.
+                                    {t("admin.dashboard.fleetTrackingDescription")}
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="p-4 sm:p-6 space-y-6">
                                 <div className="flex flex-col sm:flex-row items-center gap-4 relative z-50 bg-white p-4 rounded-xl border border-blue-50 shadow-sm">
                                     <div className="flex items-center gap-2 min-w-max">
-                                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100">STEP 1</Badge>
-                                        <Label htmlFor="driver-select" className="font-bold text-slate-700">Select Asset to Track:</Label>
+                                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100">{t("admin.dashboard.step1")}</Badge>
+                                        <Label htmlFor="driver-select" className="font-bold text-slate-700">{t("admin.dashboard.selectAssetToTrack")}</Label>
                                     </div>
                                     <Select value={selectedDriver?.id || "all"} onValueChange={(value) => {
                                         if (value === "all") {
@@ -1248,10 +1248,10 @@ export default function AdminDashboardPage() {
                                         }
                                     }}>
                                         <SelectTrigger id="driver-select" className="flex-1 bg-white border-blue-100 h-11">
-                                            <SelectValue placeholder="Choose a driver or vehicle..." />
+                                            <SelectValue placeholder={t("admin.dashboard.chooseDriverPlaceholder")} />
                                         </SelectTrigger>
                                         <SelectContent className="z-[1001] max-h-[300px]">
-                                            <SelectItem value="all" className="font-semibold text-blue-600">📡 Track Entire Fleet (Live)</SelectItem>
+                                            <SelectItem value="all" className="font-semibold text-blue-600">{t("admin.dashboard.trackEntireFleet")}</SelectItem>
                                             {drivers?.map(driver => (
                                                 <SelectItem key={driver.id} value={driver.id}>
                                                     <div className="flex items-center gap-2">
@@ -1273,13 +1273,13 @@ export default function AdminDashboardPage() {
                                             <Card className="border shadow-sm overflow-hidden bg-slate-50/50">
                                                 <CardHeader className="py-3 px-4 bg-slate-100/50 border-b border-slate-200">
                                                     <CardTitle className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                                                        <Calendar className="h-4 w-4 text-blue-500" /> 1. Manual Window Playback
+                                                        <Calendar className="h-4 w-4 text-blue-500" /> {t("admin.dashboard.manualWindowPlayback")}
                                                     </CardTitle>
                                                 </CardHeader>
                                                 <CardContent className="p-4 space-y-4">
                                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                         <div className="space-y-2">
-                                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Start Window</Label>
+                                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">{t("admin.dashboard.startWindow")}</Label>
                                                             <Input
                                                                 type="datetime-local"
                                                                 value={startDate}
@@ -1288,7 +1288,7 @@ export default function AdminDashboardPage() {
                                                             />
                                                         </div>
                                                         <div className="space-y-2">
-                                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">End Window</Label>
+                                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">{t("admin.dashboard.endWindow")}</Label>
                                                             <Input
                                                                 type="datetime-local"
                                                                 value={endDate}
@@ -1307,7 +1307,7 @@ export default function AdminDashboardPage() {
                                                                 <div className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                                                 FETCHING...
                                                             </div>
-                                                        ) : "Load Selected Timeframe"}
+                                                        ) : t("admin.dashboard.loadSelectedTimeframe")}
                                                     </Button>
                                                 </CardContent>
                                             </Card>
@@ -1316,7 +1316,7 @@ export default function AdminDashboardPage() {
                                             <Card className="border shadow-sm overflow-hidden border-blue-100">
                                                 <CardHeader className="py-3 px-4 bg-blue-50/50 border-b border-blue-100">
                                                     <CardTitle className="text-xs font-black uppercase tracking-widest text-blue-600 flex items-center gap-2">
-                                                        <Target className="h-4 w-4" /> 2. Mission-Specific Playback
+                                                        <Target className="h-4 w-4" /> {t("admin.dashboard.missionSpecificPlayback")}
                                                     </CardTitle>
                                                 </CardHeader>
                                                 <CardContent className="p-0">
@@ -1324,7 +1324,7 @@ export default function AdminDashboardPage() {
                                                         <div className="divide-y divide-slate-100">
                                                             {alerts?.filter(a => a.assignedTeam?.driverId === selectedDriver.id).length === 0 ? (
                                                                 <div className="p-8 text-center text-slate-400 text-sm italic">
-                                                                    No mission records found for this asset.
+                                                                    {t("admin.dashboard.noMissionRecords")}
                                                                 </div>
                                                             ) : (
                                                                 alerts?.filter(a => a.assignedTeam?.driverId === selectedDriver.id)
@@ -1379,7 +1379,7 @@ export default function AdminDashboardPage() {
                                                                 <Activity className="h-4 w-4" /> 3. Tactical Playback
                                                             </CardTitle>
                                                             <Badge className="bg-emerald-600 text-white font-black text-[9px]">
-                                                                {playbackIndex + 1} / {playbackData.length} SIGNALS
+                                                                {playbackIndex + 1} / {playbackData.length} {t("admin.dashboard.signals")}
                                                             </Badge>
                                                         </div>
                                                     </CardHeader>
@@ -1400,14 +1400,14 @@ export default function AdminDashboardPage() {
                                                                     isPlaying ? "bg-slate-900 hover:bg-black text-white" : "bg-emerald-600 hover:bg-emerald-700 text-white"
                                                                 )}
                                                             >
-                                                                {isPlaying ? <><Pause className="h-4 w-4 mr-2 text-emerald-400" /> Pause Intel</> : <><Play className="h-4 w-4 mr-2" /> Resume Signal</>}
+                                                                {isPlaying ? <><Pause className="h-4 w-4 mr-2 text-emerald-400" /> {t("admin.dashboard.pauseIntel")}</> : <><Play className="h-4 w-4 mr-2" /> {t("admin.dashboard.resumeSignal")}</>}
                                                             </Button>
                                                         </div>
 
                                                         <div className="space-y-4 bg-white p-4 rounded-xl border border-emerald-100 shadow-sm">
                                                             <div className="space-y-2">
                                                                 <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                                                    <span>Timeline Intelligence</span>
+                                                                    <span>{t("admin.dashboard.timelineIntelligence")}</span>
                                                                     <span className="text-emerald-600">{Math.round(((playbackIndex + 1) / playbackData.length) * 100)}%</span>
                                                                 </div>
                                                                 <Slider
@@ -1424,7 +1424,7 @@ export default function AdminDashboardPage() {
 
                                                             <div className="flex items-center gap-6">
                                                                 <div className="flex-1 space-y-2">
-                                                                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Warp Speed: <span className="text-emerald-600">{playbackSpeed}x</span></div>
+                                                                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">{t("admin.dashboard.warpSpeed")}: <span className="text-emerald-600">{playbackSpeed}x</span></div>
                                                                     <Slider
                                                                         value={[playbackSpeed]}
                                                                         min={1}
@@ -1435,7 +1435,7 @@ export default function AdminDashboardPage() {
                                                                     />
                                                                 </div>
                                                                 <div className="bg-slate-900 rounded-lg p-3 text-right shadow-inner min-w-[120px]">
-                                                                    <div className="text-[8px] font-bold text-emerald-400 uppercase tracking-widest opacity-70">Signal Timestamp</div>
+                                                                    <div className="text-[8px] font-bold text-emerald-400 uppercase tracking-widest opacity-70">{t("admin.dashboard.signalTimestamp")}</div>
                                                                     <div className="text-sm font-black tabular-nums text-white">
                                                                         {formatTimestamp(playbackData[playbackIndex]?.timestamp)}
                                                                     </div>
@@ -1450,8 +1450,8 @@ export default function AdminDashboardPage() {
                                                         <Activity className="h-8 w-8 text-slate-200" />
                                                     </div>
                                                     <div className="text-center">
-                                                        <p className="font-bold text-slate-500 uppercase tracking-widest text-xs">Awaiting Target Selection</p>
-                                                        <p className="text-xs text-slate-400 mt-1 max-w-[200px]">Select a timeframe or a specific mission to begin tactical playback.</p>
+                                                        <p className="font-bold text-slate-500 uppercase tracking-widest text-xs">{t("admin.dashboard.awaitingTargetSelection")}</p>
+                                                        <p className="text-xs text-slate-400 mt-1 max-w-[200px]">{t("admin.dashboard.selectTimeframeOrMission")}</p>
                                                     </div>
                                                 </div>
                                             )}
@@ -1480,7 +1480,7 @@ export default function AdminDashboardPage() {
                                 <CardTitle className="text-lg sm:text-xl flex items-center justify-between gap-2">
                                     <div className="flex items-center gap-2">
                                         <BarChart3 className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600" />
-                                        Operational Analytics
+                                        {t("admin.dashboard.operationalAnalytics")}
                                     </div>
                                     <Badge variant="outline" className={cn(
                                         "ml-auto text-[10px] uppercase tracking-tighter font-bold",
@@ -1488,11 +1488,11 @@ export default function AdminDashboardPage() {
                                             ? "bg-purple-50 text-purple-700 border-purple-100"
                                             : "bg-blue-50 text-blue-700 border-blue-100"
                                     )}>
-                                        {adminProfile?.role?.toLowerCase().includes('super') ? "Global Intelligence" : `${adminProfile?.state || 'State'} Operations`}
+                                        {adminProfile?.role?.toLowerCase().includes('super') ? t("admin.dashboard.globalIntelligence") : `${adminProfile?.state || 'State'} ${t("admin.dashboard.operations")}`}
                                     </Badge>
                                 </CardTitle>
                                 <CardDescription className="text-sm sm:text-base">
-                                    Visualizing key metrics for better decision-making.
+                                    {t("admin.dashboard.visualizingMetrics")}
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">

@@ -429,8 +429,8 @@ export default function DriverMapPage() {
     } catch (error) {
       console.error('Error updating task status:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to update task status. Please try again.',
+        title: t('driver.map.errorTitle'),
+        description: t('driver.map.statusUpdateError'),
         variant: 'destructive',
       });
     }
@@ -456,11 +456,11 @@ export default function DriverMapPage() {
 
       if (permission !== 'granted') {
         // Provide specific guidance based on permission state
-        let errorMessage = 'Location permission required for tracking.';
+        let errorMessage = t('driver.map.locationPermissionRequired');
         if (permission === 'denied') {
-          errorMessage += ' Please enable location access in your browser settings and refresh the page.';
+          errorMessage += ' ' + t('driver.map.enableLocationSettings');
         } else if (permission === 'prompt') {
-          errorMessage += ' Please allow location access when prompted.';
+          errorMessage += ' ' + t('driver.map.allowLocationPrompt');
         }
         throw new Error(errorMessage);
       }
@@ -1501,17 +1501,17 @@ export default function DriverMapPage() {
           {/* Quick Stats */}
           <Card>
             <CardHeader>
-              <CardTitle>Quick Stats</CardTitle>
+              <CardTitle>{t('driver.map.quickStatsTitle')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm">Active Tasks</span>
+                <span className="text-sm">{t('driver.map.activeTasks')}</span>
                 <Badge variant="destructive">
                   {tasks.filter(t => t.status === 'Active' || t.status === 'Responding').length}
                 </Badge>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm">Completed Today</span>
+                <span className="text-sm">{t('driver.map.completedToday')}</span>
                 <Badge variant="default">
                   {tasks.filter(t =>
                     t.status === 'Resolved' &&
@@ -1520,7 +1520,7 @@ export default function DriverMapPage() {
                 </Badge>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm">Total Tasks</span>
+                <span className="text-sm">{t('driver.map.totalTasks')}</span>
                 <Badge variant="outline">{tasks.length}</Badge>
               </div>
             </CardContent>

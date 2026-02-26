@@ -315,7 +315,7 @@ export default function DriverProfilePage() {
                 {profile.image ? (
                   <img
                     src={profile.image}
-                    alt="Profile"
+                    alt={t('driver.profile.profileAlt')}
                     className="w-full h-full object-cover"
                   />
                 ) : (

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { type Shelter } from "@/lib/data";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bed, CheckCircle, Shield, AlertTriangle, RefreshCw, Plus, MapPin, User, Clock, TrendingUp, TrendingDown, Minus, Phone, Edit, Building2, X } from "lucide-react";
+import { CheckCircle, Shield, AlertTriangle, RefreshCw, Plus, MapPin, User, Clock, TrendingUp, TrendingDown, Minus, Phone, Edit, Building2, X } from "lucide-react";
 import { cn, formatTimestamp } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { addDoc, updateDoc, doc, collection } from "firebase/firestore";
@@ -25,6 +25,7 @@ import { useNavigate } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import InteractiveGoogleMap from "@/components/interactive-google-map";
 import { Video } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 
 const getStatusBadgeVariant = (status: string) => {
@@ -36,12 +37,21 @@ const getStatusBadgeVariant = (status: string) => {
     }
 }
 
-const getTrendInfo = (trend?: string) => {
+const getTrendInfo = (trend?: string, t?: any) => {
     switch (trend) {
-        case 'Increasing': return { icon: <TrendingUp className="h-4 w-4 text-red-500" />, text: 'Increasing' };
-        case 'Decreasing': return { icon: <TrendingDown className="h-4 w-4 text-green-500" />, text: 'Decreasing' };
+        case 'Increasing': return { icon: <TrendingUp className="h-4 w-4 text-red-500" />, text: t ? t('admin.trackShelter.trend.increasing') : 'Increasing' };
+        case 'Decreasing': return { icon: <TrendingDown className="h-4 w-4 text-green-500" />, text: t ? t('admin.trackShelter.trend.decreasing') : 'Decreasing' };
         case 'Stable':
-        default: return { icon: <Minus className="h-4 w-4 text-gray-500" />, text: 'Stable' };
+        default: return { icon: <Minus className="h-4 w-4 text-gray-500" />, text: t ? t('admin.trackShelter.trend.stable') : 'Stable' };
+    }
+}
+
+const getStatusInfo = (status: string, t?: any) => {
+    switch (status) {
+        case 'Operational': return t ? t('admin.trackShelter.status.operational') : 'Operational';
+        case 'Full': return t ? t('admin.trackShelter.status.full') : 'Full';
+        case 'Emergency Only': return t ? t('admin.trackShelter.status.emergencyOnly') : 'Emergency Only';
+        default: return status;
     }
 }
 
@@ -62,6 +72,7 @@ const NIGERIAN_STATES = [
 ];
 
 function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, onSave: () => void, onCancel: () => void }) {
+    const { t } = useTranslation();
     const [formData, setFormData] = useState<Partial<Shelter>>(shelter || {
         name: '',
         organization: '',
@@ -101,16 +112,11 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
     }
 
     const [uploadingImage, setUploadingImage] = useState(false);
-    const [uploadingMedia, setUploadingMedia] = useState(false);
 
     const handleGeofenceChange = (index: number, field: 'lat' | 'lng', value: string) => {
         const newGeofence = [...(formData.geofence || [{ lat: 0, lng: 0 }, { lat: 0, lng: 0 }, { lat: 0, lng: 0 }, { lat: 0, lng: 0 }])];
         newGeofence[index] = { ...newGeofence[index], [field]: parseFloat(value) || 0 };
         setFormData(prev => ({ ...prev, geofence: newGeofence }));
-    };
-
-    const handlePhotoGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFormData(prev => ({ ...prev, photoGallery: e.target.value.split(',').map(p => p.trim()) }));
     };
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -125,10 +131,10 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
             const downloadURL = await getDownloadURL(snapshot.ref);
 
             setFormData(prev => ({ ...prev, imageUrl: downloadURL }));
-            toast({ title: "Image Uploaded", description: "Shelter image uploaded successfully." });
+            toast({ title: t('admin.trackShelter.form.imageUploaded') });
         } catch (error) {
             console.error("Upload error:", error);
-            toast({ title: "Upload Failed", description: "Could not upload image.", variant: "destructive" });
+            toast({ title: t('admin.trackShelter.form.uploadFailed'), variant: "destructive" });
         } finally {
             setUploadingImage(false);
         }
@@ -142,16 +148,16 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
                 // Update existing shelter
                 const shelterRef = doc(db, "shelters", shelter.id);
                 await updateDoc(shelterRef, formData);
-                toast({ title: "Success", description: "Shelter updated successfully." });
+                toast({ title: t('admin.trackShelter.form.updated') });
             } else {
                 // Create new shelter
                 await addDoc(collection(db, "shelters"), formData);
-                toast({ title: "Success", description: "Shelter created successfully." });
+                toast({ title: t('admin.trackShelter.form.created') });
             }
             onSave();
         } catch (error) {
             console.error("Error saving shelter: ", error);
-            toast({ title: "Error", description: "Could not save shelter. Check Firestore permissions.", variant: "destructive" });
+            toast({ title: "Error", description: t('admin.trackShelter.form.saveError'), variant: "destructive" });
         } finally {
             setLoading(false);
         }
@@ -161,27 +167,27 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
         <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 max-h-[70vh] overflow-y-auto pr-2 sm:pr-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="name">Shelter Name</Label>
+                    <Label htmlFor="name">{t('admin.trackShelter.form.shelterName')}</Label>
                     <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="organization">Organization</Label>
+                    <Label htmlFor="organization">{t('admin.trackShelter.form.organization')}</Label>
                     <Input id="organization" name="organization" value={formData.organization} onChange={handleChange} />
                 </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="location">Location</Label>
+                    <Label htmlFor="location">{t('admin.trackShelter.form.location')}</Label>
                     <Input id="location" name="location" value={formData.location} onChange={handleChange} />
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="state">State</Label>
+                    <Label htmlFor="state">{t('admin.trackShelter.form.state')}</Label>
                     <Select
                         value={formData.state}
                         onValueChange={(value) => setFormData(prev => ({ ...prev, state: value }))}
                     >
                         <SelectTrigger id="state">
-                            <SelectValue placeholder="Select State" />
+                            <SelectValue placeholder={t('admin.trackShelter.form.selectState')} />
                         </SelectTrigger>
                         <SelectContent>
                             {NIGERIAN_STATES.map((state) => (
@@ -195,40 +201,40 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="capacity">Total Capacity</Label>
+                    <Label htmlFor="capacity">{t('admin.trackShelter.form.totalCapacity')}</Label>
                     <Input id="capacity" name="capacity" type="number" value={formData.capacity} onChange={handleChange} />
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="availableCapacity">Available Capacity</Label>
+                    <Label htmlFor="availableCapacity">{t('admin.trackShelter.form.availableCapacity')}</Label>
                     <Input id="availableCapacity" name="availableCapacity" type="number" value={formData.availableCapacity} onChange={handleChange} />
                 </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="requests">Emergency Requests</Label>
+                    <Label htmlFor="requests">{t('admin.trackShelter.form.emergencyRequests')}</Label>
                     <Input id="requests" name="requests" type="number" value={formData.requests} onChange={handleChange} />
                 </div>
             </div>
             <div className="space-y-2">
-                <Label htmlFor="facilities">Facilities (comma-separated)</Label>
-                <Input id="facilities" name="facilities" value={formData.facilities?.join(', ')} onChange={handleFacilitiesChange} placeholder="e.g. Medical, Food, Water" />
+                <Label htmlFor="facilities">{t('admin.trackShelter.form.facilities')}</Label>
+                <Input id="facilities" name="facilities" value={formData.facilities?.join(', ')} onChange={handleFacilitiesChange} placeholder={t('admin.trackShelter.form.facilitiesPlaceholder')} />
             </div>
             <div className="space-y-2">
-                <Label htmlFor="security">Security Details</Label>
-                <Textarea id="security" name="security" value={formData.security} onChange={handleChange} placeholder="Describe security measures..." className="min-h-[80px] sm:min-h-[100px]" />
+                <Label htmlFor="security">{t('admin.trackShelter.form.security')}</Label>
+                <Textarea id="security" name="security" value={formData.security} onChange={handleChange} placeholder={t('admin.trackShelter.form.securityPlaceholder')} className="min-h-[80px] sm:min-h-[100px]" />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="managerName">Manager Name</Label>
+                    <Label htmlFor="managerName">{t('admin.trackShelter.form.managerName')}</Label>
                     <Input id="managerName" name="managerName" value={formData.managerName} onChange={handleChange} />
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="phone">Contact Phone</Label>
+                    <Label htmlFor="phone">{t('admin.trackShelter.form.phone')}</Label>
                     <Input id="phone" name="phone" type="tel" value={formData.phone} onChange={handleChange} />
                 </div>
             </div>
             <div className="space-y-2">
-                <Label>Shelter Image</Label>
+                <Label>{t('admin.trackShelter.form.image')}</Label>
                 <div className="flex flex-col sm:flex-row items-center gap-4 p-4 border rounded-lg bg-slate-50">
                     {formData.imageUrl ? (
                         <div className="relative w-full sm:w-32 h-32 rounded-md overflow-hidden border">
@@ -246,14 +252,14 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
                     ) : (
                         <div className="w-full sm:w-32 h-32 rounded-md border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground bg-white">
                             <Building2 className="h-8 w-8 mb-1 opacity-20" />
-                            <span className="text-[10px]">No Image</span>
+                            <span className="text-[10px]">{t('admin.trackShelter.form.noImage')}</span>
                         </div>
                     )}
                     <div className="flex-grow space-y-2">
                         <Label htmlFor="shelter-image" className="cursor-pointer">
                             <div className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700">
                                 {uploadingImage ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                                {uploadingImage ? 'Uploading...' : formData.imageUrl ? 'Change Image' : 'Upload Shelter Image'}
+                                {uploadingImage ? t('admin.trackShelter.form.uploading') : formData.imageUrl ? t('admin.trackShelter.form.changeImage') : t('admin.trackShelter.form.uploadImage')}
                             </div>
                         </Label>
                         <Input
@@ -355,6 +361,7 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
 }
 
 export default function TrackShelterPage() {
+    const { t } = useTranslation();
     const { shelters, loading, permissionError, fetchData } = useAdminData();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [selectedShelter, setSelectedShelter] = useState<Shelter | null>(null);
@@ -362,8 +369,6 @@ export default function TrackShelterPage() {
     const [contactShelter, setContactShelter] = useState<Shelter | null>(null);
     const [selectedPreviewImage, setSelectedPreviewImage] = useState<string | null>(null);
     const navigate = useNavigate();
-    const { toast } = useToast();
-
     const handleAddNew = () => {
         setSelectedShelter(null);
         setIsDialogOpen(true);
@@ -403,9 +408,9 @@ export default function TrackShelterPage() {
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle>{selectedShelter ? "Manage Shelter" : "Add New Shelter"}</DialogTitle>
+                        <DialogTitle>{selectedShelter ? t('admin.trackShelter.dialogs.manageShelter') : t('admin.trackShelter.dialogs.addShelter')}</DialogTitle>
                         <DialogDescription>
-                            {selectedShelter ? "Update the details for this shelter." : "Fill in the details for the new shelter."}
+                            {selectedShelter ? t('admin.trackShelter.dialogs.manageDesc') : t('admin.trackShelter.dialogs.addDesc')}
                         </DialogDescription>
                     </DialogHeader>
                     <ShelterForm shelter={selectedShelter} onSave={handleSave} onCancel={handleCancel} />
@@ -415,9 +420,9 @@ export default function TrackShelterPage() {
             <Dialog open={contactDialogOpen} onOpenChange={setContactDialogOpen}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Contact Shelter Manager</DialogTitle>
+                        <DialogTitle>{t('admin.trackShelter.dialogs.contactManager')}</DialogTitle>
                         <DialogDescription>
-                            Get in touch with the shelter manager for urgent matters or coordination.
+                            {t('admin.trackShelter.dialogs.contactDesc')}
                         </DialogDescription>
                     </DialogHeader>
                     {contactShelter && (
@@ -431,14 +436,14 @@ export default function TrackShelterPage() {
                                     <User className="h-5 w-5 text-muted-foreground" />
                                     <div>
                                         <p className="font-medium">{contactShelter.managerName}</p>
-                                        <p className="text-sm text-muted-foreground">Shelter Manager</p>
+                                        <p className="text-sm text-muted-foreground">{t('admin.trackShelter.contact.shelterManager')}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
                                     <Phone className="h-5 w-5 text-muted-foreground" />
                                     <div>
                                         <p className="font-medium">{contactShelter.phone}</p>
-                                        <p className="text-sm text-muted-foreground">Contact Number</p>
+                                        <p className="text-sm text-muted-foreground">{t('admin.trackShelter.contact.contactNumber')}</p>
                                     </div>
                                 </div>
                             </div>
@@ -446,11 +451,11 @@ export default function TrackShelterPage() {
                                 <Button asChild className="w-full sm:flex-1">
                                     <a href={`tel:${contactShelter.phone}`}>
                                         <Phone className="mr-2 h-4 w-4" />
-                                        Call Now
+                                        {t('admin.trackShelter.contact.callNow')}
                                     </a>
                                 </Button>
                                 <Button variant="outline" onClick={() => setContactDialogOpen(false)} className="w-full sm:w-auto">
-                                    Close
+                                    {t('admin.trackShelter.contact.close')}
                                 </Button>
                             </div>
                         </div>
@@ -460,85 +465,85 @@ export default function TrackShelterPage() {
 
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold">Shelter Management</h1>
-                    <p className="text-muted-foreground text-sm sm:text-base">Monitor and manage shelter capacity, operations, and resources</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold">{t('admin.trackShelter.title')}</h1>
+                    <p className="text-muted-foreground text-sm sm:text-base">{t('admin.trackShelter.subtitle')}</p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
-                    <Button variant="outline" onClick={fetchData} disabled={loading} className="w-full sm:w-auto"><RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />Refresh Data</Button>
-                    <Button onClick={handleAddNew} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" />Add New Shelter</Button>
+                    <Button variant="outline" onClick={fetchData} disabled={loading} className="w-full sm:w-auto"><RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />{t('admin.trackShelter.refreshData')}</Button>
+                    <Button onClick={handleAddNew} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" />{t('admin.trackShelter.addNewShelter')}</Button>
                 </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-1 sm:gap-6">
                 <Card className="max-w-[40vw] sm:max-w-full overflow-hidden">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-xs sm:text-sm font-medium">Total Capacity</CardTitle>
+                        <CardTitle className="text-xs sm:text-sm font-medium">{t('admin.trackShelter.cards.totalCapacity')}</CardTitle>
                         <Building2 className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent className="p-2 sm:p-6">
                         {loading ? <Skeleton className="h-6 sm:h-8 w-1/2" /> : <div className="text-xl sm:text-3xl font-bold">{totalCapacity}</div>}
-                        {loading ? <Skeleton className="h-3 sm:h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">{totalOccupied} occupied</p>}
+                        {loading ? <Skeleton className="h-3 sm:h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">{totalOccupied} {t('admin.trackShelter.cards.occupied')}</p>}
                     </CardContent>
                 </Card>
                 <Card className="max-w-[40vw] sm:max-w-full overflow-hidden">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-xs sm:text-sm font-medium">Available Spaces</CardTitle>
+                        <CardTitle className="text-xs sm:text-sm font-medium">{t('admin.trackShelter.cards.availableSpaces')}</CardTitle>
                         <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
                     </CardHeader>
                     <CardContent className="p-2 sm:p-6">
                         {loading ? <Skeleton className="h-6 sm:h-8 w-1/2" /> : <div className="text-xl sm:text-3xl font-bold">{availableSpaces}</div>}
-                        {loading ? <Skeleton className="h-3 sm:h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">{totalCapacity > 0 ? `${Math.round((availableSpaces / totalCapacity) * 100)}%` : '0%'} available</p>}
+                        {loading ? <Skeleton className="h-3 sm:h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">{totalCapacity > 0 ? `${Math.round((availableSpaces / totalCapacity) * 100)}%` : '0%'} {t('admin.trackShelter.cards.available')}</p>}
                     </CardContent>
                 </Card>
                 <Card className="max-w-[40vw] sm:max-w-full overflow-hidden">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-xs sm:text-sm font-medium">Active Shelters</CardTitle>
+                        <CardTitle className="text-xs sm:text-sm font-medium">{t('admin.trackShelter.cards.activeShelters')}</CardTitle>
                         <Shield className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500" />
                     </CardHeader>
                     <CardContent className="p-2 sm:p-6">
                         {loading ? <Skeleton className="h-6 sm:h-8 w-1/2" /> : <div className="text-xl sm:text-3xl font-bold">{activeShelters}</div>}
-                        {loading ? <Skeleton className="h-3 sm:h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">of {shelters?.length || 0} total</p>}
+                        {loading ? <Skeleton className="h-3 sm:h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">{t('admin.trackShelter.cards.ofTotal', { total: shelters?.length || 0 })}</p>}
                     </CardContent>
                 </Card>
                 <Card className="max-w-[40vw] sm:max-w-full overflow-hidden">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-xs sm:text-sm font-medium">Emergency Requests</CardTitle>
+                        <CardTitle className="text-xs sm:text-sm font-medium">{t('admin.trackShelter.cards.emergencyRequests')}</CardTitle>
                         <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 text-red-500" />
                     </CardHeader>
                     <CardContent className="p-2 sm:p-6">
                         {loading ? <Skeleton className="h-6 sm:h-8 w-1/2" /> : <div className="text-xl sm:text-3xl font-bold">{emergencyRequests}</div>}
-                        {loading ? <Skeleton className="h-3 sm:h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">pending response</p>}
+                        {loading ? <Skeleton className="h-3 sm:h-4 w-1/3 mt-1" /> : <p className="text-xs text-muted-foreground">{t('admin.trackShelter.cards.pendingResponse')}</p>}
                     </CardContent>
                 </Card>
             </div>
 
             <Tabs defaultValue="overview">
                 <TabsList className="w-full overflow-x-auto justify-start h-auto p-1 bg-muted/50">
-                    <TabsTrigger value="overview" className="px-4 py-2">Shelter Overview</TabsTrigger>
-                    <TabsTrigger value="map" className="px-4 py-2">Live Tracker & Geofence</TabsTrigger>
+                    <TabsTrigger value="overview" className="px-4 py-2">{t('admin.trackShelter.tabs.overview')}</TabsTrigger>
+                    <TabsTrigger value="map" className="px-4 py-2">{t('admin.trackShelter.tabs.map')}</TabsTrigger>
                     <TabsTrigger value="capacity" className="px-4 py-2">
-                        <span className="sm:hidden text-center">Capacity</span>
-                        <span className="hidden sm:inline">Capacity Management</span>
+                        <span className="sm:hidden text-center">{t('admin.trackShelter.tabs.capacityMobile')}</span>
+                        <span className="hidden sm:inline">{t('admin.trackShelter.tabs.capacity')}</span>
                     </TabsTrigger>
-                    <TabsTrigger value="media" className="px-4 py-2">Media Assets</TabsTrigger>
-                    <TabsTrigger value="operations" className="px-4 py-2 truncate">Operations</TabsTrigger>
+                    <TabsTrigger value="media" className="px-4 py-2">{t('admin.trackShelter.tabs.media')}</TabsTrigger>
+                    <TabsTrigger value="operations" className="px-4 py-2 truncate">{t('admin.trackShelter.tabs.operations')}</TabsTrigger>
                 </TabsList>
                 <TabsContent value="map" className="mt-6">
                     <Card className="overflow-hidden border-0 shadow-lg">
                         <CardHeader className="bg-slate-900 text-white p-4">
                             <div className="flex justify-between items-center text-white">
                                 <div>
-                                    <CardTitle className="text-xl">Shelter Geofencing & Live Tracking</CardTitle>
-                                    <p className="text-slate-400 text-sm">Real-time status and perimeter monitoring for all active shelters</p>
+                                    <CardTitle className="text-xl">{t('admin.trackShelter.map.title')}</CardTitle>
+                                    <p className="text-slate-400 text-sm">{t('admin.trackShelter.map.desc')}</p>
                                 </div>
                                 <div className="flex gap-4 text-sm mt-auto">
                                     <div className="flex items-center gap-2">
                                         <div className="w-3 h-3 bg-red-400 opacity-50 border border-red-500 rounded-sm"></div>
-                                        <span>Shelter Perimeter</span>
+                                        <span>{t('admin.trackShelter.map.perimeter')}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                                        <span>Operational</span>
+                                        <span>{t('admin.trackShelter.map.operational')}</span>
                                     </div>
                                 </div>
                             </div>
@@ -556,10 +561,10 @@ export default function TrackShelterPage() {
                                     <div key={s.id} className="bg-white/90 backdrop-blur-sm p-3 rounded-lg shadow-md border text-[10px] w-48 pointer-events-auto">
                                         <div className="flex justify-between items-start mb-1">
                                             <span className="font-bold truncate pr-2">{s.name}</span>
-                                            <Badge variant={getStatusBadgeVariant(s.status)} className="scale-75 origin-right">{s.status}</Badge>
+                                            <Badge variant={getStatusBadgeVariant(s.status)} className="scale-75 origin-right">{getStatusInfo(s.status, t)}</Badge>
                                         </div>
                                         <div className="flex justify-between text-muted-foreground">
-                                            <span>Occupancy:</span>
+                                            <span>{t('admin.trackShelter.map.occupancy')}</span>
                                             <span className="font-medium text-slate-900">{Math.round(((s.capacity - s.availableCapacity) / s.capacity) * 100)}%</span>
                                         </div>
                                         <div className="w-full bg-slate-200 h-1 rounded-full mt-1">
@@ -576,9 +581,9 @@ export default function TrackShelterPage() {
                     {permissionError && (
                         <Alert variant="destructive">
                             <AlertTriangle className="h-4 w-4" />
-                            <AlertDialogTitle>Permission Denied</AlertDialogTitle>
+                            <AlertDialogTitle>{t('admin.trackShelter.overview.permissionDenied')}</AlertDialogTitle>
                             <AlertDesc>
-                                You do not have permission to view shelter data. Please check your Firestore security rules to allow read access to the &apos;shelters&apos; collection for administrators.
+                                {t('admin.trackShelter.overview.permissionDeniedDesc')}
                             </AlertDesc>
                         </Alert>
                     )}
@@ -591,7 +596,7 @@ export default function TrackShelterPage() {
                             shelters.map(shelter => {
                                 const currentOccupancy = shelter.capacity - shelter.availableCapacity;
                                 const capacityPercentage = shelter.capacity > 0 ? Math.round((currentOccupancy / shelter.capacity) * 100) : 0;
-                                const trendInfo = getTrendInfo(shelter.trend);
+                                const trendInfo = getTrendInfo(shelter.trend, t);
                                 return (
                                     <Card key={shelter.id} className={cn("shadow-sm hover:shadow-md transition-shadow max-w-[50vw] sm:max-w-full overflow-hidden", getCardBorderColor(shelter.status))}>
                                         <CardHeader className="p-2 sm:p-6">
@@ -601,8 +606,8 @@ export default function TrackShelterPage() {
                                                     <p className="text-xs sm:text-sm text-muted-foreground">{shelter.organization}</p>
                                                 </div>
                                                 <div className="flex flex-wrap gap-1 sm:gap-2">
-                                                    <Badge variant={getStatusBadgeVariant(shelter.status)} className="text-xs">{shelter.status}</Badge>
-                                                    <Badge variant="secondary" className="text-xs">{shelter.requests} Requests</Badge>
+                                                    <Badge variant={getStatusBadgeVariant(shelter.status)} className="text-xs">{getStatusInfo(shelter.status, t)}</Badge>
+                                                    <Badge variant="secondary" className="text-xs">{shelter.requests} {t('admin.trackShelter.overview.requests')}</Badge>
                                                 </div>
                                             </div>
                                         </CardHeader>
@@ -622,20 +627,20 @@ export default function TrackShelterPage() {
                                                     </div>
                                                 )}
                                                 <div className={cn("flex-1 text-center sm:text-left space-y-1", !shelter.imageUrl && "text-center")}>
-                                                    <p className="text-xs sm:text-sm text-muted-foreground">Total Capacity</p>
+                                                    <p className="text-xs sm:text-sm text-muted-foreground">{t('admin.trackShelter.overview.totalCapacity')}</p>
                                                     <p className="text-xl sm:text-2xl font-bold">{shelter.capacity}</p>
                                                 </div>
                                             </div>
                                             <div className="space-y-2">
                                                 <Progress value={capacityPercentage} className="h-1 sm:h-2" />
                                                 <div className="flex justify-between text-xs sm:text-sm font-medium">
-                                                    <p>{currentOccupancy} Occupied</p>
-                                                    <p className="text-green-600">{shelter.availableCapacity} Available</p>
+                                                    <p>{currentOccupancy} {t('admin.trackShelter.overview.occupied')}</p>
+                                                    <p className="text-green-600">{shelter.availableCapacity} {t('admin.trackShelter.overview.available')}</p>
                                                 </div>
                                             </div>
                                             <div className="text-xs sm:text-sm text-muted-foreground space-y-1 sm:space-y-2 pt-2 sm:pt-4 border-t">
                                                 <div className="flex items-center gap-1 sm:gap-2"><MapPin className="h-3 w-3 sm:h-4 sm:w-4" /> {shelter.location}</div>
-                                                <div className="flex items-center gap-1 sm:gap-2"><User className="h-3 w-3 sm:h-4 sm:w-4" /> Manager: {shelter.managerName}</div>
+                                                <div className="flex items-center gap-1 sm:gap-2"><User className="h-3 w-3 sm:h-4 sm:w-4" /> {t('admin.trackShelter.overview.manager')} {shelter.managerName}</div>
                                             </div>
                                             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-xs sm:text-sm text-muted-foreground pt-2 sm:pt-4 border-t gap-1">
                                                 <div className="flex items-center gap-1">
@@ -648,16 +653,16 @@ export default function TrackShelterPage() {
                                                 </div>
                                             </div>
                                             <div className="flex flex-col sm:flex-row gap-1 sm:gap-2 pt-2 sm:pt-4 border-t">
-                                                <Button size="sm" className="w-full sm:flex-1" onClick={() => handleViewDetails(shelter)}>View Details</Button>
-                                                <Button size="sm" variant="outline" className="w-full sm:flex-1" onClick={() => handleContact(shelter)}><Phone className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />Contact</Button>
-                                                <Button size="sm" variant="outline" className="w-full sm:flex-1" onClick={() => handleManage(shelter)}><Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />Manage</Button>
+                                                <Button size="sm" className="w-full sm:flex-1" onClick={() => handleViewDetails(shelter)}>{t('admin.trackShelter.overview.viewDetails')}</Button>
+                                                <Button size="sm" variant="outline" className="w-full sm:flex-1" onClick={() => handleContact(shelter)}><Phone className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />{t('admin.trackShelter.overview.contact')}</Button>
+                                                <Button size="sm" variant="outline" className="w-full sm:flex-1" onClick={() => handleManage(shelter)}><Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />{t('admin.trackShelter.overview.manage')}</Button>
                                             </div>
                                         </CardContent>
                                     </Card>
                                 )
                             })
                         ) : !permissionError ? (
-                            <p className="text-muted-foreground col-span-2 text-center">No shelters found in the database.</p>
+                            <p className="text-muted-foreground col-span-2 text-center">{t('admin.trackShelter.overview.noShelters')}</p>
                         ) : null}
                     </div>
                 </TabsContent>
@@ -672,8 +677,8 @@ export default function TrackShelterPage() {
                                             <CardDescription>{shelter.organization}</CardDescription>
                                         </div>
                                         <div className="flex gap-2">
-                                            {shelter.droneVideoUrl && <Badge variant="secondary" className="gap-1"><Video className="h-3 w-3" /> Drone View</Badge>}
-                                            {shelter.photoGallery && <Badge variant="secondary" className="gap-1"><Building2 className="h-3 w-3" /> {shelter.photoGallery.length} Photos</Badge>}
+                                            {shelter.droneVideoUrl && <Badge variant="secondary" className="gap-1"><Video className="h-3 w-3" /> {t('admin.trackShelter.media.droneView')}</Badge>}
+                                            {shelter.photoGallery && <Badge variant="secondary" className="gap-1"><Building2 className="h-3 w-3" /> {shelter.photoGallery.length} {t('admin.trackShelter.media.photos')}</Badge>}
                                         </div>
                                     </div>
                                 </CardHeader>
@@ -681,15 +686,15 @@ export default function TrackShelterPage() {
                                     {/* Drone Video Section */}
                                     {shelter.droneVideoUrl && (
                                         <div className="space-y-2">
-                                            <h4 className="text-sm font-semibold flex items-center gap-2"><Video className="h-4 w-4" /> Drone Aerial Footage</h4>
+                                            <h4 className="text-sm font-semibold flex items-center gap-2"><Video className="h-4 w-4" /> {t('admin.trackShelter.media.droneFootage')}</h4>
                                             <div className="aspect-video bg-black rounded-lg overflow-hidden border">
                                                 {/* Simple Video Player Placeholder - in production this would be a real player */}
                                                 <div className="w-full h-full flex flex-col items-center justify-center text-white/50 space-y-2 bg-slate-900">
                                                     {shelter.droneVideoUrl.includes('youtube.com') || shelter.droneVideoUrl.includes('youtu.be') ? (
                                                         <div className="text-center p-4">
-                                                            <p className="text-xs mb-2">YouTube Video Stream</p>
+                                                            <p className="text-xs mb-2">{t('admin.trackShelter.media.youtubeStream')}</p>
                                                             <Button size="sm" variant="outline" className="text-white border-white/20 hover:bg-white/10" asChild>
-                                                                <a href={shelter.droneVideoUrl} target="_blank" rel="noopener noreferrer">Open YouTube</a>
+                                                                <a href={shelter.droneVideoUrl} target="_blank" rel="noopener noreferrer">{t('admin.trackShelter.media.openYoutube')}</a>
                                                             </Button>
                                                         </div>
                                                     ) : (
@@ -699,7 +704,7 @@ export default function TrackShelterPage() {
                                                             className="w-full h-full object-cover"
                                                             poster={shelter.imageUrl}
                                                         >
-                                                            Your browser does not support the video tag.
+                                                            {t('admin.trackShelter.media.videoNotSupported')}
                                                         </video>
                                                     )}
                                                 </div>
@@ -710,7 +715,7 @@ export default function TrackShelterPage() {
                                     {/* Photo Gallery Section */}
                                     {shelter.photoGallery && shelter.photoGallery.length > 0 && (
                                         <div className="space-y-2">
-                                            <h4 className="text-sm font-semibold flex items-center gap-2"><Building2 className="h-4 w-4" /> Shelter Infrastructure Photos</h4>
+                                            <h4 className="text-sm font-semibold flex items-center gap-2"><Building2 className="h-4 w-4" /> {t('admin.trackShelter.media.infrastructurePhotos')}</h4>
                                             <div className="grid grid-cols-3 gap-2">
                                                 {shelter.photoGallery.map((url, idx) => (
                                                     <div
@@ -728,14 +733,14 @@ export default function TrackShelterPage() {
                                     {(!shelter.droneVideoUrl && (!shelter.photoGallery || shelter.photoGallery.length === 0)) && (
                                         <div className="h-48 flex flex-col items-center justify-center text-muted-foreground bg-slate-50 rounded-lg border border-dashed">
                                             <Building2 className="h-8 w-8 mb-2 opacity-20" />
-                                            <p className="text-sm font-medium">No media assets available</p>
-                                            <Button variant="link" size="sm" onClick={() => handleManage(shelter)}>Add Media</Button>
+                                            <p className="text-sm font-medium">{t('admin.trackShelter.media.noMedia')}</p>
+                                            <Button variant="link" size="sm" onClick={() => handleManage(shelter)}>{t('admin.trackShelter.media.addMedia')}</Button>
                                         </div>
                                     )}
                                 </CardContent>
                                 <div className="p-3 bg-slate-50 border-t mt-auto flex justify-between items-center text-xs text-muted-foreground">
-                                    <span>Last site inspection: {shelter.lastUpdate}</span>
-                                    <Button size="sm" variant="ghost" className="h-8 text-blue-600" onClick={() => handleViewDetails(shelter)}>Full Report</Button>
+                                    <span>{t('admin.trackShelter.media.lastInspection')} {shelter.lastUpdate}</span>
+                                    <Button size="sm" variant="ghost" className="h-8 text-blue-600" onClick={() => handleViewDetails(shelter)}>{t('admin.trackShelter.media.fullReport')}</Button>
                                 </div>
                             </Card>
                         ))}
@@ -743,9 +748,9 @@ export default function TrackShelterPage() {
                         {shelters?.filter(s => s.droneVideoUrl || (s.photoGallery && s.photoGallery.length > 0)).length === 0 && (
                             <Card className="col-span-full py-12 flex flex-col items-center justify-center border-dashed">
                                 <Video className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
-                                <h3 className="text-lg font-semibold">No Media Assets Uploaded</h3>
+                                <h3 className="text-lg font-semibold">{t('admin.trackShelter.media.noAssets')}</h3>
                                 <p className="text-muted-foreground max-w-sm text-center mt-2">
-                                    Drone videos and high-resolution site photos can be added via the "Manage" button in the Shelter Overview tab.
+                                    {t('admin.trackShelter.media.noAssetsDesc')}
                                 </p>
                             </Card>
                         )}
@@ -755,8 +760,8 @@ export default function TrackShelterPage() {
                 <TabsContent value="capacity" className="mt-6">
                     <Card className="max-w-4xl overflow-hidden">
                         <CardHeader className="p-3 sm:p-6">
-                            <CardTitle className="text-lg sm:text-xl">Capacity Management</CardTitle>
-                            <CardDescription className="text-sm sm:text-base">View detailed capacity information and manage shelter spaces.</CardDescription>
+                            <CardTitle className="text-lg sm:text-xl">{t('admin.trackShelter.capacity.title')}</CardTitle>
+                            <CardDescription className="text-sm sm:text-base">{t('admin.trackShelter.capacity.desc')}</CardDescription>
                         </CardHeader>
                         <CardContent className="p-2 sm:p-6">
                             {/* Mobile Card Layout */}
@@ -796,27 +801,27 @@ export default function TrackShelterPage() {
                                                     </div>
                                                     <div className="grid grid-cols-3 gap-3 text-sm">
                                                         <div>
-                                                            <p className="text-muted-foreground">Occupied</p>
+                                                            <p className="text-muted-foreground">{t('admin.trackShelter.capacity.occupied')}</p>
                                                             <p className="font-medium">{occupied}</p>
                                                         </div>
                                                         <div>
-                                                            <p className="text-muted-foreground">Available</p>
+                                                            <p className="text-muted-foreground">{t('admin.trackShelter.capacity.available')}</p>
                                                             <p className="font-medium text-green-600">{shelter.availableCapacity}</p>
                                                         </div>
                                                         <div>
-                                                            <p className="text-muted-foreground">Total</p>
+                                                            <p className="text-muted-foreground">{t('admin.trackShelter.capacity.total')}</p>
                                                             <p className="font-medium">{shelter.capacity}</p>
                                                         </div>
                                                     </div>
                                                     <div>
-                                                        <p className="text-sm text-muted-foreground mb-2">Occupancy</p>
+                                                        <p className="text-sm text-muted-foreground mb-2">{t('admin.trackShelter.capacity.occupancy')}</p>
                                                         <div className="flex items-center gap-2">
                                                             <Progress value={percentage} className="h-2 flex-1" />
                                                             <span className="text-xs text-muted-foreground">{percentage}%</span>
                                                         </div>
                                                     </div>
                                                     <Button variant="outline" size="sm" onClick={() => handleManage(shelter)} className="w-full">
-                                                        <Edit className="mr-2 h-4 w-4" /> Manage
+                                                        <Edit className="mr-2 h-4 w-4" /> {t('admin.trackShelter.capacity.manage')}
                                                     </Button>
                                                 </div>
                                             </Card>
@@ -831,13 +836,13 @@ export default function TrackShelterPage() {
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead className="min-w-[100px]">Shelter</TableHead>
-                                                <TableHead className="min-w-[80px]">Status</TableHead>
-                                                <TableHead className="text-right min-w-[60px]">Occupied</TableHead>
-                                                <TableHead className="text-right min-w-[60px]">Available</TableHead>
-                                                <TableHead className="text-right min-w-[60px]">Total</TableHead>
-                                                <TableHead className="min-w-[100px]">Occupancy</TableHead>
-                                                <TableHead className="text-right min-w-[80px]">Actions</TableHead>
+                                                <TableHead className="min-w-[100px]">{t('admin.trackShelter.capacity.table.shelter')}</TableHead>
+                                                <TableHead className="min-w-[80px]">{t('admin.trackShelter.capacity.table.status')}</TableHead>
+                                                <TableHead className="text-right min-w-[60px]">{t('admin.trackShelter.capacity.table.occupied')}</TableHead>
+                                                <TableHead className="text-right min-w-[60px]">{t('admin.trackShelter.capacity.table.available')}</TableHead>
+                                                <TableHead className="text-right min-w-[60px]">{t('admin.trackShelter.capacity.table.total')}</TableHead>
+                                                <TableHead className="min-w-[100px]">{t('admin.trackShelter.capacity.table.occupancy')}</TableHead>
+                                                <TableHead className="text-right min-w-[80px]">{t('admin.trackShelter.capacity.table.actions')}</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -886,7 +891,7 @@ export default function TrackShelterPage() {
                                                         </TableCell>
                                                         <TableCell className="text-right">
                                                             <Button variant="outline" size="sm" onClick={() => handleManage(shelter)} className="text-xs sm:text-sm">
-                                                                <Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Manage
+                                                                <Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> {t('admin.trackShelter.capacity.manage')}
                                                             </Button>
                                                         </TableCell>
                                                     </TableRow>
@@ -902,9 +907,9 @@ export default function TrackShelterPage() {
                 <TabsContent value="operations" className="mt-6">
                     <Card className="max-w-full overflow-hidden">
                         <CardHeader className="p-3 sm:p-6">
-                            <CardTitle className="text-lg sm:text-xl">Shelter Operations</CardTitle>
+                            <CardTitle className="text-lg sm:text-xl">{t('admin.trackShelter.operations.title')}</CardTitle>
                             <CardDescription className="text-sm sm:text-base">
-                                Monitor operational status, requests, and contact managers.
+                                {t('admin.trackShelter.operations.desc')}
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="p-2 sm:p-6">
@@ -941,21 +946,21 @@ export default function TrackShelterPage() {
                                                     </div>
                                                     <div className="grid grid-cols-2 gap-3 text-sm">
                                                         <div>
-                                                            <p className="text-muted-foreground">Manager</p>
+                                                            <p className="text-muted-foreground">{t('admin.trackShelter.operations.manager')}</p>
                                                             <p className="font-medium">{shelter.managerName}</p>
                                                         </div>
                                                         <div>
-                                                            <p className="text-muted-foreground">Contact</p>
+                                                            <p className="text-muted-foreground">{t('admin.trackShelter.operations.contact')}</p>
                                                             <p className="font-medium">{shelter.phone}</p>
                                                         </div>
                                                     </div>
                                                     <div className="grid grid-cols-2 gap-3 text-sm">
                                                         <div>
-                                                            <p className="text-muted-foreground">Emergency Requests</p>
+                                                            <p className="text-muted-foreground">{t('admin.trackShelter.operations.emergencyRequests')}</p>
                                                             <p className="font-bold">{shelter.requests}</p>
                                                         </div>
                                                         <div>
-                                                            <p className="text-muted-foreground">Occupancy Trend</p>
+                                                            <p className="text-muted-foreground">{t('admin.trackShelter.operations.occupancyTrend')}</p>
                                                             <div className="flex items-center gap-1">
                                                                 {trendInfo.icon}
                                                                 <span>{trendInfo.text}</span>
@@ -963,15 +968,15 @@ export default function TrackShelterPage() {
                                                         </div>
                                                     </div>
                                                     <div>
-                                                        <p className="text-sm text-muted-foreground">Last Update</p>
+                                                        <p className="text-sm text-muted-foreground">{t('admin.trackShelter.operations.lastUpdate')}</p>
                                                         <p className="text-sm">{formatTimestamp(shelter.lastUpdate)}</p>
                                                     </div>
                                                     <div className="flex flex-col gap-2">
                                                         <Button variant="outline" size="sm" asChild className="w-full">
-                                                            <a href={`tel:${shelter.phone}`}><Phone className="mr-2 h-4 w-4" /> Call</a>
+                                                            <a href={`tel:${shelter.phone}`}><Phone className="mr-2 h-4 w-4" /> {t('admin.trackShelter.operations.call')}</a>
                                                         </Button>
                                                         <Button variant="outline" size="sm" onClick={() => handleManage(shelter)} className="w-full">
-                                                            <Edit className="mr-2 h-4 w-4" /> Manage
+                                                            <Edit className="mr-2 h-4 w-4" /> {t('admin.trackShelter.operations.manage')}
                                                         </Button>
                                                     </div>
                                                 </div>
@@ -987,13 +992,13 @@ export default function TrackShelterPage() {
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead className="min-w-[100px]">Shelter</TableHead>
-                                                <TableHead className="min-w-[80px]">Manager</TableHead>
-                                                <TableHead className="min-w-[80px]">Contact</TableHead>
-                                                <TableHead className="text-center min-w-[100px]">Emergency Requests</TableHead>
-                                                <TableHead className="min-w-[100px]">Occupancy Trend</TableHead>
-                                                <TableHead className="min-w-[80px]">Last Update</TableHead>
-                                                <TableHead className="text-right min-w-[120px]">Actions</TableHead>
+                                                <TableHead className="min-w-[100px]">{t('admin.trackShelter.operations.table.shelter')}</TableHead>
+                                                <TableHead className="min-w-[80px]">{t('admin.trackShelter.operations.table.manager')}</TableHead>
+                                                <TableHead className="min-w-[80px]">{t('admin.trackShelter.operations.table.contact')}</TableHead>
+                                                <TableHead className="text-center min-w-[100px]">{t('admin.trackShelter.operations.table.requests')}</TableHead>
+                                                <TableHead className="min-w-[100px]">{t('admin.trackShelter.operations.table.trend')}</TableHead>
+                                                <TableHead className="min-w-[80px]">{t('admin.trackShelter.operations.table.lastUpdate')}</TableHead>
+                                                <TableHead className="text-right min-w-[120px]">{t('admin.trackShelter.operations.table.actions')}</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -1039,10 +1044,10 @@ export default function TrackShelterPage() {
                                                         <TableCell className="text-right">
                                                             <div className="flex flex-col sm:flex-row gap-1 sm:gap-2 justify-end">
                                                                 <Button variant="outline" size="sm" asChild className="w-full sm:w-auto">
-                                                                    <a href={`tel:${shelter.phone}`}><Phone className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Call</a>
+                                                                    <a href={`tel:${shelter.phone}`}><Phone className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> {t('admin.trackShelter.operations.call')}</a>
                                                                 </Button>
                                                                 <Button variant="outline" size="sm" onClick={() => handleManage(shelter)} className="w-full sm:w-auto">
-                                                                    <Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Manage
+                                                                    <Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> {t('admin.trackShelter.operations.manage')}
                                                                 </Button>
                                                             </div>
                                                         </TableCell>

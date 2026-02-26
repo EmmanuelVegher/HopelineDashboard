@@ -6,6 +6,7 @@ import { Pie, PieChart, Cell, Bar, BarChart, XAxis, YAxis, CartesianGrid } from 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
 import { type AdminUser, type Driver } from "@/lib/data"
+import { useTranslation } from "react-i18next"
 
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
@@ -16,6 +17,7 @@ const userRoleConfig = {
 } satisfies ChartConfig
 
 export function UserRoleDistributionChart({ users, drivers }: { users: AdminUser[], drivers: Driver[] }) {
+    const { t } = useTranslation();
     const data = useMemo(() => {
         const roleCounts: { [key: string]: number } = {};
 
@@ -39,8 +41,8 @@ export function UserRoleDistributionChart({ users, drivers }: { users: AdminUser
     return (
         <Card className="flex flex-col">
             <CardHeader className="items-center pb-0">
-                <CardTitle>User Role Distribution</CardTitle>
-                <CardDescription>Breakdown of accounts by access level</CardDescription>
+                <CardTitle>{t("admin.userManagement.charts.roleDistribution")}</CardTitle>
+                <CardDescription>{t("admin.userManagement.charts.roleDistributionDesc")}</CardDescription>
             </CardHeader>
             <CardContent className="flex-1 pb-0">
                 <ChartContainer config={userRoleConfig} className="mx-auto aspect-square h-[300px]">
@@ -67,6 +69,7 @@ export function UserRoleDistributionChart({ users, drivers }: { users: AdminUser
 }
 
 export function RegistrationTrendChart({ users }: { users: AdminUser[] }) {
+    const { t } = useTranslation();
     const data = useMemo(() => {
         // This is a dummy trend since we might not have createdAt for all users
         // If we had createdAt, we'd use it. For now, let's pretend or use profile completion as a dummy axis
@@ -86,8 +89,8 @@ export function RegistrationTrendChart({ users }: { users: AdminUser[] }) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Profile Completion Analytics</CardTitle>
-                <CardDescription>User engagement based on profile progress</CardDescription>
+                <CardTitle>{t("admin.userManagement.charts.profileCompletion")}</CardTitle>
+                <CardDescription>{t("admin.userManagement.charts.profileCompletionDesc")}</CardDescription>
             </CardHeader>
             <CardContent>
                 <ChartContainer config={{ users: { label: "Users", color: "hsl(var(--chart-1))" } }} className="h-[300px] w-full">
@@ -109,26 +112,27 @@ export function RegistrationTrendChart({ users }: { users: AdminUser[] }) {
 }
 
 export function UserStatusAnalytics({ users }: { users: AdminUser[] }) {
+    const { t } = useTranslation();
     const stats = useMemo(() => {
         const active = users.filter(u => u.accountStatus?.toLowerCase() === 'active').length;
         const inactive = users.length - active;
         return [
-            { name: 'Active', count: active },
-            { name: 'Inactive', count: inactive }
+            { name: t("admin.userManagement.charts.active"), count: active },
+            { name: t("admin.userManagement.charts.inactive"), count: inactive }
         ];
-    }, [users]);
+    }, [users, t]);
 
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Account Status</CardTitle>
-                <CardDescription>Overview of active vs inactive user accounts</CardDescription>
+                <CardTitle>{t("admin.userManagement.charts.accountStatus")}</CardTitle>
+                <CardDescription>{t("admin.userManagement.charts.accountStatusDesc")}</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="flex justify-around items-center h-[200px]">
                     {stats.map((stat) => (
                         <div key={stat.name} className="text-center">
-                            <div className={stat.name === 'Active' ? "text-4xl font-bold text-green-600" : "text-4xl font-bold text-gray-400"}>
+                            <div className={stat.name === t("admin.userManagement.charts.active") ? "text-4xl font-bold text-green-600" : "text-4xl font-bold text-gray-400"}>
                                 {stat.count}
                             </div>
                             <div className="text-sm text-muted-foreground uppercase tracking-wider font-semibold mt-2">

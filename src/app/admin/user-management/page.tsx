@@ -70,27 +70,27 @@ const UserActionsMenu = ({ userId, currentRole, currentState, currentStatus, onU
             <DropdownMenuSubContent>
               <DropdownMenuItem onClick={() => handleUpdate('role', 'displaced_person')}>
                 {currentRole === 'displaced_person' && <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />}
-                Beneficiary
+                {t("admin.userManagement.roles.beneficiary")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleUpdate('role', 'user')}>
                 {currentRole === 'user' && <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />}
-                User (Standard)
+                {t("admin.userManagement.roles.userStandard")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleUpdate('role', 'driver')}>
                 {currentRole === 'driver' && <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />}
-                Driver
+                {t("admin.userManagement.roles.driver")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleUpdate('role', 'support agent')}>
                 {currentRole === 'support agent' && <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />}
-                Support Agent
+                {t("admin.userManagement.roles.supportAgent")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleUpdate('role', 'Admin')}>
                 {currentRole === 'Admin' && <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />}
-                Admin
+                {t("admin.userManagement.roles.admin")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleUpdate('role', 'super-admin')}>
                 {currentRole === 'super-admin' && <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />}
-                Super Admin
+                {t("admin.userManagement.roles.superAdmin")}
               </DropdownMenuItem>
             </DropdownMenuSubContent>
           </DropdownMenuPortal>
@@ -106,7 +106,7 @@ const UserActionsMenu = ({ userId, currentRole, currentState, currentStatus, onU
             <DropdownMenuSubContent className="max-h-[300px] overflow-y-auto">
               <DropdownMenuItem onClick={() => handleUpdate('state', '')}>
                 {!currentState && <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />}
-                No State (Unassigned)
+                {t("admin.userManagement.roles.noStateUnassigned")}
               </DropdownMenuItem>
               {NIGERIA_STATES.map((state) => (
                 <DropdownMenuItem key={state} onClick={() => handleUpdate('state', state)}>
@@ -128,15 +128,15 @@ const UserActionsMenu = ({ userId, currentRole, currentState, currentStatus, onU
             <DropdownMenuSubContent>
               <DropdownMenuItem onClick={() => handleUpdate('accountStatus', 'active')}>
                 {currentStatus === 'active' && <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />}
-                Activate
+                {t("admin.userManagement.actions.activate")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleUpdate('accountStatus', 'suspended')} className="text-orange-600">
                 {currentStatus === 'suspended' && <CheckCircle2 className="mr-2 h-4 w-4" />}
-                Suspend
+                {t("admin.userManagement.actions.suspend")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleUpdate('accountStatus', 'terminated')} className="text-red-600">
                 {currentStatus === 'terminated' && <CheckCircle2 className="mr-2 h-4 w-4" />}
-                Terminate
+                {t("admin.userManagement.actions.terminate")}
               </DropdownMenuItem>
             </DropdownMenuSubContent>
           </DropdownMenuPortal>
@@ -400,7 +400,7 @@ export default function UserManagementPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-800">{loading ? <Skeleton className="h-8 w-12" /> : stats.displacedCollection}</div>
-            <p className="text-[10px] text-green-600 mt-1">{stats.displacedRole} with accounts</p>
+            <p className="text-[10px] text-green-600 mt-1">{stats.displacedRole} {t("admin.userManagement.stats.withAccounts")}</p>
           </CardContent>
         </Card>
 
@@ -530,7 +530,7 @@ export default function UserManagementPage() {
                   </Card>
                 ))
               ) : !permissionError ? (
-                <p className="text-center text-muted-foreground py-8">No users found.</p>
+                <p className="text-center text-muted-foreground py-8">{t("admin.userManagement.table.noUsers")}</p>
               ) : null}
             </div>
           </div>
@@ -631,11 +631,11 @@ export default function UserManagementPage() {
           {totalPages > 1 && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-2">
               <div className="text-sm text-muted-foreground order-2 sm:order-1">
-                Showing <span className="font-medium text-foreground">{startIndex + 1}</span> to{" "}
+                {t("admin.userManagement.pagination.showing")} <span className="font-medium text-foreground">{startIndex + 1}</span> {t("admin.userManagement.pagination.to")}{" "}
                 <span className="font-medium text-foreground">
                   {Math.min(startIndex + itemsPerPage, totalItems)}
                 </span>{" "}
-                of <span className="font-medium text-foreground">{totalItems}</span> users
+                {t("admin.userManagement.pagination.of")} <span className="font-medium text-foreground">{totalItems}</span> {t("admin.userManagement.pagination.users")}
               </div>
               <div className="flex items-center space-x-2 order-1 sm:order-2">
                 <Button
@@ -658,7 +658,7 @@ export default function UserManagementPage() {
                 </Button>
 
                 <div className="flex items-center px-2 min-w-[3rem] justify-center text-sm font-medium">
-                  Page {currentPage} of {totalPages}
+                  {t("admin.userManagement.pagination.page")} {currentPage} {t("admin.userManagement.pagination.of")} {totalPages}
                 </div>
 
                 <Button

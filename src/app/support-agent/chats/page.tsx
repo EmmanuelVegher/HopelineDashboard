@@ -30,6 +30,7 @@ import { MessageStatus } from "@/components/message-status";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useAdminData } from "@/contexts/AdminDataProvider";
 import { CallInterface } from "@/components/chat/call-interface";
+import { useTranslation } from "react-i18next";
 
 // generateChannelName is now defined locally, so no import needed. 
 // Actually generateChannelName might be in admin chats page, let's check if we can import it or need to duplicate/move it.
@@ -82,6 +83,7 @@ interface SupportAgentSettings {
 }
 
 export default function SupportAgentChatsPage() {
+  const { t } = useTranslation();
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -113,9 +115,9 @@ export default function SupportAgentChatsPage() {
 
   const getAgentProfile = () => {
     const uid = auth.currentUser?.uid;
-    if (!uid || !userData[uid]) return { name: 'Support Agent', avatar: '' };
+    if (!uid || !userData[uid]) return { name: t('common.roles.supportAgent'), avatar: '' };
     return {
-      name: `${userData[uid].firstName} ${userData[uid].lastName}`.trim() || 'Support Agent',
+      name: `${userData[uid].firstName} ${userData[uid].lastName}`.trim() || t('common.roles.supportAgent'),
       avatar: userData[uid].image || ''
     };
   };
@@ -126,35 +128,38 @@ export default function SupportAgentChatsPage() {
 
   useEffect(scrollToBottom, [messages]);
 
-  // Load user settings
+  // Load user settings with real-time sync
   useEffect(() => {
-    const loadSettings = async () => {
+    let unsubscribe: (() => void) | undefined;
+
+    const setupListener = async () => {
       const user = auth.currentUser;
       if (!user) return;
 
-      try {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
+      unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snapshot) => {
+        if (snapshot.exists()) {
+          const userData = snapshot.data();
           const userSettings = userData.settings || {};
           setSettings({
             defaultLanguage: userData.language || userSettings.defaultLanguage || 'English',
             autoTranslate: userSettings.autoTranslate || false
           });
         }
-      } catch (error) {
-        console.error("Error loading settings:", error);
-      }
+      });
     };
-    loadSettings();
+
+    setupListener();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   // Handle media load errors with fallback
   function handleMediaError(attachment: Attachment, error: Error) {
     console.error(`Failed to load media ${attachment.type}: ${attachment.filename}`, error);
     toast({
-      title: "Media Load Error",
-      description: `Failed to load ${attachment.filename} (${attachment.type})`,
+      title: t('supportAgent.chats.mediaLoadError'),
+      description: `${t('supportAgent.chats.failedToLoad')} ${attachment.filename} (${attachment.type})`,
       variant: "destructive"
     });
   }
@@ -195,7 +200,7 @@ export default function SupportAgentChatsPage() {
         sessions.push({
           id: chatDoc.id,
           userId: otherUserId,
-          fullName: 'Unknown User',
+          fullName: t('common.unknownUser'),
           userImage: data.userImage,
           lastMessage: data.lastMessage || '',
           lastMessageTime: data.lastMessageTimestamp?.toDate() || new Date(),
@@ -401,7 +406,7 @@ export default function SupportAgentChatsPage() {
     } catch (error) {
       console.error("Error sending message:", error);
       setInputValue(originalText);
-      toast({ title: "Error", description: "Failed to send message", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('supportAgent.chats.failedToSend'), variant: "destructive" });
     } finally {
       setSending(false);
     }
@@ -413,10 +418,10 @@ export default function SupportAgentChatsPage() {
         status: 'closed',
         closedAt: serverTimestamp()
       });
-      toast({ title: "Chat Closed", description: "Chat session has been closed" });
+      toast({ title: t('supportAgent.chats.chatClosed'), description: t('supportAgent.chats.chatClosedDesc') });
     } catch (error) {
       console.error("Error closing chat:", error);
-      toast({ title: "Error", description: "Failed to close chat", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('supportAgent.chats.failedToCloseChat'), variant: "destructive" });
     }
   };
 
@@ -449,14 +454,14 @@ export default function SupportAgentChatsPage() {
           userLanguage: user.language || 'English',
           status: 'active',
           createdAt: serverTimestamp(),
-          lastMessage: 'Conversation started',
+          lastMessage: t('supportAgent.chats.conversationStarted'),
           lastMessageTimestamp: serverTimestamp(),
           unreadCount: 0,
           participants: [agentId, user.id],
           participantInfo: {
             [agentId]: {
               email: auth.currentUser?.email || '',
-              name: 'Support Agent', // This could be better if we fetch own profile
+              name: t('common.roles.supportAgent'), // This could be better if we fetch own profile
               role: 'support agent'
             },
             [user.id]: {
@@ -481,10 +486,10 @@ export default function SupportAgentChatsPage() {
         }
       }));
 
-      toast({ title: "Chat Started", description: `You can now message ${user.firstName}` });
+      toast({ title: t('supportAgent.chats.chatStartedWith', { name: user.firstName }), description: t('supportAgent.chats.chatStartedWith', { name: user.firstName }) });
     } catch (error) {
       console.error("Error starting chat:", error);
-      toast({ title: "Error", description: "Failed to start chat", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('supportAgent.chats.failedToStartChat'), variant: "destructive" });
     }
   };
 
@@ -516,7 +521,7 @@ export default function SupportAgentChatsPage() {
         channelName={activeCall.channelName}
         recipientName={activeCall.recipientName}
         recipientImage={activeCall.recipientImage}
-        userName={auth.currentUser?.displayName || 'Support Agent'}
+        userName={auth.currentUser?.displayName || t('common.roles.supportAgent')}
         userImage={auth.currentUser?.photoURL || ''}
         isIncoming={activeCall.isIncoming}
         onClose={() => setActiveCall(null)} // ✅ Changed onEndCall to onClose
@@ -532,13 +537,13 @@ export default function SupportAgentChatsPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-2">
-              Active Chat Sessions
+              {t('supportAgent.chats.title')}
             </h1>
-            <p className="text-muted-foreground">Manage and respond to user support requests</p>
+            <p className="text-muted-foreground">{t('supportAgent.chats.subtitle')}</p>
           </div>
           <Button onClick={() => setIsNewChatOpen(true)} className="gap-2">
             <Plus className="h-4 w-4" />
-            New Conversation
+            {t('supportAgent.chats.newConversation')}
           </Button>
         </div>
 
@@ -546,8 +551,8 @@ export default function SupportAgentChatsPage() {
           {/* Chat Sessions List */}
           <Card className="lg:col-span-1">
             <CardHeader>
-              <CardTitle className="text-lg">Chat Sessions</CardTitle>
-              <CardDescription>{chatSessions.length} active chats</CardDescription>
+              <CardTitle className="text-lg">{t('supportAgent.chats.chatSessions')}</CardTitle>
+              <CardDescription>{chatSessions.length} {t('supportAgent.chats.activeChats')}</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <ScrollArea className="h-[800px]">
@@ -566,7 +571,7 @@ export default function SupportAgentChatsPage() {
                 ) : chatSessions.length === 0 ? (
                   <div className="p-8 text-center text-muted-foreground">
                     <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No active chat sessions</p>
+                    <p>{t('supportAgent.chats.noActiveChats')}</p>
                   </div>
                 ) : (
                   <div className="space-y-1">
@@ -610,7 +615,7 @@ export default function SupportAgentChatsPage() {
                                       ? "bg-primary text-primary-foreground"
                                       : "bg-muted text-muted-foreground"
                                       }`}>
-                                      {msg.content || (msg.attachments ? 'Attachment' : 'Message')}
+                                      {msg.content || (msg.attachments ? t('supportAgent.chats.attachment') : t('supportAgent.chats.message'))}
                                     </div>
                                   </div>
                                 ))}
@@ -714,7 +719,7 @@ export default function SupportAgentChatsPage() {
                         }
                       }}>
                         <Phone className="h-4 w-4 mr-2" />
-                        Call
+                        {t('supportAgent.chats.call')}
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => {
                         if (selectedChat && auth.currentUser) {
@@ -769,7 +774,7 @@ export default function SupportAgentChatsPage() {
                         }
                       }}>
                         <Video className="h-4 w-4 mr-2" />
-                        Video Call
+                        {t('supportAgent.chats.videoCall')}
                       </Button>
 
                       <Button
@@ -778,7 +783,7 @@ export default function SupportAgentChatsPage() {
                         onClick={() => handleCloseChat(selectedChat.id)}
                       >
                         <CheckCircle className="h-4 w-4 mr-2" />
-                        Close Chat
+                        {t('supportAgent.chats.closeChat')}
                       </Button>
 
                     </div>
@@ -789,7 +794,7 @@ export default function SupportAgentChatsPage() {
                   {messages.length === 0 ? (
                     <div className="text-center text-muted-foreground py-8">
                       <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>No messages yet. Start the conversation!</p>
+                      <p>{t('supportAgent.chats.startConversation')}</p>
                     </div>
                   ) : (
                     messages.map((message) => (
@@ -831,7 +836,7 @@ export default function SupportAgentChatsPage() {
                                             }}
                                           />
                                           <div className="hidden text-xs text-red-500 mt-1">
-                                            Failed to load {attachment.filename}
+                                            {t('supportAgent.chats.failedToLoad')} {attachment.filename}
                                           </div>
                                         </div>
                                         <div className="flex justify-between items-center mt-1">
@@ -863,7 +868,7 @@ export default function SupportAgentChatsPage() {
                                             }}
                                           />
                                           <div className="hidden text-xs text-red-500 mt-1">
-                                            Failed to load {attachment.filename}
+                                            {t('supportAgent.chats.failedToLoad')} {attachment.filename}
                                           </div>
                                         </div>
                                         <div className="flex justify-between items-center mt-1">
@@ -894,7 +899,7 @@ export default function SupportAgentChatsPage() {
                                             }}
                                           />
                                           <div className="hidden text-xs text-red-500">
-                                            Failed to load {attachment.filename}
+                                            {t('supportAgent.chats.failedToLoad')} {attachment.filename}
                                           </div>
                                         </div>
                                         <div className="flex justify-between items-center mt-1">
@@ -973,7 +978,7 @@ export default function SupportAgentChatsPage() {
                 <div className="p-4 border-t bg-card">
                   <div className="relative flex-1">
                     <Input
-                      placeholder="Type your response..."
+                      placeholder={t('supportAgent.chats.typeResponse')}
                       value={inputValue}
                       onChange={(e) => setInputValue(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
@@ -1002,8 +1007,8 @@ export default function SupportAgentChatsPage() {
               <div className="h-[600px] flex items-center justify-center text-center">
                 <div>
                   <MessageSquare className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">Select a Chat Session</h3>
-                  <p className="text-muted-foreground">Choose a chat from the list to start responding to user messages</p>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">{t('supportAgent.chats.selectChat')}</h3>
+                  <p className="text-muted-foreground">{t('supportAgent.chats.selectChatDesc')}</p>
                 </div>
               </div>
             )}
@@ -1015,14 +1020,14 @@ export default function SupportAgentChatsPage() {
       <Dialog open={isNewChatOpen} onOpenChange={setIsNewChatOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>New Conversation</DialogTitle>
-            <DialogDescription>Search for a user or support agent to start a chat.</DialogDescription>
+            <DialogTitle>{t('supportAgent.chats.newConversation')}</DialogTitle>
+            <DialogDescription>{t('supportAgent.chats.searchUsersDesc')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name or email..."
+                placeholder={t('supportAgent.chats.searchUsersPlaceholder')}
                 className="pl-9"
                 value={userSearchTerm}
                 onChange={(e) => setUserSearchTerm(e.target.value)}
@@ -1031,7 +1036,7 @@ export default function SupportAgentChatsPage() {
             <ScrollArea className="h-[300px] border rounded-md p-2">
               <div className="space-y-1">
                 {filteredUsers.length === 0 ? (
-                  <p className="text-center text-xs text-muted-foreground py-8">No matching users found</p>
+                  <p className="text-center text-xs text-muted-foreground py-8">{t('supportAgent.chats.noMatchingUsers')}</p>
                 ) : (
                   filteredUsers.map((user) => (
                     <div

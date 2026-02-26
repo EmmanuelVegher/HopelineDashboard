@@ -12,15 +12,11 @@ import {
   PhoneOff,
   Mic,
   MicOff,
-  Volume2,
   VolumeX,
   Clock,
   MapPin,
   Globe,
   User,
-  AlertCircle,
-  CheckCircle,
-  Video,
   VideoOff
 } from "lucide-react";
 import { collection, query, where, onSnapshot, orderBy, updateDoc, doc } from "firebase/firestore";
@@ -28,6 +24,7 @@ import { db, auth } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { agoraManager } from "@/utils/agora";
 import { generateAgoraToken } from "@/ai/client";
+import { useTranslation } from "react-i18next";
 
 interface CallSession {
   id: string;
@@ -45,6 +42,7 @@ interface CallSession {
 }
 
 export default function SupportAgentCallsPage() {
+  const { t } = useTranslation();
   const [activeCalls, setActiveCalls] = useState<CallSession[]>([]);
   const [callHistory, setCallHistory] = useState<CallSession[]>([]);
   const [selectedCall, setSelectedCall] = useState<CallSession | null>(null);
@@ -73,7 +71,7 @@ export default function SupportAgentCallsPage() {
         calls.push({
           id: doc.id,
           userId: data.userId,
-          userName: data.userName || 'Unknown User',
+          userName: data.userName || t('common.unknownUser'),
           userImage: data.userImage,
           status: data.status || 'ringing',
           startTime: data.startTime?.toDate(),
@@ -105,7 +103,7 @@ export default function SupportAgentCallsPage() {
         calls.push({
           id: doc.id,
           userId: data.userId,
-          userName: data.userName || 'Unknown User',
+          userName: data.userName || t('common.unknownUser'),
           userImage: data.userImage,
           status: data.status || 'ended',
           startTime: data.startTime?.toDate(),
@@ -197,7 +195,7 @@ export default function SupportAgentCallsPage() {
       setIsInCall(true);
       setIsAgoraConnected(true);
       setCallDuration(0);
-      toast({ title: "Call Connected", description: `Connected to ${call.userName}` });
+      toast({ title: t('supportAgent.calls.connectedTitle'), description: t('supportAgent.calls.connectedTo', { userName: call.userName }) });
     } catch (error) {
       console.error("Error accepting call:", error);
       toast({ title: "Error", description: "Failed to accept call", variant: "destructive" });
@@ -212,7 +210,7 @@ export default function SupportAgentCallsPage() {
         agentId: auth.currentUser?.uid
       });
       setSelectedCall(null);
-      toast({ title: "Call Declined", description: `You declined the call from ${call.userName}` });
+      toast({ title: t('supportAgent.calls.declinedTitle'), description: t('supportAgent.calls.declinedDesc', { userName: call.userName }) });
     } catch (error) {
       console.error("Error declining call:", error);
       toast({ title: "Error", description: "Failed to decline call", variant: "destructive" });
@@ -238,7 +236,7 @@ export default function SupportAgentCallsPage() {
       setIsAgoraConnected(false);
       setIsVideoEnabled(false);
       setCallDuration(0);
-      toast({ title: "Call Ended", description: `Call with ${selectedCall.userName} ended` });
+      toast({ title: t('supportAgent.calls.endedTitle'), description: t('supportAgent.calls.endedDesc', { userName: selectedCall.userName }) });
     } catch (error) {
       console.error("Error ending call:", error);
       toast({ title: "Error", description: "Failed to end call", variant: "destructive" });
@@ -282,10 +280,10 @@ export default function SupportAgentCallsPage() {
             <PhoneCall className="h-8 w-8 sm:h-10 sm:w-10 text-primary-foreground" />
           </div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-green-600 to-cyan-600 bg-clip-text text-transparent mb-3 sm:mb-4">
-            Voice Calls Management
+            {t('supportAgent.calls.title')}
           </h1>
           <p className="text-muted-foreground text-sm sm:text-base lg:text-lg">
-            Handle voice and video calls from users in need
+            {t('supportAgent.calls.subtitle')}
           </p>
         </div>
 
@@ -295,16 +293,16 @@ export default function SupportAgentCallsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Phone className="h-5 w-5" />
-                Active Calls
+                {t('supportAgent.calls.active')}
               </CardTitle>
-              <CardDescription>{activeCalls.length} calls in progress</CardDescription>
+              <CardDescription>{activeCalls.length} {t('supportAgent.calls.inProgress')}</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <ScrollArea className="h-[400px]">
                 {activeCalls.length === 0 ? (
                   <div className="p-8 text-center text-slate-500">
                     <Phone className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No active calls</p>
+                    <p>{t('supportAgent.calls.noActive')}</p>
                   </div>
                 ) : (
                   <div className="space-y-2 p-4">
@@ -384,7 +382,7 @@ export default function SupportAgentCallsPage() {
                             <User className="h-12 w-12 text-gray-400" />
                           </div>
                         </div>
-                        <p className="text-sm text-center mt-2 text-muted-foreground">Remote Video</p>
+                        <p className="text-sm text-center mt-2 text-muted-foreground">{t('supportAgent.calls.remoteVideo')}</p>
                       </div>
                       <div className="w-48">
                         <div className="bg-black rounded-lg overflow-hidden aspect-video">
@@ -392,7 +390,7 @@ export default function SupportAgentCallsPage() {
                             <User className="h-8 w-8 text-gray-400" />
                           </div>
                         </div>
-                        <p className="text-sm text-center mt-2 text-muted-foreground">Your Video</p>
+                        <p className="text-sm text-center mt-2 text-muted-foreground">{t('supportAgent.calls.localVideo')}</p>
                       </div>
                     </div>
                   )}
@@ -463,7 +461,7 @@ export default function SupportAgentCallsPage() {
                       <h3 className="text-xl font-semibold">{selectedCall.userName}</h3>
                       <p className="text-muted-foreground">{selectedCall.language}</p>
                       <Badge variant="outline" className="mt-2">
-                        {selectedCall.priority.toUpperCase()} PRIORITY
+                        {selectedCall.priority.toUpperCase()} {t('supportAgent.calls.priorityLabel')}
                       </Badge>
                     </div>
                   </div>
@@ -474,8 +472,8 @@ export default function SupportAgentCallsPage() {
                       <PhoneCall className="h-12 w-12 text-green-600 animate-pulse" />
                     </div>
                     <div>
-                      <h4 className="text-lg font-semibold">Incoming Call</h4>
-                      <p className="text-muted-foreground">From {selectedCall.userName}</p>
+                      <h4 className="text-lg font-semibold">{t('supportAgent.calls.incoming')}</h4>
+                      <p className="text-muted-foreground">{t('supportAgent.calls.fromUser', { userName: selectedCall.userName })}</p>
                     </div>
                   </div>
 
@@ -486,7 +484,7 @@ export default function SupportAgentCallsPage() {
                       className="px-8"
                       onClick={() => handleDeclineCall(selectedCall)}
                     >
-                      Decline
+                      {t('supportAgent.calls.decline')}
                     </Button>
                     <Button
                       size="lg"
@@ -494,7 +492,7 @@ export default function SupportAgentCallsPage() {
                       onClick={() => handleAcceptCall(selectedCall)}
                     >
                       <Phone className="h-5 w-5 mr-2" />
-                      Accept Call
+                      {t('supportAgent.calls.accept')}
                     </Button>
                   </div>
                 </CardContent>
@@ -503,8 +501,8 @@ export default function SupportAgentCallsPage() {
               <div className="h-[400px] flex items-center justify-center text-center">
                 <div>
                   <Phone className="h-16 w-16 mx-auto mb-4 text-slate-400" />
-                  <h3 className="text-lg font-semibold text-muted-foreground mb-2">Select a Call</h3>
-                  <p className="text-slate-500">Choose an active call from the list to manage it</p>
+                  <h3 className="text-lg font-semibold text-muted-foreground mb-2">{t('supportAgent.calls.selectCall')}</h3>
+                  <p className="text-slate-500">{t('supportAgent.calls.selectCallHint')}</p>
                 </div>
               </div>
             )}
@@ -516,15 +514,15 @@ export default function SupportAgentCallsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5" />
-              Recent Call History
+              {t('supportAgent.calls.history')}
             </CardTitle>
-            <CardDescription>Calls from the last 24 hours</CardDescription>
+            <CardDescription>{t('supportAgent.calls.historySubtitle')}</CardDescription>
           </CardHeader>
           <CardContent>
             {callHistory.length === 0 ? (
               <div className="text-center py-8">
                 <Clock className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                <p className="text-muted-foreground">No recent calls</p>
+                <p className="text-muted-foreground">{t('supportAgent.calls.noHistory')}</p>
               </div>
             ) : (
               <div className="space-y-4">

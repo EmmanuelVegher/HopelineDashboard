@@ -44,6 +44,23 @@ const RETRY_CONFIG: RetryConfig = {
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
 
+const getRoleTranslation = (role: string | undefined, t: any) => {
+    if (!role) return t("admin.profile.notSet");
+    const roleMap: Record<string, string> = {
+        'Super Admin': t('admin.userManagement.roles.superAdmins') || t('admin.userManagement.roles.superAdmin') || 'Super Admin',
+        'Admin': t('admin.userManagement.roles.admins') || t('admin.userManagement.roles.admin') || 'Admin',
+        'Agent': t('admin.userManagement.roles.agents') || t('admin.userManagement.roles.supportAgent') || 'Support Agent',
+        'Support Agent': t('admin.userManagement.roles.agents') || t('admin.userManagement.roles.supportAgent') || 'Support Agent',
+        'Driver': t('admin.userManagement.roles.driver') || 'Driver',
+        'Beneficiary': t('admin.userManagement.roles.beneficiaries') || t('admin.userManagement.roles.beneficiary') || 'Beneficiary',
+        'Health Officer': t('admin.userManagement.roles.healthOfficer') || 'Health Officer',
+        'Dispatch Rider': t('admin.userManagement.roles.dispatchRider') || 'Dispatch Rider',
+        'User': t('admin.userManagement.roles.regularUsers') || t('admin.userManagement.roles.userStandard') || 'User',
+        'User (Standard)': t('admin.userManagement.roles.regularUsers') || t('admin.userManagement.roles.userStandard') || 'User (Standard)',
+    };
+    return roleMap[role] || role;
+};
+
 export default function AdminProfilePage() {
     const { t } = useTranslation();
     const [currentUserProfile, setCurrentUserProfile] = useState<AdminUser | null>(null);
@@ -90,21 +107,20 @@ export default function AdminProfilePage() {
     const validateForm = useCallback((): ValidationErrors => {
         const errors: ValidationErrors = {};
 
-        // Required fields
         if (!editForm.firstName.trim()) {
             errors.firstName = t("admin.profile.firstNameRequired");
         } else if (editForm.firstName.length > 50) {
-            errors.firstName = "First name must be less than 50 characters";
+            errors.firstName = t("admin.profile.validation.firstNameMax");
         } else if (!validateUnicodeSurrogates(editForm.firstName)) {
-            errors.firstName = "First name contains invalid characters";
+            errors.firstName = t("admin.profile.validation.firstNameInvalid");
         }
 
         if (!editForm.lastName.trim()) {
-            errors.lastName = "Last name is required";
+            errors.lastName = t("admin.profile.validation.lastNameRequired");
         } else if (editForm.lastName.length > 50) {
-            errors.lastName = "Last name must be less than 50 characters";
+            errors.lastName = t("admin.profile.validation.lastNameMax");
         } else if (!validateUnicodeSurrogates(editForm.lastName)) {
-            errors.lastName = "Last name contains invalid characters";
+            errors.lastName = t("admin.profile.validation.lastNameInvalid");
         }
 
         // Phone validation (optional but format check if provided)
@@ -213,8 +229,8 @@ export default function AdminProfilePage() {
                 } catch (error) {
                     console.error("Error fetching current user profile:", error);
                     toast({
-                        title: "Error Loading Profile",
-                        description: "Could not load your profile information. Please refresh the page.",
+                        title: t('admin.profile.errors.loadProfileTitle'),
+                        description: t('admin.profile.errors.loadProfileDesc'),
                         variant: "destructive"
                     });
                 }
@@ -281,12 +297,11 @@ export default function AdminProfilePage() {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
 
-            // Validate file
             const validationError = validateImageFile(file);
             if (validationError) {
                 setValidationErrors(prev => ({ ...prev, image: validationError }));
                 toast({
-                    title: "Invalid Image File",
+                    title: t('admin.profile.errors.invalidImageTitle'),
                     description: validationError,
                     variant: "destructive"
                 });
@@ -353,13 +368,12 @@ export default function AdminProfilePage() {
     const handleSave = async () => {
         if (!currentUserProfile) return;
 
-        // Validate form
         const errors = validateForm();
         if (Object.keys(errors).length > 0) {
             setValidationErrors(errors);
             toast({
-                title: "Validation Error",
-                description: "Please fix the errors in the form before saving.",
+                title: t('admin.profile.validation.title'),
+                description: t('admin.profile.validation.desc'),
                 variant: "destructive"
             });
             return;
@@ -381,8 +395,8 @@ export default function AdminProfilePage() {
                 } catch (uploadError) {
                     console.error("Image upload error:", uploadError);
                     toast({
-                        title: "Image Upload Failed",
-                        description: uploadError instanceof Error ? uploadError.message : "Could not upload profile image. Please try again.",
+                        title: t('admin.profile.errors.uploadFailedTitle'),
+                        description: uploadError instanceof Error ? uploadError.message : t('admin.profile.errors.uploadFailedDesc'),
                         variant: "destructive"
                     });
                     return; // Don't proceed with profile update if image upload fails
@@ -420,8 +434,8 @@ export default function AdminProfilePage() {
             } catch (dbError) {
                 console.error("Database update error:", dbError);
                 toast({
-                    title: "Database Error",
-                    description: dbError instanceof Error ? dbError.message : "Could not update profile in database. Please try again.",
+                    title: t('admin.profile.errors.dbErrorTitle'),
+                    description: dbError instanceof Error ? dbError.message : t('admin.profile.errors.dbErrorDesc'),
                     variant: "destructive"
                 });
                 return;
@@ -451,11 +465,11 @@ export default function AdminProfilePage() {
             });
         } catch (error) {
             console.error("Error updating profile:", error);
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            const errorMessage = error instanceof Error ? error.message : t('admin.profile.errors.unknownError');
 
             if (errorMessage.includes('Unicode') || errorMessage.includes('validation')) {
                 toast({
-                    title: "Validation Error",
+                    title: t('admin.profile.validation.title'),
                     description: errorMessage,
                     variant: "destructive",
                 });
@@ -476,7 +490,7 @@ export default function AdminProfilePage() {
             <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold">Admin Profile</h1>
+                        <h1 className="text-3xl font-bold">{t('admin.profile.title')}</h1>
                         <p className="text-muted-foreground">Loading your profile information...</p>
                     </div>
                 </div>
@@ -583,7 +597,7 @@ export default function AdminProfilePage() {
                                         {isEditing ? `${editForm.firstName} ${editForm.lastName}` : `${currentUserProfile?.firstName || ''} ${currentUserProfile?.lastName || ''}`}
                                     </h3>
                                     <p className="text-muted-foreground">{currentUserProfile?.email}</p>
-                                    <Badge variant="secondary" className="mt-1">{currentUserProfile?.role}</Badge>
+                                    <Badge variant="secondary" className="mt-1">{getRoleTranslation(currentUserProfile?.role, t)}</Badge>
                                     {isEditing && imagePreview && (
                                         <div className="mt-2">
                                             <Button
@@ -596,7 +610,7 @@ export default function AdminProfilePage() {
                                                 <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                 </svg>
-                                                Remove Image
+                                                {t("admin.profile.form.removeImage")}
                                             </Button>
                                         </div>
                                     )}
@@ -604,11 +618,11 @@ export default function AdminProfilePage() {
                             </div>
                             {uploadProgress !== null && (
                                 <div className="mt-4">
-                                    <Label className="text-sm font-medium">{t("admin.profile.uploadProgress") || "Upload Progress"}</Label>
+                                    <Label className="text-sm font-medium">{t("admin.profile.form.uploadProgress")}</Label>
                                     <Progress value={uploadProgress} className="mt-1" />
                                     <p className="text-xs text-muted-foreground mt-1">
-                                        {uploadProgress !== null ? Math.round(uploadProgress) : 0}% uploaded
-                                        {retryCount > 0 && ` (Retry ${retryCount}/${RETRY_CONFIG.maxRetries})`}
+                                        {uploadProgress !== null ? Math.round(uploadProgress) : 0}% {t("admin.profile.form.uploaded")}
+                                        {retryCount > 0 && ` (${t("admin.profile.form.retrying")} ${retryCount}/${RETRY_CONFIG.maxRetries})`}
                                     </p>
                                 </div>
                             )}
@@ -625,7 +639,7 @@ export default function AdminProfilePage() {
                                         <Shield className="h-4 w-4 text-muted-foreground" />
                                         <div>
                                             <Label className="text-sm font-medium">{t("admin.profile.roleLabel")}</Label>
-                                            <p className="text-sm text-muted-foreground">{currentUserProfile?.role}</p>
+                                            <p className="text-sm text-muted-foreground">{getRoleTranslation(currentUserProfile?.role, t)}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -698,10 +712,10 @@ export default function AdminProfilePage() {
                                                         <SelectValue placeholder={t("admin.profile.selectAGender") || "Select gender"} />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem value="Male">Male</SelectItem>
-                                                        <SelectItem value="Female">Female</SelectItem>
-                                                        <SelectItem value="Other">Other</SelectItem>
-                                                        <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
+                                                        <SelectItem value="Male">{t("admin.profile.form.genderOptions.male")}</SelectItem>
+                                                        <SelectItem value="Female">{t("admin.profile.form.genderOptions.female")}</SelectItem>
+                                                        <SelectItem value="Other">{t("admin.profile.form.genderOptions.other")}</SelectItem>
+                                                        <SelectItem value="Prefer not to say">{t("admin.profile.form.genderOptions.preferNotToSay")}</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                                 {validationErrors.gender && (
@@ -751,11 +765,11 @@ export default function AdminProfilePage() {
                                                             <SelectValue placeholder={t("admin.profile.selectALanguage") || "Select language"} />
                                                         </SelectTrigger>
                                                         <SelectContent>
-                                                            <SelectItem value="English">English</SelectItem>
-                                                            <SelectItem value="Hausa">Hausa</SelectItem>
-                                                            <SelectItem value="Igbo">Igbo</SelectItem>
-                                                            <SelectItem value="Yoruba">Yoruba</SelectItem>
-                                                            <SelectItem value="Nigerian Pidgin">Nigerian Pidgin</SelectItem>
+                                                            <SelectItem value="English">{t("admin.profile.form.languageOptions.english")}</SelectItem>
+                                                            <SelectItem value="Hausa">{t("admin.profile.form.languageOptions.hausa")}</SelectItem>
+                                                            <SelectItem value="Igbo">{t("admin.profile.form.languageOptions.igbo")}</SelectItem>
+                                                            <SelectItem value="Yoruba">{t("admin.profile.form.languageOptions.yoruba")}</SelectItem>
+                                                            <SelectItem value="Nigerian Pidgin">{t("admin.profile.form.languageOptions.nigerianPidgin")}</SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                     {validationErrors.language && (
@@ -807,7 +821,7 @@ export default function AdminProfilePage() {
                                         {saving ? (
                                             <>
                                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                                {retryCount > 0 ? `Retrying... (${retryCount}/${RETRY_CONFIG.maxRetries})` : t("admin.profile.saving")}
+                                                {retryCount > 0 ? `${t("admin.profile.form.retrying")}... (${retryCount}/${RETRY_CONFIG.maxRetries})` : t("admin.profile.saving")}
                                             </>
                                         ) : (
                                             <>
@@ -826,7 +840,7 @@ export default function AdminProfilePage() {
                     ) : (
                         <div className="text-center py-8">
                             <UserCheck className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                            <p className="text-muted-foreground">Unable to load profile information.</p>
+                            <p className="text-muted-foreground">{t("admin.profile.errors.unableToLoad")}</p>
                         </div>
                     )}
                 </CardContent>

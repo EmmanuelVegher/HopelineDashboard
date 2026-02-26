@@ -2,33 +2,30 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import {
   Bell,
-  BellRing,
+  Trash2,
+  Filter,
+  Clock,
+  Eye,
+  EyeOff,
   MessageSquare,
   Phone,
   AlertTriangle,
-  CheckCircle,
-  Clock,
   User,
   MapPin,
   Globe,
-  Trash2,
   Archive,
-  Eye,
-  EyeOff,
-  Filter,
-  Settings
+  BellRing
 } from "lucide-react";
 import { collection, query, where, onSnapshot, orderBy, limit, updateDoc, doc, deleteDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 interface Notification {
   id: string;
@@ -48,6 +45,7 @@ interface Notification {
 }
 
 export default function SupportAgentNotificationsPage() {
+  const { t } = useTranslation();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [filteredNotifications, setFilteredNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,7 +104,7 @@ export default function SupportAgentNotificationsPage() {
     } catch (error) {
       console.error("Error loading notifications:", error);
       setLoading(false);
-      toast({ title: "Error", description: "Failed to load notifications", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('supportAgent.notifications.failedToLoad'), variant: "destructive" });
     }
   };
 
@@ -136,10 +134,10 @@ export default function SupportAgentNotificationsPage() {
       await updateDoc(doc(db, 'notifications', notificationId), {
         status: 'read'
       });
-      toast({ title: "Marked as Read", description: "Notification marked as read" });
+      toast({ title: t('supportAgent.notifications.markedAsRead'), description: t('supportAgent.notifications.notificationMarkedAsRead') });
     } catch (error) {
       console.error("Error marking notification as read:", error);
-      toast({ title: "Error", description: "Failed to mark as read", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('supportAgent.notifications.failedToMarkAsRead'), variant: "destructive" });
     }
   };
 
@@ -148,10 +146,10 @@ export default function SupportAgentNotificationsPage() {
       await updateDoc(doc(db, 'notifications', notificationId), {
         status: 'unread'
       });
-      toast({ title: "Marked as Unread", description: "Notification marked as unread" });
+      toast({ title: t('supportAgent.notifications.markedAsUnread'), description: t('supportAgent.notifications.notificationMarkedAsUnread') });
     } catch (error) {
       console.error("Error marking notification as unread:", error);
-      toast({ title: "Error", description: "Failed to mark as unread", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('supportAgent.notifications.failedToMarkAsUnread'), variant: "destructive" });
     }
   };
 
@@ -160,20 +158,20 @@ export default function SupportAgentNotificationsPage() {
       await updateDoc(doc(db, 'notifications', notificationId), {
         status: 'archived'
       });
-      toast({ title: "Archived", description: "Notification archived" });
+      toast({ title: t('supportAgent.notifications.archived'), description: t('supportAgent.notifications.notificationArchived') });
     } catch (error) {
       console.error("Error archiving notification:", error);
-      toast({ title: "Error", description: "Failed to archive notification", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('supportAgent.notifications.failedToArchive'), variant: "destructive" });
     }
   };
 
   const handleDelete = async (notificationId: string) => {
     try {
       await deleteDoc(doc(db, 'notifications', notificationId));
-      toast({ title: "Deleted", description: "Notification deleted" });
+      toast({ title: t('supportAgent.notifications.deleted'), description: t('supportAgent.notifications.notificationDeleted') });
     } catch (error) {
       console.error("Error deleting notification:", error);
-      toast({ title: "Error", description: "Failed to delete notification", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('supportAgent.notifications.failedToDelete'), variant: "destructive" });
     }
   };
 
@@ -221,10 +219,10 @@ export default function SupportAgentNotificationsPage() {
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-    if (diffInSeconds < 60) return 'Just now';
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-    return `${Math.floor(diffInSeconds / 86400)}d ago`;
+    if (diffInSeconds < 60) return t('supportAgent.notifications.time.justNow');
+    if (diffInSeconds < 3600) return t('supportAgent.notifications.time.minutesAgo', { count: Math.floor(diffInSeconds / 60) });
+    if (diffInSeconds < 86400) return t('supportAgent.notifications.time.hoursAgo', { count: Math.floor(diffInSeconds / 3600) });
+    return t('supportAgent.notifications.time.daysAgo', { count: Math.floor(diffInSeconds / 86400) });
   };
 
   return (
@@ -236,10 +234,10 @@ export default function SupportAgentNotificationsPage() {
             <BellRing className="h-8 w-8 sm:h-10 sm:w-10 text-primary-foreground" />
           </div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent mb-3 sm:mb-4">
-            Notifications Center
+            {t('supportAgent.notifications.title')}
           </h1>
           <p className="text-muted-foreground text-sm sm:text-base lg:text-lg">
-            Stay updated with all your support requests and system alerts
+            {t('supportAgent.notifications.subtitle')}
           </p>
         </div>
 
@@ -248,7 +246,7 @@ export default function SupportAgentNotificationsPage() {
           <Card className="bg-card backdrop-blur-sm border-0 shadow-2xl">
             <CardContent className="p-4 text-center">
               <div className="text-2xl font-bold text-destructive mb-1">{unreadCount}</div>
-              <div className="text-sm text-muted-foreground">Unread</div>
+              <div className="text-sm text-muted-foreground">{t('supportAgent.notifications.unread')}</div>
             </CardContent>
           </Card>
 
@@ -257,7 +255,7 @@ export default function SupportAgentNotificationsPage() {
               <div className="text-2xl font-bold text-primary mb-1">
                 {notifications.filter(n => n.type === 'chat_request').length}
               </div>
-              <div className="text-sm text-muted-foreground">Chat Requests</div>
+              <div className="text-sm text-muted-foreground">{t('supportAgent.notifications.chatRequests')}</div>
             </CardContent>
           </Card>
 
@@ -266,7 +264,7 @@ export default function SupportAgentNotificationsPage() {
               <div className="text-2xl font-bold text-green-600 mb-1">
                 {notifications.filter(n => n.type === 'call_request').length}
               </div>
-              <div className="text-sm text-muted-foreground">Call Requests</div>
+              <div className="text-sm text-muted-foreground">{t('supportAgent.notifications.callRequests')}</div>
             </CardContent>
           </Card>
 
@@ -275,7 +273,7 @@ export default function SupportAgentNotificationsPage() {
               <div className="text-2xl font-bold text-orange-600 mb-1">
                 {notifications.filter(n => n.priority === 'emergency').length}
               </div>
-              <div className="text-sm text-muted-foreground">Emergencies</div>
+              <div className="text-sm text-muted-foreground">{t('supportAgent.notifications.emergenciesCount')}</div>
             </CardContent>
           </Card>
         </div>
@@ -286,37 +284,37 @@ export default function SupportAgentNotificationsPage() {
             <div className="flex flex-col sm:flex-row gap-4 items-center">
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4" />
-                <span className="font-medium">Filters:</span>
+                <span className="font-medium">{t('supportAgent.notifications.filters')}:</span>
               </div>
 
               <Select value={filterType} onValueChange={setFilterType}>
                 <SelectTrigger className="w-40">
-                  <SelectValue placeholder="All Types" />
+                  <SelectValue placeholder={t('supportAgent.notifications.types.all')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="chat_request">Chat Requests</SelectItem>
-                  <SelectItem value="call_request">Call Requests</SelectItem>
-                  <SelectItem value="emergency">Emergencies</SelectItem>
-                  <SelectItem value="location_request">Location Requests</SelectItem>
-                  <SelectItem value="system">System Alerts</SelectItem>
+                  <SelectItem value="all">{t('supportAgent.notifications.types.all')}</SelectItem>
+                  <SelectItem value="chat_request">{t('supportAgent.notifications.types.chat_request')}</SelectItem>
+                  <SelectItem value="call_request">{t('supportAgent.notifications.types.call_request')}</SelectItem>
+                  <SelectItem value="emergency">{t('supportAgent.notifications.types.emergency')}</SelectItem>
+                  <SelectItem value="location_request">{t('supportAgent.notifications.types.location_request')}</SelectItem>
+                  <SelectItem value="system">{t('supportAgent.notifications.types.system')}</SelectItem>
                 </SelectContent>
               </Select>
 
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-32">
-                  <SelectValue placeholder="All Status" />
+                  <SelectValue placeholder={t('supportAgent.notifications.status.all')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="unread">Unread</SelectItem>
-                  <SelectItem value="read">Read</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
+                  <SelectItem value="all">{t('supportAgent.notifications.status.all')}</SelectItem>
+                  <SelectItem value="unread">{t('supportAgent.notifications.status.unread')}</SelectItem>
+                  <SelectItem value="read">{t('supportAgent.notifications.status.read')}</SelectItem>
+                  <SelectItem value="archived">{t('supportAgent.notifications.status.archived')}</SelectItem>
                 </SelectContent>
               </Select>
 
               <div className="ml-auto text-sm text-muted-foreground">
-                {filteredNotifications.length} notifications
+                {filteredNotifications.length} {t('supportAgent.notifications.title').toLowerCase()}
               </div>
             </div>
           </CardContent>
@@ -327,9 +325,9 @@ export default function SupportAgentNotificationsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Bell className="h-5 w-5" />
-              Recent Notifications
+              {t('supportAgent.notifications.recent')}
             </CardTitle>
-            <CardDescription>Your latest notifications and alerts</CardDescription>
+            <CardDescription>{t('supportAgent.notifications.latestAlerts')}</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             {loading ? (
@@ -347,8 +345,8 @@ export default function SupportAgentNotificationsPage() {
             ) : filteredNotifications.length === 0 ? (
               <div className="p-8 text-center text-slate-500">
                 <Bell className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No notifications found</p>
-                <p className="text-sm mt-2">Try adjusting your filters</p>
+                <p>{t('supportAgent.notifications.noNotificationsFound')}</p>
+                <p className="text-sm mt-2">{t('supportAgent.notifications.tryAdjustingFilters')}</p>
               </div>
             ) : (
               <ScrollArea className="h-[600px]">
@@ -358,18 +356,15 @@ export default function SupportAgentNotificationsPage() {
                     return (
                       <div
                         key={notification.id}
-                        className={`p-4 hover:bg-slate-50/50 transition-colors ${
-                          notification.status === 'unread' ? 'bg-primary/30 border-l-4 border-blue-500' : ''
-                        }`}
+                        className={`p-4 hover:bg-slate-50/50 transition-colors ${notification.status === 'unread' ? 'bg-primary/30 border-l-4 border-blue-500' : ''
+                          }`}
                       >
                         <div className="flex items-start gap-4">
                           {/* Notification Icon */}
-                          <div className={`p-2 rounded-full ${
-                            notification.status === 'unread' ? 'bg-primary/10' : 'bg-muted'
-                          }`}>
-                            <IconComponent className={`h-5 w-5 ${
-                              notification.status === 'unread' ? 'text-primary' : 'text-muted-foreground'
-                            }`} />
+                          <div className={`p-2 rounded-full ${notification.status === 'unread' ? 'bg-primary/10' : 'bg-muted'
+                            }`}>
+                            <IconComponent className={`h-5 w-5 ${notification.status === 'unread' ? 'text-primary' : 'text-muted-foreground'
+                              }`} />
                           </div>
 
                           {/* Content */}
@@ -383,11 +378,11 @@ export default function SupportAgentNotificationsPage() {
                                   <Badge
                                     className={`text-xs text-white border-transparent ${getPriorityColor(notification.priority)}`}
                                   >
-                                    {notification.priority}
+                                    {t(`supportAgent.notifications.priority.${notification.priority}`)}
                                   </Badge>
                                   {notification.status === 'unread' && (
                                     <Badge variant="default" className="text-xs">
-                                      Unread
+                                      {t('supportAgent.notifications.status.unread')}
                                     </Badge>
                                   )}
                                 </div>
@@ -433,7 +428,7 @@ export default function SupportAgentNotificationsPage() {
                                     onClick={() => handleAction(notification)}
                                     className="bg-blue-600 hover:bg-blue-700"
                                   >
-                                    Take Action
+                                    {t('supportAgent.notifications.takeAction')}
                                   </Button>
                                 )}
 
@@ -443,7 +438,7 @@ export default function SupportAgentNotificationsPage() {
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => handleMarkAsRead(notification.id)}
-                                      title="Mark as read"
+                                      title={t('supportAgent.notifications.markAsRead')}
                                     >
                                       <Eye className="h-4 w-4" />
                                     </Button>
@@ -452,7 +447,7 @@ export default function SupportAgentNotificationsPage() {
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => handleMarkAsUnread(notification.id)}
-                                      title="Mark as unread"
+                                      title={t('supportAgent.notifications.markAsUnread')}
                                     >
                                       <EyeOff className="h-4 w-4" />
                                     </Button>
@@ -462,7 +457,7 @@ export default function SupportAgentNotificationsPage() {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => handleArchive(notification.id)}
-                                    title="Archive"
+                                    title={t('supportAgent.notifications.archive')}
                                   >
                                     <Archive className="h-4 w-4" />
                                   </Button>
@@ -471,7 +466,7 @@ export default function SupportAgentNotificationsPage() {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => handleDelete(notification.id)}
-                                    title="Delete"
+                                    title={t('supportAgent.notifications.delete')}
                                     className="text-destructive hover:text-red-700 hover:bg-red-50"
                                   >
                                     <Trash2 className="h-4 w-4" />

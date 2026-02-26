@@ -88,7 +88,7 @@ function DriverSidebar({ activeAlertsCount = 0, driverProfile }: { activeAlertsC
     <Sidebar>
       <SidebarHeader>
         <div className="flex items-center gap-2">
-          <img src="/shelter_logo.png" alt="Hopeline Logo" width={40} height={40} />
+          <img src="/shelter_logo.png" alt={t('driver.sidebar.logoAlt')} width={40} height={40} />
           {state === 'expanded' && <h1 className="text-xl font-bold">{t("driver.sidebar.panel")}</h1>}
         </div>
       </SidebarHeader>
@@ -124,7 +124,7 @@ function DriverSidebar({ activeAlertsCount = 0, driverProfile }: { activeAlertsC
                 {driverProfile.image ? (
                   <img
                     src={driverProfile.image}
-                    alt="Profile"
+                    alt={t('driver.profile.profileAlt')}
                     className="w-full h-full object-cover"
                   />
                 ) : (
@@ -278,7 +278,7 @@ export default function DriverLayout() {
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
           <div className="flex items-center gap-2">
-            <img src="/shelter_logo.png" alt="Driver Panel Logo" width={32} height={32} />
+            <img src="/shelter_logo.png" alt={t('driver.sidebar.logoAlt')} width={32} height={32} />
             <h1 className="text-lg font-semibold">{t("driver.sidebar.panel")}</h1>
           </div>
         </header>

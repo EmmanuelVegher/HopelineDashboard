@@ -12,19 +12,18 @@ import {
   History,
   Search,
   MessageSquare,
-  Phone,
-  Clock,
   Filter,
   Download,
   Eye,
-  Globe,
   MapPin,
   Calendar,
-  User
+  Globe,
+  Clock
 } from "lucide-react";
 import { collection, query, where, onSnapshot, orderBy, limit, getDocs, doc as firestoreDoc, getDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 interface ChatHistory {
   id: string;
@@ -47,6 +46,7 @@ interface ChatHistory {
 }
 
 export default function SupportAgentHistoryPage() {
+  const { t } = useTranslation();
   const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
   const [filteredHistory, setFilteredHistory] = useState<ChatHistory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,8 +123,8 @@ export default function SupportAgentHistoryPage() {
           }
 
           const fullName = userProfile ?
-            `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || 'Unknown User' :
-            data.userName || 'Unknown User';
+            `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || t('common.unknownUser') :
+            data.userName || t('common.unknownUser');
 
           chats.push({
             id: doc.id,
@@ -139,7 +139,7 @@ export default function SupportAgentHistoryPage() {
             language: data.language || 'English',
             location: data.location,
             agentId: data.agentId,
-            agentName: data.agentName || 'Unknown Agent',
+            agentName: data.agentName || t('common.unknownAgent'),
             duration: data.duration,
             messageCount: messagesSnapshot.size,
             priority: data.priority || 'medium',
@@ -253,10 +253,10 @@ export default function SupportAgentHistoryPage() {
             <History className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
           </div>
           <h1 className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2 sm:mb-3 lg:mb-4">
-            Chat History
+            {t('supportAgent.history.title')}
           </h1>
           <p className="text-muted-foreground text-sm sm:text-base lg:text-lg px-4 sm:px-0">
-            Review and analyze past support conversations
+            {t('supportAgent.history.subtitle')}
           </p>
         </div>
 
@@ -267,7 +267,7 @@ export default function SupportAgentHistoryPage() {
               <div className="relative w-full">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
-                  placeholder="Search by user name, message, or language..."
+                  placeholder={t('supportAgent.history.searchPlaceholder')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 h-12 w-full"
@@ -282,10 +282,10 @@ export default function SupportAgentHistoryPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1day">Last Day</SelectItem>
-                      <SelectItem value="7days">Last 7 Days</SelectItem>
-                      <SelectItem value="30days">Last 30 Days</SelectItem>
-                      <SelectItem value="90days">Last 90 Days</SelectItem>
+                      <SelectItem value="1day">{t('supportAgent.history.dateRange.lastDay')}</SelectItem>
+                      <SelectItem value="7days">{t('supportAgent.history.dateRange.last7Days')}</SelectItem>
+                      <SelectItem value="30days">{t('supportAgent.history.dateRange.last30Days')}</SelectItem>
+                      <SelectItem value="90days">{t('supportAgent.history.dateRange.last90Days')}</SelectItem>
                     </SelectContent>
                   </Select>
 
@@ -295,30 +295,30 @@ export default function SupportAgentHistoryPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="closed">Closed</SelectItem>
-                      <SelectItem value="transferred">Transferred</SelectItem>
+                      <SelectItem value="all">{t('supportAgent.history.status.all')}</SelectItem>
+                      <SelectItem value="active">{t('supportAgent.history.status.active')}</SelectItem>
+                      <SelectItem value="closed">{t('supportAgent.history.status.closed')}</SelectItem>
+                      <SelectItem value="transferred">{t('supportAgent.history.status.transferred')}</SelectItem>
                     </SelectContent>
                   </Select>
 
                   <Select value={resolutionFilter} onValueChange={setResolutionFilter}>
                     <SelectTrigger className="w-full h-12">
-                      <SelectValue placeholder="Resolution" />
+                      <SelectValue placeholder={t('supportAgent.history.resolution.all')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Resolutions</SelectItem>
-                      <SelectItem value="resolved">Resolved</SelectItem>
-                      <SelectItem value="transferred">Transferred</SelectItem>
-                      <SelectItem value="abandoned">Abandoned</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="all">{t('supportAgent.history.resolution.all')}</SelectItem>
+                      <SelectItem value="resolved">{t('supportAgent.history.resolution.resolved')}</SelectItem>
+                      <SelectItem value="transferred">{t('supportAgent.history.resolution.transferred')}</SelectItem>
+                      <SelectItem value="abandoned">{t('supportAgent.history.resolution.abandoned')}</SelectItem>
+                      <SelectItem value="pending">{t('supportAgent.history.resolution.pending')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <Button variant="outline" onClick={handleExportHistory} className="w-full h-12">
                   <Download className="h-4 w-4 mr-2" />
-                  Export Data
+                  {t('supportAgent.history.exportData')}
                 </Button>
               </div>
             </div>
@@ -330,10 +330,10 @@ export default function SupportAgentHistoryPage() {
           <CardHeader className="p-4 sm:p-6 lg:p-8 pb-4 w-full">
             <CardTitle className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5" />
-              Chat Sessions
+              {t('supportAgent.history.chatSessions')}
             </CardTitle>
             <CardDescription className="w-full truncate">
-              {filteredHistory.length} chats found
+              {filteredHistory.length} {t('supportAgent.history.chatsFound')}
               {searchTerm && ` for "${searchTerm}"`}
             </CardDescription>
           </CardHeader>
@@ -353,8 +353,8 @@ export default function SupportAgentHistoryPage() {
             ) : filteredHistory.length === 0 ? (
               <div className="p-6 sm:p-8 lg:p-12 text-center text-slate-500">
                 <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="text-base sm:text-lg">No chat history found</p>
-                <p className="text-sm mt-2">Try adjusting your filters or date range</p>
+                <p className="text-base sm:text-lg">{t('supportAgent.history.noHistory')}</p>
+                <p className="text-sm mt-2">{t('supportAgent.history.noHistoryDesc')}</p>
               </div>
             ) : (
               <ScrollArea className="h-[50vh] sm:h-[60vh] lg:h-[600px] w-full overflow-x-hidden">
@@ -399,7 +399,9 @@ export default function SupportAgentHistoryPage() {
                               </div>
 
                               {/* Message */}
-                              <p className="text-sm text-muted-foreground truncate w-full">{chat.lastMessage}</p>
+                              <p className="text-sm text-muted-foreground truncate w-full">
+                                {chat.lastMessage === 'Attachment' ? t('supportAgent.chats.attachment') : chat.lastMessage}
+                              </p>
 
                               {/* Metadata */}
                               <div className="flex flex-wrap items-center gap-0.5 sm:gap-1 lg:gap-2 text-xs text-slate-500 overflow-x-hidden">
@@ -431,13 +433,13 @@ export default function SupportAgentHistoryPage() {
                             <Badge
                               className={`text-xs px-2 py-1 justify-center ${getStatusColor(chat.status)} text-white`}
                             >
-                              {chat.status}
+                              {t(`supportAgent.history.status.${chat.status}`)}
                             </Badge>
                             <Badge
                               variant="outline"
                               className={`text-xs px-2 py-1 justify-center ${getResolutionColor(chat.resolution)} text-white border-transparent`}
                             >
-                              {chat.resolution}
+                              {t(`supportAgent.history.resolution.${chat.resolution}`)}
                             </Badge>
                           </div>
 
@@ -448,7 +450,7 @@ export default function SupportAgentHistoryPage() {
                             className="w-full sm:w-auto h-10 flex-shrink-0"
                           >
                             <Eye className="h-4 w-4 mr-2" />
-                            View
+                            {t('supportAgent.history.view')}
                           </Button>
                         </div>
                       </div>

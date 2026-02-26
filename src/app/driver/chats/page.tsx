@@ -253,7 +253,8 @@ export default function DriverChatsPage() {
             const rolesToEnsure = ['driver', 'beneficiary', 'user'];
 
             for (const role of rolesToEnsure) {
-                const groupName = `${stateToInit} ${role.charAt(0).toUpperCase() + role.slice(1)}`;
+                const localizedRole = t(`roles.${role.toLowerCase()}`) || role;
+                const groupName = `${stateToInit} ${localizedRole}`;
                 const groupId = `group_${stateToInit.toLowerCase().replace(/\s+/g, '_')}_${role.toLowerCase().replace(/\s+/g, '_')}`;
 
                 const docRef = doc(db, 'chats', groupId);
@@ -263,7 +264,7 @@ export default function DriverChatsPage() {
                     await updateDoc(docRef, {
                         participants: arrayUnion(user.uid),
                         [`participantInfo.${user.uid}`]: {
-                            name: `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || t('driver.chats.driverRole'),
+                            name: `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || t('roles.driver'),
                             role: userProfile.role || 'driver',
                             email: user.email || '',
                             avatar: userProfile.image || userProfile.imageUrl || userProfile.profileImage || userProfile.photoURL || userProfile.photoUrl || userProfile.avatar || ''
@@ -284,7 +285,7 @@ export default function DriverChatsPage() {
                                 participants: [user.uid],
                                 participantInfo: {
                                     [user.uid]: {
-                                        name: `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || t('driver.chats.driverRole'),
+                                        name: `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || t('roles.driver'),
                                         role: userProfile.role || 'driver',
                                         email: user.email || ''
                                     }
@@ -454,7 +455,7 @@ export default function DriverChatsPage() {
             const callDoc = await addDoc(collection(db, 'calls'), {
                 userId: recipients[0],
                 agentId: user.uid,
-                userName: selectedChat.fullName || 'User',
+                userName: selectedChat.fullName || t('common.user'),
                 userImage: selectedChat.userImage || '',
                 agentName: callerName,
                 agentImage: callerAvatar,
@@ -499,7 +500,7 @@ export default function DriverChatsPage() {
                 callId: callDoc.id,
                 chatId: selectedChatId,
                 channelName: channelName,
-                recipientName: selectedChat.fullName || 'User',
+                recipientName: selectedChat.fullName || t('common.user'),
                 recipientImage: selectedChat.userImage,
                 callType: 'voice',
                 isIncoming: false
@@ -531,7 +532,7 @@ export default function DriverChatsPage() {
             const callDoc = await addDoc(collection(db, 'calls'), {
                 userId: recipients[0],
                 agentId: user.uid,
-                userName: selectedChat.fullName || 'User',
+                userName: selectedChat.fullName || t('common.user'),
                 userImage: selectedChat.userImage || '',
                 agentName: callerName,
                 agentImage: callerAvatar,
@@ -576,7 +577,7 @@ export default function DriverChatsPage() {
                 callId: callDoc.id,
                 chatId: selectedChatId,
                 channelName: channelName,
-                recipientName: selectedChat.fullName || 'User',
+                recipientName: selectedChat.fullName || t('common.user'),
                 recipientImage: selectedChat.userImage,
                 callType: 'video',
                 isIncoming: false
@@ -644,7 +645,7 @@ export default function DriverChatsPage() {
                 lastMessage: attachments.length > 0 ? (originalText || (attachments[0].type === 'audio' ? t('driver.chats.voiceMessage') : t('driver.chats.attachment'))) : originalText,
                 lastMessageTimestamp: serverTimestamp(),
                 lastMessageSenderId: user?.uid,
-                lastMessageSenderName: `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || t('driver.chats.driverRole'),
+                lastMessageSenderName: `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || t('roles.driver'),
                 unreadCount: 0
             });
         } catch (error) {
@@ -749,7 +750,7 @@ export default function DriverChatsPage() {
                 const info = session.participantInfo?.[id];
                 const data = userData[id];
                 return {
-                    name: data ? `${data.firstName} ${data.lastName}`.trim() : (info?.name || 'User'),
+                    name: data ? `${data.firstName} ${data.lastName}`.trim() : (info?.name || t('common.user')),
                     image: data?.image || data?.imageUrl || data?.profileImage || data?.photoURL || data?.photoUrl || data?.avatar || info?.avatar || ''
                 };
             };
@@ -924,7 +925,7 @@ export default function DriverChatsPage() {
                                                 const info = selectedChat.participantInfo?.[msg.senderId];
 
                                                 return {
-                                                    name: profile ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() : (info?.name || 'User'),
+                                                    name: profile ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() : (info?.name || t('common.user')),
                                                     image: profile?.image || profile?.imageUrl || profile?.profileImage || profile?.photoURL || profile?.photoUrl || profile?.avatar || info?.avatar || ''
                                                 };
                                             })();
@@ -948,7 +949,7 @@ export default function DriverChatsPage() {
                                                                 </div>
                                                             ))}
                                                             {msg.content && <p className="text-sm break-words">{msg.content}</p>}
-                                                            {(msg.trainingType === 'guide' || (msg.content?.includes('📚 *New Training Module Published*') && !msg.attachments?.length && !msg.content.includes('http'))) && (
+                                                            {(msg.trainingType === 'guide' || (msg.content?.toLowerCase().includes('training') || msg.content?.toLowerCase().includes('horarwa')) && !msg.attachments?.length && !msg.content.includes('http')) && (
                                                                 <Button
                                                                     variant="outline"
                                                                     size="sm"
@@ -1061,7 +1062,7 @@ export default function DriverChatsPage() {
                                 filteredUsers.map(u => (
                                     <div key={u.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 cursor-pointer rounded-lg transition-colors" onClick={() => startNewChat(u)}>
                                         <Avatar className="h-8 w-8"><AvatarImage src={u.image} /><AvatarFallback>{u.firstName[0]}</AvatarFallback></Avatar>
-                                        <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{u.firstName} {u.lastName}</p><p className="text-[10px] text-muted-foreground uppercase">{u.role}</p></div>
+                                        <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{u.firstName} {u.lastName}</p><p className="text-[10px] text-muted-foreground uppercase">{t(`roles.${u.role?.toLowerCase()}`) || u.role}</p></div>
                                         <Plus className="h-4 w-4 text-slate-300" />
                                     </div>
                                 ))

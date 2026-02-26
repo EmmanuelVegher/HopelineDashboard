@@ -1,15 +1,15 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { doc, getDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+// Import i18n as a stable singleton — NOT from useTranslation() which causes re-renders
+import i18n from '../i18n';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 
 interface TranslationContextType {
   currentLanguage: string;
   changeLanguage: (language: string) => Promise<void>;
   isLoading: boolean;
-  renderCount: number;
 }
 
 const TranslationContext = createContext<TranslationContextType | undefined>(undefined);
@@ -26,31 +26,22 @@ const LANGUAGE_MAP: Record<string, string> = {
   'Nigerian Pidgin': 'pcm'
 };
 
-const getLanguageCode = (lang: string) => {
+const getLanguageCode = (lang: string): string => {
   if (!lang) return 'en';
-  // Check direct mapping
+  // Already a known code like 'en', 'ha', 'yo', 'ig', 'pcm'
+  if (Object.values(LANGUAGE_MAP).includes(lang.toLowerCase())) return lang.toLowerCase();
+  // Full name like 'English' or 'Hausa'
   if (LANGUAGE_MAP[lang]) return LANGUAGE_MAP[lang];
-
-  const lowerLang = lang.toLowerCase();
-
-  // Check if it's already a code (e.g., 'en', 'ha')
-  if (Object.values(LANGUAGE_MAP).includes(lowerLang)) return lowerLang;
-
-  // Check keys in a case-insensitive way
+  // Case-insensitive name match
   for (const [key, value] of Object.entries(LANGUAGE_MAP)) {
-    if (key.toLowerCase() === lowerLang) {
-      return value;
-    }
+    if (key.toLowerCase() === lang.toLowerCase()) return value;
   }
-
   return 'en';
 };
 
 export const useTranslationContext = () => {
   const context = useContext(TranslationContext);
-  if (!context) {
-    throw new Error('useTranslationContext must be used within a TranslationProvider');
-  }
+  if (!context) throw new Error('useTranslationContext must be used within a TranslationProvider');
   return context;
 };
 
@@ -59,15 +50,17 @@ interface TranslationProviderProps {
 }
 
 export const TranslationProvider: React.FC<TranslationProviderProps> = ({ children }) => {
-  const { i18n } = useTranslation();
-  const [currentLanguage, setCurrentLanguage] = useState('en');
+  const [currentLanguage, setCurrentLanguage] = useState(i18n.language || 'en');
   const [isLoading, setIsLoading] = useState(true);
+  // Stable ref so the snapshot callback never uses stale state
+  const currentLanguageRef = useRef(currentLanguage);
 
-  // Load user's language preference from Firebase
   useEffect(() => {
     let unsubscribeDoc: (() => void) | undefined;
 
-    const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
+    // Listen to auth state — when user logs in, start listening to their Firestore doc
+    const unsubscribeAuth = auth.onAuthStateChanged((user) => {
+      // Clean up any previous doc listener
       if (unsubscribeDoc) {
         unsubscribeDoc();
         unsubscribeDoc = undefined;
@@ -78,86 +71,53 @@ export const TranslationProvider: React.FC<TranslationProviderProps> = ({ childr
         return;
       }
 
-      // Listen for real-time changes to the user document
-      unsubscribeDoc = onSnapshot(doc(db, 'users', user.uid), async (snapshot: any) => {
-        if (snapshot.exists()) {
-          const userData = snapshot.data();
-          // Priorities: root language > settings.language > preferences.language
-          const rawLanguage = userData.language || userData.settings?.language || userData.preferences?.language || 'en';
-          const userLanguageCode = getLanguageCode(rawLanguage);
+      // Real-time listener on the user document
+      unsubscribeDoc = onSnapshot(
+        doc(db, 'users', user.uid),
+        (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            // Priority: preferences.language > root language > fallback 'en'
+            const raw = data.preferences?.language || data.language || data.settings?.language || 'en';
+            const langCode = getLanguageCode(raw);
 
-          console.log(`TranslationProvider: Syncing language to "${userLanguageCode}" (raw: "${rawLanguage}")`);
+            console.log(`[TranslationProvider] Firestore language change detected: "${raw}" → "${langCode}"`);
 
-          if (i18n.language !== userLanguageCode) {
-            await i18n.changeLanguage(userLanguageCode);
-            setCurrentLanguage(userLanguageCode);
-          } else if (currentLanguage !== userLanguageCode) {
-            setCurrentLanguage(userLanguageCode);
+            // Only change if different to avoid unnecessary re-renders
+            if (langCode !== currentLanguageRef.current) {
+              currentLanguageRef.current = langCode;
+              setCurrentLanguage(langCode);
+              i18n.changeLanguage(langCode);
+            }
           }
+          setIsLoading(false);
+        },
+        (error) => {
+          console.error('[TranslationProvider] Firestore listener error:', error);
+          setIsLoading(false);
         }
-        setIsLoading(false);
-      }, (error: any) => {
-        console.error('Error listening to user language:', error);
-        setIsLoading(false);
-      });
+      );
     });
 
     return () => {
       unsubscribeAuth();
       if (unsubscribeDoc) unsubscribeDoc();
     };
-  }, [i18n, currentLanguage]);
+    // Empty dependency array: this effect is set up once and is stable
+    // i18n is a stable module singleton, not a reactive hook value
+  }, []);
 
   const changeLanguage = async (language: string) => {
-    try {
-      setIsLoading(true);
-
-      // Change i18n language
-      await i18n.changeLanguage(language);
-      setCurrentLanguage(language);
-
-      // Save to Firebase if user is logged in
-      const user = auth.currentUser;
-      if (user) {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          await updateDoc(doc(db, 'users', user.uid), {
-            language: language, // Save to root level
-            settings: {
-              ...(userData.settings || {}),
-              language: language
-            },
-            preferences: {
-              ...(userData.preferences || {}),
-              language: language
-            },
-            updatedAt: new Date()
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error changing language:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Force re-render when language changes by updating a counter
-  const [renderCount, setRenderCount] = useState(0);
-  useEffect(() => {
-    setRenderCount(prev => prev + 1);
-  }, [currentLanguage]);
-
-  const value: TranslationContextType = {
-    currentLanguage,
-    changeLanguage,
-    isLoading,
-    renderCount, // Add renderCount to force re-renders
+    const langCode = getLanguageCode(language);
+    currentLanguageRef.current = langCode;
+    setCurrentLanguage(langCode);
+    i18n.changeLanguage(langCode);
+    // NOTE: Calling code is responsible for saving to Firestore if needed
+    // The snapshot listener above will handle syncing FROM Firestore back to i18n
   };
 
   return (
-    <TranslationContext.Provider value={value}>
+    <TranslationContext.Provider value={{ currentLanguage, changeLanguage, isLoading }}>
       {children}
     </TranslationContext.Provider>
   );

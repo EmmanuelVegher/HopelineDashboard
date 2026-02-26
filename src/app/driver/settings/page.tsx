@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { db, auth } from '@/lib/firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,48 +42,66 @@ export default function DriverSettingsPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    let unsubscribeDoc: (() => void) | undefined;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      if (unsubscribeDoc) {
+        unsubscribeDoc();
+        unsubscribeDoc = undefined;
+      }
+
       if (user) {
         try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            const settingsData: DriverSettings = {
-              notifications: userData.notifications || {
-                sosAlerts: true,
-                taskUpdates: true,
-                weatherAlerts: true,
-                systemUpdates: false,
-              },
-              preferences: userData.preferences || {
-                theme: 'system',
-                language: i18n.language || 'en',
-                soundEnabled: true,
-                autoAcceptTasks: false,
-              },
-              privacy: userData.privacy || {
-                shareLocation: true,
-                showOnlineStatus: true,
-              },
-            };
-            setSettings(settingsData);
-          }
-        } catch (error) {
-          console.error('Error loading settings:', error);
-          toast({
-            title: t('driver.settings.loadError'),
-            description: t('driver.settings.loadError'),
-            variant: 'destructive',
+          const userDocRef = doc(db, 'users', user.uid);
+          unsubscribeDoc = onSnapshot(userDocRef, (snapshot) => {
+            if (snapshot.exists()) {
+              const userData = snapshot.data();
+              const settingsData: DriverSettings = {
+                notifications: userData.notifications || {
+                  sosAlerts: true,
+                  taskUpdates: true,
+                  weatherAlerts: true,
+                  systemUpdates: false,
+                },
+                preferences: userData.preferences || {
+                  theme: 'system',
+                  language: i18n.language || 'en',
+                  soundEnabled: true,
+                  autoAcceptTasks: false,
+                },
+                privacy: userData.privacy || {
+                  shareLocation: true,
+                  showOnlineStatus: true,
+                },
+              };
+              setSettings(settingsData);
+              setLoading(false);
+            }
+          }, (error) => {
+            console.error('Error listening to settings:', error);
+            toast({
+              title: t('driver.settings.loadError'),
+              description: t('driver.settings.loadError'),
+              variant: 'destructive',
+            });
+            setLoading(false);
           });
+        } catch (error) {
+          console.error('Error setting up settings listener:', error);
+          setLoading(false);
         }
+      } else {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return () => unsubscribe();
-  }, [toast]);
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeDoc) unsubscribeDoc();
+    };
+  }, [toast, i18n, t]);
 
-  const updateSetting = (category: keyof DriverSettings, key: string, value: any) => {
+  const updateSetting = async (category: keyof DriverSettings, key: string, value: any) => {
     if (!settings) return;
     setSettings({
       ...settings,
@@ -93,9 +111,26 @@ export default function DriverSettingsPage() {
       },
     });
 
-    // If language is updated, also update i18n instance
+    // If language is updated, immediately change the UI language AND save to Firestore
     if (category === 'preferences' && key === 'language') {
+      // Immediately translate the UI without needing to press Save
       i18n.changeLanguage(value);
+
+      // Also persist to Firestore so mobile and other sessions sync
+      if (auth.currentUser) {
+        try {
+          const userRef = doc(db, 'users', auth.currentUser.uid);
+          await updateDoc(userRef, {
+            language: value,
+            preferences: {
+              ...(settings.preferences || {}),
+              language: value,
+            },
+          });
+        } catch (err) {
+          console.error('Error auto-saving language:', err);
+        }
+      }
     }
   };
 

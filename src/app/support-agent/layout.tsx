@@ -160,7 +160,8 @@ export default function SupportAgentLayout() {
   const [authLoading, setAuthLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [userProfile, setUserProfile] = useState<{ firstName: string; lastName: string; image?: string; isOnline?: boolean } | null>(null);
-  const { renderCount } = useTranslationContext();
+  const { currentLanguage } = useTranslationContext();
+  const { t } = useTranslation();
 
   useEffect(() => {
     setIsLoading(false);
@@ -266,14 +267,14 @@ export default function SupportAgentLayout() {
 
   return (
     <AdminDataProvider profile={userProfile ? { role: 'support agent', firstName: userProfile.firstName, lastName: userProfile.lastName, image: userProfile.image } : null}>
-      <SidebarProvider key={renderCount}>
+      <SidebarProvider key={currentLanguage}>
         <SupportAgentSidebar userProfile={userProfile} />
         <SidebarInset>
           <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
             <SidebarTrigger className="-ml-1" />
             <div className="flex items-center gap-2">
               <img src="/hopeline_red.png" alt="Support Agent Logo" width={32} height={32} />
-              <h1 className="text-lg font-semibold">Support Agent</h1>
+              <h1 className="text-lg font-semibold">{t('supportAgent.sidebar.supportAgent')}</h1>
             </div>
           </header>
           <main className="flex flex-1 flex-col gap-4 p-4 sm:px-8 sm:py-6 bg-gray-50/50 dark:bg-gray-900/50 min-h-screen">
