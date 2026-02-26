@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckCircle, Shield, AlertTriangle, RefreshCw, Plus, MapPin, User, Clock, TrendingUp, TrendingDown, Minus, Phone, Edit, Building2, X } from "lucide-react";
 import { cn, formatTimestamp } from "@/lib/utils";
 import { useState, useEffect } from "react";
-import { addDoc, updateDoc, doc, collection } from "firebase/firestore";
+import { addDoc, updateDoc, doc, collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -76,6 +76,7 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
     const [formData, setFormData] = useState<Partial<Shelter>>(shelter || {
         name: '',
         organization: '',
+        organizationId: '',
         location: '',
         capacity: 0,
         availableCapacity: 0,
@@ -95,6 +96,25 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
     });
     const [loading, setLoading] = useState(false);
     const { toast } = useToast();
+
+    // Organizations fetched from Firestore
+    const [organizations, setOrganizations] = useState<{ id: string; name: string }[]>([]);
+    const [orgsLoading, setOrgsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchOrganizations = async () => {
+            try {
+                const snapshot = await getDocs(collection(db, 'organizations'));
+                const orgs = snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name as string }));
+                setOrganizations(orgs);
+            } catch (err) {
+                console.error('Failed to fetch organizations:', err);
+            } finally {
+                setOrgsLoading(false);
+            }
+        };
+        fetchOrganizations();
+    }, []);
 
     useEffect(() => {
         if (shelter) {
@@ -172,7 +192,28 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="organization">{t('admin.trackShelter.form.organization')}</Label>
-                    <Input id="organization" name="organization" value={formData.organization} onChange={handleChange} />
+                    <Select
+                        value={formData.organizationId || ''}
+                        onValueChange={(selectedId) => {
+                            const selectedOrg = organizations.find(o => o.id === selectedId);
+                            setFormData(prev => ({
+                                ...prev,
+                                organizationId: selectedId,
+                                organization: selectedOrg?.name || '',
+                            }));
+                        }}
+                    >
+                        <SelectTrigger id="organization" disabled={orgsLoading}>
+                            <SelectValue placeholder={orgsLoading ? 'Loading...' : 'Select organization'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {organizations.map(org => (
+                                <SelectItem key={org.id} value={org.id}>
+                                    {org.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -368,7 +409,22 @@ export default function TrackShelterPage() {
     const [contactDialogOpen, setContactDialogOpen] = useState(false);
     const [contactShelter, setContactShelter] = useState<Shelter | null>(null);
     const [selectedPreviewImage, setSelectedPreviewImage] = useState<string | null>(null);
+    const [focusedShelterIndex, setFocusedShelterIndex] = useState(0);
     const navigate = useNavigate();
+
+    // Shelter IDs that have a valid geofence - used for the map slideshow
+    const geofencedShelters = shelters?.filter(s => s.geofence && s.geofence.length > 2) || [];
+
+    // Auto-advance slideshow every 5 seconds
+    useEffect(() => {
+        if (geofencedShelters.length <= 1) return;
+        const timer = setInterval(() => {
+            setFocusedShelterIndex(prev => (prev + 1) % geofencedShelters.length);
+        }, 5000);
+        return () => clearInterval(timer);
+    }, [geofencedShelters.length]);
+
+
     const handleAddNew = () => {
         setSelectedShelter(null);
         setIsDialogOpen(true);
@@ -549,29 +605,88 @@ export default function TrackShelterPage() {
                             </div>
                         </CardHeader>
                         <CardContent className="p-0 relative">
-                            <InteractiveGoogleMap
-                                mode="tracking"
-                                className="h-[600px] w-full"
-                                geofences={shelters?.map(s => s.geofence).filter(Boolean) as any}
-                                kmlUrls={shelters?.map(s => s.kmlUrl).filter(Boolean) as string[]}
-                            />
-                            {/* Overlay info box */}
-                            <div className="absolute top-4 right-4 z-10 space-y-2 pointer-events-none">
-                                {shelters?.map(s => (
-                                    <div key={s.id} className="bg-white/90 backdrop-blur-sm p-3 rounded-lg shadow-md border text-[10px] w-48 pointer-events-auto">
-                                        <div className="flex justify-between items-start mb-1">
-                                            <span className="font-bold truncate pr-2">{s.name}</span>
-                                            <Badge variant={getStatusBadgeVariant(s.status)} className="scale-75 origin-right">{getStatusInfo(s.status, t)}</Badge>
-                                        </div>
-                                        <div className="flex justify-between text-muted-foreground">
-                                            <span>{t('admin.trackShelter.map.occupancy')}</span>
-                                            <span className="font-medium text-slate-900">{Math.round(((s.capacity - s.availableCapacity) / s.capacity) * 100)}%</span>
-                                        </div>
-                                        <div className="w-full bg-slate-200 h-1 rounded-full mt-1">
-                                            <div className="bg-blue-500 h-full rounded-full" style={{ width: `${((s.capacity - s.availableCapacity) / s.capacity) * 100}%` }}></div>
-                                        </div>
+                            <div className="flex h-[600px]">
+                                {/* Sidebar: clickable shelter list */}
+                                <div className="w-52 shrink-0 bg-slate-900/95 overflow-y-auto border-r border-slate-700 flex flex-col">
+                                    <div className="px-3 py-2 border-b border-slate-700">
+                                        <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Locations</p>
+                                        {geofencedShelters.length > 1 && (
+                                            <div className="flex items-center gap-1 mt-1">
+                                                <button
+                                                    className="text-slate-400 hover:text-white text-xs px-1"
+                                                    onClick={() => setFocusedShelterIndex(i => (i - 1 + geofencedShelters.length) % geofencedShelters.length)}
+                                                >‹</button>
+                                                <div className="flex-1 bg-slate-700 h-0.5 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="bg-blue-400 h-full rounded-full transition-all duration-500"
+                                                        style={{ width: `${((focusedShelterIndex + 1) / geofencedShelters.length) * 100}%` }}
+                                                    />
+                                                </div>
+                                                <button
+                                                    className="text-slate-400 hover:text-white text-xs px-1"
+                                                    onClick={() => setFocusedShelterIndex(i => (i + 1) % geofencedShelters.length)}
+                                                >›</button>
+                                                <span className="text-[9px] text-slate-500 ml-1">{focusedShelterIndex + 1}/{geofencedShelters.length}</span>
+                                            </div>
+                                        )}
                                     </div>
-                                ))}
+                                    <div className="flex-1 space-y-0">
+                                        {geofencedShelters.map((s, idx) => {
+                                            const isActive = idx === focusedShelterIndex;
+                                            const occ = s.capacity > 0 ? Math.round(((s.capacity - s.availableCapacity) / s.capacity) * 100) : 0;
+                                            return (
+                                                <button
+                                                    key={s.id}
+                                                    onClick={() => setFocusedShelterIndex(idx)}
+                                                    className={`w-full text-left px-3 py-2.5 border-b border-slate-800 transition-all duration-200 ${isActive
+                                                            ? 'bg-blue-600/30 border-l-2 border-l-blue-400'
+                                                            : 'hover:bg-slate-800/60'
+                                                        }`}
+                                                >
+                                                    <div className="flex justify-between items-start gap-1 mb-1">
+                                                        <span className={`text-[11px] font-semibold truncate ${isActive ? 'text-white' : 'text-slate-300'}`}>{s.name}</span>
+                                                        <Badge variant={getStatusBadgeVariant(s.status)} className="scale-75 origin-right shrink-0">{getStatusInfo(s.status, t)}</Badge>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 mb-1">
+                                                        <MapPin className="h-2.5 w-2.5 text-slate-500 shrink-0" />
+                                                        <span className="text-[9px] text-slate-400 truncate">{s.location || s.state || '—'}</span>
+                                                    </div>
+                                                    <div className="flex justify-between text-[9px] text-slate-500 mb-0.5">
+                                                        <span>{t('admin.trackShelter.map.occupancy')}</span>
+                                                        <span className={`font-medium ${occ > 80 ? 'text-red-400' : occ > 50 ? 'text-yellow-400' : 'text-green-400'}`}>{occ}%</span>
+                                                    </div>
+                                                    <div className="w-full bg-slate-700 h-1 rounded-full">
+                                                        <div
+                                                            className={`h-full rounded-full transition-all duration-500 ${occ > 80 ? 'bg-red-400' : occ > 50 ? 'bg-yellow-400' : 'bg-green-400'}`}
+                                                            style={{ width: `${occ}%` }}
+                                                        />
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                        {geofencedShelters.length === 0 && (
+                                            <p className="text-[10px] text-slate-500 text-center p-4">No geofenced shelters</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Map area */}
+                                <div className="flex-1 relative">
+                                    <InteractiveGoogleMap
+                                        mode="tracking"
+                                        className="h-full w-full"
+                                        geofences={geofencedShelters.map(s => s.geofence).filter(Boolean) as any}
+                                        kmlUrls={shelters?.map(s => s.kmlUrl).filter(Boolean) as string[]}
+                                        focusedGeofenceIndex={focusedShelterIndex}
+                                    />
+                                    {/* Active shelter name badge */}
+                                    {geofencedShelters[focusedShelterIndex] && (
+                                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-black/70 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-2 pointer-events-none">
+                                            <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                                            {geofencedShelters[focusedShelterIndex].name}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </CardContent>
                     </Card>

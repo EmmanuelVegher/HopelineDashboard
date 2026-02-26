@@ -22,6 +22,7 @@ interface InteractiveGoogleMapProps {
   onLocationUpdate?: (location: LatLng) => void;
   followDriver?: boolean;
   kmlUrls?: string[];
+  focusedGeofenceIndex?: number;
 }
 
 export default function InteractiveGoogleMap({
@@ -36,6 +37,7 @@ export default function InteractiveGoogleMap({
   onLocationUpdate,
   followDriver = true,
   kmlUrls = [],
+  focusedGeofenceIndex,
 }: InteractiveGoogleMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<google.maps.Map | null>(null);
@@ -574,6 +576,18 @@ export default function InteractiveGoogleMap({
       hasInitialCenteredRef.current = true;
     }
   }, [isLoaded, geofences]);
+
+  // Focus on a specific geofence when focusedGeofenceIndex changes
+  useEffect(() => {
+    if (!isLoaded || !googleMapRef.current) return;
+    if (focusedGeofenceIndex === undefined || focusedGeofenceIndex === null) return;
+    const target = geofences?.[focusedGeofenceIndex];
+    if (!target || target.length === 0) return;
+
+    const bounds = new google.maps.LatLngBounds();
+    target.forEach(point => bounds.extend(point));
+    googleMapRef.current.fitBounds(bounds, 80); // 80px padding
+  }, [isLoaded, focusedGeofenceIndex, geofences]);
 
   // Center map on locations
   useEffect(() => {

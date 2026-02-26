@@ -6,6 +6,7 @@ export type Shelter = {
     capacity: number;
     availableCapacity: number;
     organization: string;
+    organizationId?: string;
     facilities: string[];
     security: string;
     latitude: number;
