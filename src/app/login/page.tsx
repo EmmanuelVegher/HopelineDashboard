@@ -450,7 +450,7 @@ export default function LoginPage() {
                 <p className="text-xs text-center text-white mt-1 px-2">{t('auth.login.anonymousSos')}</p>
                 <div className="w-full text-center space-y-2 sm:space-y-3 pt-1">
                   <Separator />
-                  <p className="text-xs text-white px-2">Supported By</p>
+                  <p className="text-xs text-muted-foreground px-2">Supported By</p>
                   <div className="flex justify-center items-center gap-1 sm:gap-2 px-2 flex-wrap">
                     <img
                       src="/caritas-logo.png"
@@ -468,6 +468,19 @@ export default function LoginPage() {
                       height={32}
                       loading="lazy"
                       className="w-auto h-auto max-w-[140px] sm:max-w-[160px]"
+                      data-ai-hint="logo"
+                    />
+                  </div>
+                  <Separator />
+                  <p className="text-xs text-muted-foreground px-2">In partnership with:</p>
+                  <div className="flex justify-center items-center gap-1 sm:gap-2 px-2 flex-wrap">
+                    <img
+                      src="/adamawa-logo.png"
+                      alt="Adamawa State Government Logo"
+                      width={48}
+                      height={20}
+                      loading="lazy"
+                      className="w-auto h-auto max-w-[80px] sm:max-w-[96px]"
                       data-ai-hint="logo"
                     />
                   </div>
