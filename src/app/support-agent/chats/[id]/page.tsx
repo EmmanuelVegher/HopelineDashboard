@@ -21,7 +21,7 @@ import {
   ExternalLink,
   ArrowLeft
 } from "lucide-react";
-import { collection, query, onSnapshot, addDoc, doc, getDoc, updateDoc, serverTimestamp, orderBy } from "firebase/firestore";
+import { collection, query, onSnapshot, addDoc, doc, getDoc, updateDoc, serverTimestamp, orderBy, increment } from "firebase/firestore";
 import { db, auth, functions } from "@/lib/firebase";
 import { httpsCallable } from "firebase/functions";
 import { useToast } from "@/hooks/use-toast";
@@ -149,6 +149,11 @@ export default function IndividualChatPage() {
     const unsubscribe = onSnapshot(chatDocRef, async (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
+
+        // Clear agent's unread count when they view the chat
+        if (data.unreadCount > 0) {
+          updateDoc(chatDocRef, { unreadCount: 0 });
+        }
 
         try {
           // Determine the "other" person in the chat
@@ -330,10 +335,11 @@ export default function IndividualChatPage() {
         status: 'sent'
       });
 
-      // Update last message
+      // Update last message and increment beneficiary unread count
       await updateDoc(doc(db, 'chats', chatId), {
         lastMessage: originalText,
-        lastMessageTimestamp: serverTimestamp()
+        lastMessageTimestamp: serverTimestamp(),
+        unreadCountBeneficiary: increment(1)
       });
 
     } catch (error) {
@@ -419,7 +425,8 @@ export default function IndividualChatPage() {
 
       await updateDoc(doc(db, 'chats', chatId), {
         lastMessage: `${callEmoji} ${callText}`,
-        lastMessageTimestamp: serverTimestamp()
+        lastMessageTimestamp: serverTimestamp(),
+        unreadCountBeneficiary: increment(1)
       });
 
       setActiveCall({

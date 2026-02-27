@@ -22,7 +22,7 @@ import {
   Plus,
   Video // ✅ Added Video import
 } from "lucide-react";
-import { collection, query, where, onSnapshot, orderBy, addDoc, doc, setDoc, getDoc, updateDoc, serverTimestamp, limit, getDocs } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, addDoc, doc, setDoc, getDoc, updateDoc, serverTimestamp, limit, getDocs, increment } from "firebase/firestore";
 import { db, auth, functions } from "@/lib/firebase";
 import { httpsCallable } from "firebase/functions";
 import { useToast } from "@/hooks/use-toast";
@@ -319,6 +319,14 @@ export default function SupportAgentChatsPage() {
         unreadMessages.forEach(async (doc) => {
           await updateDoc(doc.ref, { status: 'read' });
         });
+
+        // Clear agent's unread count when they view the chat
+        const chatRef = doc(db, 'chats', selectedChatId);
+        getDoc(chatRef).then(snap => {
+          if (snap.exists() && (snap.data().unreadCount || 0) > 0) {
+            updateDoc(chatRef, { unreadCount: 0 });
+          }
+        });
       }
     });
 
@@ -397,10 +405,11 @@ export default function SupportAgentChatsPage() {
         status: 'sent'
       });
 
-      // Update last message
+      // Update last message and increment beneficiary's unread count
       await updateDoc(doc(db, 'chats', selectedChatId), {
         lastMessage: originalText,
-        lastMessageTimestamp: serverTimestamp()
+        lastMessageTimestamp: serverTimestamp(),
+        unreadCountBeneficiary: increment(1)
       });
 
     } catch (error) {
@@ -466,7 +475,7 @@ export default function SupportAgentChatsPage() {
             },
             [user.id]: {
               email: user.email || '',
-              name: `${user.firstName} ${user.lastName}`.trim(),
+              name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.displayName || 'User',
               role: user.role || 'user'
             }
           }

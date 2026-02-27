@@ -63,10 +63,10 @@ export default function AssistancePage() {
     const [activeTab, setActiveTab] = useState("chat");
     const [supportAgent, setSupportAgent] = useState<UserProfile | null>(null);
 
-    const [agentsLoading, setAgentsLoading] = useState(true);
     const [availableAgents, setAvailableAgents] = useState<UserProfile[]>([]);
     const [availableUsers, setAvailableUsers] = useState<UserProfile[]>([]);
     const [availableAdmins, setAvailableAdmins] = useState<UserProfile[]>([]);
+    const [agentsLoading, setAgentsLoading] = useState(true);
     const [usersLoading, setUsersLoading] = useState(true);
     const [adminsLoading, setAdminsLoading] = useState(true);
     const [selectedCategory, setSelectedCategory] = useState<'agents' | 'users' | 'admins'>('agents');
@@ -83,6 +83,7 @@ export default function AssistancePage() {
     const [participantInfo, setParticipantInfo] = useState<Record<string, any>>({});
     const [userData, setUserData] = useState<Record<string, UserProfile>>({});
     const [fetchedUsers, setFetchedUsers] = useState<Set<string>>(new Set());
+    const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
     const { toast } = useToast();
 
     // Helper to get group ID based on user role and state
@@ -147,6 +148,44 @@ export default function AssistancePage() {
     };
 
     const messagesEndRef = useRef<null | HTMLDivElement>(null)
+
+    // Listen for all chats to get unread counts for beneficiaries
+    useEffect(() => {
+        if (!user) return;
+
+        const q = query(
+            collection(db, 'chats'),
+            where('participants', 'array-contains', user.uid)
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            console.log("Unread listener triggered. User ID:", user.uid);
+            const counts: Record<string, number> = {};
+            snapshot.docs.forEach(chatDoc => {
+                const data = chatDoc.data();
+
+                // 1. Identify other user robustly
+                let otherId = data.participants?.find((id: string) => id !== user.uid);
+                if (!otherId) {
+                    if (data.userId === user.uid) otherId = data.agentId;
+                    else if (data.agentId === user.uid) otherId = data.userId;
+                    else otherId = data.agentId || data.userId;
+                }
+
+                // 2. Sum counts from all possible keys (supporting legacy and new fields)
+                // We sum because a user might have multiple chat docs with one agent in weird edge cases
+                const count = (data.unreadCountBeneficiary || 0) + (data.unreadCount || 0);
+
+                if (otherId && count > 0) {
+                    counts[otherId] = (counts[otherId] || 0) + count;
+                }
+            });
+            console.log("Updated unread counts (Robust):", counts);
+            setUnreadCounts(counts);
+        });
+
+        return () => unsubscribe();
+    }, [user]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -230,7 +269,13 @@ export default function AssistancePage() {
         const chatRef = doc(db, 'chats', chatId);
         const unsubscribeMeta = onSnapshot(chatRef, (snap) => {
             if (snap.exists()) {
-                setParticipantInfo(snap.data().participantInfo || {});
+                const data = snap.data();
+                setParticipantInfo(data.participantInfo || {});
+
+                // Auto-reset unread count if we are viewing this chat
+                if (data.unreadCountBeneficiary > 0) {
+                    updateDoc(chatRef, { unreadCountBeneficiary: 0 });
+                }
             }
         }, (err) => {
             if (err.code !== 'permission-denied') {
@@ -329,17 +374,27 @@ export default function AssistancePage() {
                     chatsSnapshot.docs.forEach(doc => {
                         const data = doc.data();
                         const participants = data.participants || [];
-                        const otherId = participants.find((id: string) => id !== user.uid);
-                        if (otherId) {
-                            lastMessagesMap.set(otherId, data.lastMessage);
+                        const otherId = participants.find((id: string) => id !== user.uid) || data.agentId || data.userId;
+
+                        if (otherId && otherId !== user.uid) {
+                            const existing = lastMessagesMap.get(otherId) || { text: '', unread: 0 };
+                            lastMessagesMap.set(otherId, {
+                                text: data.lastMessage || existing.text,
+                                unread: (data.unreadCountBeneficiary || 0) + (data.unreadCount || 0) + existing.unread
+                            });
                         }
                     });
 
                     // 3. Categorize and Enrich client-side
-                    const enrich = (people: UserProfile[]) => people.map(p => ({
-                        ...p,
-                        lastMessage: lastMessagesMap.get(p.uid) || null
-                    }));
+                    const enrich = (people: UserProfile[]) => people.map(p => {
+                        // Check both uid and id for robustness
+                        const chatInfo = lastMessagesMap.get(p.uid) || lastMessagesMap.get(p.id) || {};
+                        return {
+                            ...p,
+                            lastMessage: chatInfo.text || null,
+                            unreadCount: chatInfo.unread || 0
+                        };
+                    });
 
                     const agents = allPeople.filter(u => {
                         const role = (u.role || '').toString().toLowerCase();
@@ -540,15 +595,15 @@ export default function AssistancePage() {
                     participants: [user.uid, supportAgent!.uid],
                     participantInfo: {
                         [user.uid]: {
-                            name: (userProfile?.firstName && userProfile?.lastName) ? `${userProfile.firstName} ${userProfile.lastName}` : (user.displayName || 'User'),
+                            name: (userProfile?.firstName && userProfile?.lastName) ? `${userProfile.firstName} ${userProfile.lastName}` : (user.displayName || userProfile?.displayName || 'User'),
                             role: userProfile?.role || 'user',
-                            email: user.email,
+                            email: user.email || '',
                             avatar: userProfile?.image || (userProfile as any)?.profileImage || (userProfile as any)?.photoURL || (userProfile as any)?.photoUrl || (userProfile as any)?.imageUrl || (userProfile as any)?.avatar || user.photoURL || ''
                         },
                         [supportAgent!.uid]: {
-                            name: supportAgent!.displayName,
+                            name: supportAgent!.displayName || (supportAgent!.firstName ? `${supportAgent!.firstName} ${supportAgent!.lastName || ''}`.trim() : 'Support Agent'),
                             role: supportAgent!.role || 'support agent',
-                            email: supportAgent!.email,
+                            email: supportAgent!.email || '',
                             avatar: supportAgent!.image || (supportAgent as any)!.profileImage || (supportAgent as any)!.photoURL || (supportAgent as any)!.photoUrl || (supportAgent as any)!.imageUrl || (supportAgent as any)!.avatar || ''
                         }
                     },
@@ -617,7 +672,15 @@ export default function AssistancePage() {
         );
     };
 
-    const AgentCard = ({ agent }: { agent: UserProfile & { lastMessage?: string | null } }) => {
+    const AgentCard = ({
+        agent,
+        unreadCount,
+        onSelect
+    }: {
+        agent: UserProfile & { lastMessage?: string | null },
+        unreadCount: number,
+        onSelect?: () => void
+    }) => {
         const getRoleLabel = () => {
             const role = (agent.role || '').toString().toLowerCase();
             if (role.includes('support')) return 'Support Agent';
@@ -627,8 +690,22 @@ export default function AssistancePage() {
             return 'User';
         };
         const isOnline = agent.availability === 'online' || agent.isOnline;
+
+        console.log(`AgentCard: ${agent.displayName}, UID: ${agent.uid}, ID: ${agent.id}, Unread: ${unreadCount}`);
+
         return (
-            <Card className="flex flex-col p-4 hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-blue-200">
+            <Card
+                data-agent-id={agent.uid}
+                data-agent-name={agent.displayName}
+                data-unread-count={unreadCount}
+                onClick={onSelect}
+                className="relative flex flex-col p-4 hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-blue-200"
+            >
+                {unreadCount > 0 && (
+                    <Badge variant="destructive" className="absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center rounded-full p-0 text-[10px] animate-bounce shadow-md">
+                        {unreadCount}
+                    </Badge>
+                )}
                 <div className="flex items-start gap-3 mb-3">
                     <div className="relative flex-shrink-0">
                         <Avatar className="h-16 w-16 border-2 border-white shadow-sm">
@@ -663,11 +740,6 @@ export default function AssistancePage() {
                     </p>
                 )}
                 <Button
-                    onClick={() => {
-                        setChatId(null);
-                        setMessages([]);
-                        setSupportAgent(agent);
-                    }}
                     size="sm"
                     className={cn(
                         "w-full rounded-lg text-sm",
@@ -683,6 +755,11 @@ export default function AssistancePage() {
                     ) : (
                         <>
                             <Send className="w-3.5 h-3.5 mr-1.5" /> {t('assistance.interface.startChat')}
+                            {unreadCount > 0 && (
+                                <span className="ml-2 bg-white text-blue-600 rounded-full h-5 w-5 flex items-center justify-center text-[10px] font-bold shadow-sm">
+                                    {unreadCount}
+                                </span>
+                            )}
                         </>
                     )}
                 </Button>
@@ -702,7 +779,7 @@ export default function AssistancePage() {
         const displayImage = isGroup ? undefined : (supportAgent?.image || (supportAgent as any)?.imageUrl || (supportAgent as any)?.profileImage || (supportAgent as any)?.photoURL || (supportAgent as any)?.photoUrl || (supportAgent as any)?.avatar); // Use undefined for group to trigger fallback icon
         const displayName = isGroup ? `${userProfile?.state || 'State'} ${t('assistance.interface.communityGroup')}` : (supportAgent?.displayName || (supportAgent?.firstName ? `${supportAgent.firstName} ${supportAgent.lastName || ''}`.trim() : t('assistance.interface.supportAgent')));
         // Unused variable removed or kept if intended for future use, but lint complains
-        // const displayRole = isGroup ? "Official Support Group" : "Support Agent"; 
+        // const displayRole = isGroup ? "Official Support Group" : "Support Agent";
 
         return (
             <Card className="h-[80vh] flex flex-col shadow-lg border-t-4 border-t-primary">
@@ -838,7 +915,7 @@ export default function AssistancePage() {
 
     // If actively in a call, show the full screen call UI
     if (isInCall && chatId && (supportAgent || activeTab === 'group')) {
-        // Create a channel name if one doesn't exist in state. 
+        // Create a channel name if one doesn't exist in state.
         const channelName = supportAgent ? [user?.uid || '', supportAgent.uid].sort().join('_') : chatId;
 
         return (
@@ -951,9 +1028,30 @@ export default function AssistancePage() {
                                             </div>
                                         ) : filterUsers(availableAgents, agentSearch).length > 0 ? (
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                {filterUsers(availableAgents, agentSearch).map((agent) => (
-                                                    <AgentCard key={agent.uid} agent={agent} />
-                                                ))}
+                                                {filterUsers(availableAgents, agentSearch).map((agent) => {
+                                                    const uCount = unreadCounts[agent.uid] !== undefined ? unreadCounts[agent.uid] : (unreadCounts[agent.id] || (agent as any).unreadCount || 0);
+                                                    return (
+                                                        <AgentCard
+                                                            key={agent.uid}
+                                                            agent={agent}
+                                                            unreadCount={uCount}
+                                                            onSelect={() => {
+                                                                setSupportAgent(agent);
+                                                                setActiveTab('chat');
+                                                                if (user?.uid) {
+                                                                    const uids = [user.uid, agent.uid].sort();
+                                                                    const chatIdForReset = uids.join('_');
+                                                                    const chatRef = doc(db, 'chats', chatIdForReset);
+                                                                    getDoc(chatRef).then(snap => {
+                                                                        if (snap.exists() && (snap.data().unreadCountBeneficiary || 0) > 0) {
+                                                                            updateDoc(chatRef, { unreadCountBeneficiary: 0 });
+                                                                        }
+                                                                    });
+                                                                }
+                                                            }}
+                                                        />
+                                                    );
+                                                })}
                                             </div>
                                         ) : agentSearch.trim() ? (
                                             <div className="text-center py-12">
@@ -997,9 +1095,32 @@ export default function AssistancePage() {
                                             </div>
                                         ) : filterUsers(availableUsers, userSearch).length > 0 ? (
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                {filterUsers(availableUsers, userSearch).map((otherUser) => (
-                                                    <AgentCard key={otherUser.uid} agent={otherUser} />
-                                                ))}
+                                                {filterUsers(availableUsers, userSearch).map((otherUser) => {
+                                                const uCount = unreadCounts[otherUser.uid] !== undefined ? unreadCounts[otherUser.uid] : (unreadCounts[otherUser.id] || (otherUser as any).unreadCount || 0);
+                                                return (
+                                                    <AgentCard 
+                                                        key={otherUser.uid} 
+                                                        agent={otherUser} 
+                                                        unreadCount={uCount}
+                                                        onSelect={() => {
+                                                            setChatId(null);
+                                                            setMessages([]);
+                                                            setSupportAgent(otherUser);
+                                                            setActiveTab('chat');
+                                                            if (user?.uid) {
+                                                                const uids = [user.uid, otherUser.uid].sort();
+                                                                const chatIdForReset = uids.join('_');
+                                                                const chatRef = doc(db, 'chats', chatIdForReset);
+                                                                getDoc(chatRef).then(snap => {
+                                                                    if (snap.exists() && (snap.data().unreadCountBeneficiary || 0) > 0) {
+                                                                        updateDoc(chatRef, { unreadCountBeneficiary: 0 });
+                                                                    }
+                                                                });
+                                                            }
+                                                        }}
+                                                    />
+                                                );
+                                            })}
                                             </div>
                                         ) : userSearch.trim() ? (
                                             <div className="text-center py-12">
@@ -1044,9 +1165,32 @@ export default function AssistancePage() {
                                             </div>
                                         ) : filterUsers(availableAdmins, adminSearch).length > 0 ? (
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                {filterUsers(availableAdmins, adminSearch).map((admin) => (
-                                                    <AgentCard key={admin.uid} agent={admin} />
-                                                ))}
+                                                {filterUsers(availableAdmins, adminSearch).map((admin) => {
+                                                    const uCount = unreadCounts[admin.uid] !== undefined ? unreadCounts[admin.uid] : (unreadCounts[admin.id] || (admin as any).unreadCount || 0);
+                                                    return (
+                                                        <AgentCard
+                                                            key={admin.uid}
+                                                            agent={admin}
+                                                            unreadCount={uCount}
+                                                            onSelect={() => {
+                                                                setChatId(null);
+                                                                setMessages([]);
+                                                                setSupportAgent(admin);
+                                                                setActiveTab('chat');
+                                                                if (user?.uid) {
+                                                                    const uids = [user.uid, admin.uid].sort();
+                                                                    const chatIdForReset = uids.join('_');
+                                                                    const chatRef = doc(db, 'chats', chatIdForReset);
+                                                                    getDoc(chatRef).then(snap => {
+                                                                        if (snap.exists() && (snap.data().unreadCountBeneficiary || 0) > 0) {
+                                                                            updateDoc(chatRef, { unreadCountBeneficiary: 0 });
+                                                                        }
+                                                                    });
+                                                                }
+                                                            }}
+                                                        />
+                                                    );
+                                                })}
                                             </div>
                                         ) : adminSearch.trim() ? (
                                             <div className="text-center py-12">

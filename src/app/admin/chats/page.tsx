@@ -36,7 +36,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { collection, addDoc, doc, getDoc, getDocs, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where, limit } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, getDocs, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where, limit, increment } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import { db, auth, functions, storage } from "@/lib/firebase";
 import { httpsCallable } from "firebase/functions";
@@ -177,7 +177,7 @@ export default function AdminChatsPage() {
                             participants: [auth.currentUser?.uid],
                             participantInfo: {
                                 [auth.currentUser?.uid!]: {
-                                    name: adminProfile.firstName + ' ' + adminProfile.lastName || 'System',
+                                    name: `${adminProfile.firstName || ''} ${adminProfile.lastName || ''}`.trim() || 'System',
                                     role: adminProfile.role || 'system'
                                 }
                             },
@@ -364,10 +364,20 @@ export default function AdminChatsPage() {
             // Mark as read
             const adminId = auth.currentUser?.uid;
             if (adminId) {
-                snapshot.docs.forEach(async (doc) => {
+                const unreadMessages = snapshot.docs.filter(doc => {
                     const data = doc.data() as Message;
-                    if (data.senderId !== adminId && data.status !== 'read') {
-                        await updateDoc(doc.ref, { status: 'read' });
+                    return data.senderId !== adminId && data.status !== 'read';
+                });
+
+                unreadMessages.forEach(async (doc) => {
+                    await updateDoc(doc.ref, { status: 'read' });
+                });
+
+                // Clear admin's unread count when they view the chat
+                const chatRef = doc(db, 'chats', selectedChatId);
+                getDoc(chatRef).then(snap => {
+                    if (snap.exists() && (snap.data().unreadCount || 0) > 0) {
+                        updateDoc(chatRef, { unreadCount: 0 });
                     }
                 });
             }
@@ -519,7 +529,8 @@ export default function AdminChatsPage() {
 
             await updateDoc(doc(db, 'chats', selectedChatId), {
                 lastMessage: `${callEmoji} ${callText}`,
-                lastMessageTimestamp: serverTimestamp()
+                lastMessageTimestamp: serverTimestamp(),
+                unreadCountBeneficiary: increment(1)
             });
 
             setActiveCall({
@@ -616,7 +627,8 @@ export default function AdminChatsPage() {
 
             await updateDoc(doc(db, 'chats', selectedChatId), {
                 lastMessage: `${callEmoji} ${callText}`,
-                lastMessageTimestamp: serverTimestamp()
+                lastMessageTimestamp: serverTimestamp(),
+                unreadCountBeneficiary: increment(1)
             });
 
             setActiveCall({
@@ -742,7 +754,8 @@ export default function AdminChatsPage() {
             await updateDoc(doc(db, 'chats', selectedChatId), {
                 lastMessage: attachments.length > 0 ? (originalText || (attachments[0].type === 'audio' ? 'Voice Message' : 'Attachment')) : originalText,
                 lastMessageTimestamp: serverTimestamp(), // Parent chat sorting still uses serverTimestamp/Timestamp objects effectively
-                unreadCount: 0
+                unreadCount: 0,
+                unreadCountBeneficiary: increment(1)
             });
 
         } catch (error) {
@@ -820,7 +833,7 @@ export default function AdminChatsPage() {
                             ...chatData.participantInfo,
                             [adminId]: {
                                 email: auth.currentUser?.email || '',
-                                name: adminProfile ? `${adminProfile.firstName} ${adminProfile.lastName}` : 'Admin',
+                                name: adminProfile ? `${adminProfile.firstName || ''} ${adminProfile.lastName || ''}`.trim() || 'Admin' : 'Admin',
                                 role: adminProfile?.role || 'Admin'
                             }
                         },
@@ -848,12 +861,12 @@ export default function AdminChatsPage() {
                     participantInfo: {
                         [adminId]: {
                             email: auth.currentUser?.email || '',
-                            name: adminProfile ? `${adminProfile.firstName} ${adminProfile.lastName}` : 'Admin',
+                            name: adminProfile ? `${adminProfile.firstName || ''} ${adminProfile.lastName || ''}`.trim() || 'Admin' : 'Admin',
                             role: adminProfile?.role || 'Admin'
                         },
                         [user.id]: {
                             email: user.email || '',
-                            name: `${user.firstName} ${user.lastName}`.trim(),
+                            name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.displayName || 'User',
                             role: user.role || 'user'
                         }
                     }

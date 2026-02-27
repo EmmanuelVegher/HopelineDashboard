@@ -1018,8 +1018,8 @@
     }
   },
   "signup": {
-    "title": "Admin Profile",
-    "subtitle": "View and manage your account details",
+    "title": "Mepụta Akaụntụ",
+    "subtitle": "Soro Hopeline taa",
     "fullNameLabel": "Full Name",
     "emailLabel": "Email Address",
     "phoneLabel": "Phone Number",
@@ -1031,16 +1031,17 @@
     "signUp": "Sign Up",
     "signingUp": "Creating account...",
     "redirecting": "Redirecting to your dashboard...",
-    "successTitle": "Account Created"
+    "successTitle": "Account Created",
+    "googleSignUp": "Debanye aha na Google"
   },
   "privacy": {
-    "title": "Admin Profile",
-    "lastUpdated": "Last Updated: {{date}}",
+    "title": "Nzuzo & Nchebe",
+    "lastUpdated": "Ikpeazụ emelitere: {{date}}",
     "introduction": "Nzuzo gị dị anyị mkpa. Usoro Nzuzo a na-akọwa ka CARITAS HopeLine si anakọta, na-eji, ma na-echekwa ozi gị.",
     "sections": {
       "collection": {
-        "title": "Admin Profile",
-        "description": "Create a training resource. This will automatically notify relevant users and post to group chats."
+        "title": "Nchịkọta Ozi",
+        "description": "Anyị na-anakọta ozi ị na-enye anyị anya mgbe ị mepụtara akaụntụ, ziga SOS, ma ọ bụ kparịta ụka n'aka anyị."
       },
       "usage": {
         "title": "Admin Profile",
@@ -1112,12 +1113,12 @@
     "notAvailable": "Adịghị"
   },
   "sos": {
-    "title": "Admin Profile",
-    "subtitle": "View and manage your account details",
+    "title": "Enyemaka Mberede SOS",
+    "subtitle": "Ziga ozi mberede ozugbo na CARITAS Nigeria, ndị uwe ojii, na ndị otu nzaghachi obodo.",
     "immediateEmergency": "Mberede Na-atụ Egwu Ndụ?",
     "clickToInstruction": "Pịa bọtịnụ dị n'okpuru ka i ziga SOS ozugbo nwere ebe ị nọ.",
-    "sosButton": "SOS",
-    "emergency": "Mberede",
+    "sosButton": "NYERE M",
+    "emergency": "AKA!!!",
     "gettingLocation": "Anyị na-achọ ebe ị nọ...",
     "emergencyTypeTitle": "Ụdị Mberede",
     "emergencyTypeSelect": "Họrọ ụdị mberede iji nyere ndị na-anabata mberede aka ịkwadebe enyemaka kwesịrị ekwesị",

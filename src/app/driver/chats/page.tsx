@@ -706,7 +706,7 @@ export default function DriverChatsPage() {
             if (!chatDocSnap.exists()) {
                 await setDoc(chatDocRef, {
                     agentId: adminId,
-                    agentName: `${userProfile.firstName} ${userProfile.lastName}`,
+                    agentName: `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || 'Driver',
                     userId: targetUser.id,
                     userEmail: targetUser.email || '',
                     userImage: targetUser.image || targetUser.imageUrl || targetUser.profileImage || targetUser.photoURL || targetUser.photoUrl || targetUser.avatar || '',
@@ -718,8 +718,8 @@ export default function DriverChatsPage() {
                     type: 'p2p',
                     participants: [adminId, targetUser.id],
                     participantInfo: {
-                        [adminId]: { email: user.email || '', name: `${userProfile.firstName} ${userProfile.lastName}`, role: userProfile.role || 'driver', avatar: userProfile.image || userProfile.imageUrl || userProfile.profileImage || userProfile.photoURL || userProfile.photoUrl || userProfile.avatar || '' },
-                        [targetUser.id]: { email: targetUser.email || '', name: `${targetUser.firstName} ${targetUser.lastName}`, role: targetUser.role || 'user', avatar: targetUser.image || targetUser.imageUrl || targetUser.profileImage || targetUser.photoURL || targetUser.photoUrl || targetUser.avatar || '' }
+                        [adminId]: { email: user.email || '', name: `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || 'Driver', role: userProfile.role || 'driver', avatar: userProfile.image || userProfile.imageUrl || userProfile.profileImage || userProfile.photoURL || userProfile.photoUrl || userProfile.avatar || '' },
+                        [targetUser.id]: { email: targetUser.email || '', name: `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim() || targetUser.displayName || 'User', role: targetUser.role || 'user', avatar: targetUser.image || targetUser.imageUrl || targetUser.profileImage || targetUser.photoURL || targetUser.photoUrl || targetUser.avatar || '' }
                     }
                 });
             }

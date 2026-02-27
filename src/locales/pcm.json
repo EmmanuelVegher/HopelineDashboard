@@ -1020,8 +1020,8 @@
     }
   },
   "signup": {
-    "title": "Admin Profile",
-    "subtitle": "View and manage your account details",
+    "title": "Create Account",
+    "subtitle": "Join Hopeline today",
     "fullNameLabel": "Full Name",
     "emailLabel": "Email Address",
     "phoneLabel": "Phone Number",
@@ -1033,16 +1033,17 @@
     "signUp": "Sign Up",
     "signingUp": "Creating account...",
     "redirecting": "Redirecting to your dashboard...",
-    "successTitle": "Account Created"
+    "successTitle": "Account Created",
+    "googleSignUp": "Sign up with Google"
   },
   "privacy": {
-    "title": "Admin Profile",
-    "lastUpdated": "Last Updated: {{date}}",
+    "title": "Privacy & Security",
+    "lastUpdated": "Last time we update am: {{date}}",
     "introduction": "Your privacy big deal to us. This Privacy Policy explain how CARITAS HopeLine take collect, use, and protect your information.",
     "sections": {
       "collection": {
-        "title": "Admin Profile",
-        "description": "Create a training resource. This will automatically notify relevant users and post to group chats."
+        "title": "How we collect information",
+        "description": "We de collect information wey you give us when you register, send SOS, or chat wit us."
       },
       "usage": {
         "title": "Admin Profile",
@@ -1114,12 +1115,12 @@
     "notAvailable": "E no dey"
   },
   "sos": {
-    "title": "Admin Profile",
-    "subtitle": "View and manage your account details",
+    "title": "Sharp-Sharp HELP ME",
+    "subtitle": "Send emergency alert sharp-sharp to CARITAS Nigeria, Police, and local teams.",
     "immediateEmergency": "E fit be life and death matter?",
     "clickToInstruction": "Touch de button below to send SOS sharp sharp with your location.",
-    "sosButton": "SOS",
-    "emergency": "Emergency",
+    "sosButton": "HELP",
+    "emergency": "ME!!!",
     "gettingLocation": "We dey find your location...",
     "emergencyTypeTitle": "Wetin happen?",
     "emergencyTypeSelect": "Choose de kind emergency so responders go fit prepare better help for you",

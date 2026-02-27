@@ -598,7 +598,8 @@
       "signUp": "Sign Up",
       "signingUp": "Creating account...",
       "redirecting": "Redirecting to your dashboard...",
-      "successTitle": "Account Created"
+      "successTitle": "Account Created",
+      "googleSignUp": "Sign up with Google"
     }
   },
   "assistance": {
@@ -1135,8 +1136,8 @@
     "subtitle": "Send an immediate emergency alert to CARITAS Nigeria, the Police, and local response teams.",
     "immediateEmergency": "Immediate Life-Threatening Emergency?",
     "clickToInstruction": "Click the button below to send an instant SOS with your location.",
-    "sosButton": "SOS",
-    "emergency": "EMERGENCY",
+    "sosButton": "HELP",
+    "emergency": "ME!!!",
     "gettingLocation": "Getting Location...",
     "emergencyTypeTitle": "Type of Emergency",
     "emergencyTypeSelect": "Select the emergency type to help response teams prepare appropriate assistance",

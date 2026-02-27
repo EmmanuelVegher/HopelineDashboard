@@ -571,7 +571,8 @@
       "signUp": "Yi Rajista",
       "signingUp": "Ana buɗe asusu...",
       "redirecting": "Ana tura ku zuwa shafin ku...",
-      "successTitle": "An Buɗe Asusun"
+      "successTitle": "An Buɗe Asusun",
+      "googleSignUp": "Yi rajista da Google"
     }
   },
   "assistance": {
@@ -1108,8 +1109,8 @@
     "subtitle": "Nemi agajin gaggawa nan take",
     "immediateEmergency": "Gaggawar da ke barazana ga rayuwa?",
     "clickToInstruction": "Danna maballin da ke ƙasa don aika SOS nan take tare da wurinka.",
-    "sosButton": "SOS",
-    "emergency": "Gaggawa",
+    "sosButton": "TAIMAKE",
+    "emergency": "NI!!!",
     "gettingLocation": "Ana neman wuri...",
     "emergencyTypeTitle": "Nau'in Gaggawa",
     "emergencyTypeSelect": "Zaɓi nau'in gaggawa don taimakawa masu bada agaji su shirya taimakon da ya dace",

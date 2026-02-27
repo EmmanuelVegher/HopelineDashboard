@@ -15,6 +15,8 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+
 
 type UserLocation = {
     city: string;
@@ -45,7 +47,9 @@ export default function FindShelterPage() {
     const [locationLoading, setLocationLoading] = useState(false);
     const [selectedState, setSelectedState] = useState("all");
     const [searchTerm, setSearchTerm] = useState("");
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const { t } = useTranslation();
+
     const { toast } = useToast();
 
     const availableStates = useMemo(() => {
@@ -150,7 +154,7 @@ export default function FindShelterPage() {
             async (position) => {
                 const { latitude, longitude } = position.coords;
                 try {
-                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&email=support@hopeline.ng`);
 
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
@@ -343,15 +347,20 @@ export default function FindShelterPage() {
                             <Card key={shelter.id} className="shadow-md hover:shadow-lg transition-shadow duration-300">
                                 <CardContent className="p-0">
                                     {shelter.imageUrl && (
-                                        <div className="aspect-video w-full relative">
+                                        <div className="aspect-video w-full relative group overflow-hidden">
                                             <img
                                                 src={shelter.imageUrl}
                                                 alt={shelter.name}
-                                                className="object-cover rounded-t-lg w-full h-full"
+                                                className="object-cover rounded-t-lg w-full h-full cursor-zoom-in transition-transform duration-500 group-hover:scale-110"
                                                 crossOrigin="anonymous"
+                                                onClick={() => setSelectedImage(shelter.imageUrl!)}
                                             />
+                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 pointer-events-none flex items-center justify-center">
+                                                <Zap className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 h-8 w-8 drop-shadow-lg" />
+                                            </div>
                                         </div>
                                     )}
+
                                     <div className="p-6">
                                         <div className="flex justify-between items-start">
                                             <div>
@@ -423,6 +432,23 @@ export default function FindShelterPage() {
                     </div>
                 )}
             </div>
+
+            <Dialog open={!!selectedImage} onOpenChange={(open) => !open && setSelectedImage(null)}>
+                <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 overflow-hidden bg-transparent border-none shadow-none outline-none">
+                    <DialogTitle className="sr-only">Shelter Image Full View</DialogTitle>
+                    {selectedImage && (
+                        <div className="relative w-full h-full flex items-center justify-center p-4">
+                            <img
+                                src={selectedImage}
+                                alt="Shelter Full View"
+                                className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-300"
+                                crossOrigin="anonymous"
+                            />
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
+

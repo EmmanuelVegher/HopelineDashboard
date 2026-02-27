@@ -1018,8 +1018,8 @@
     }
   },
   "signup": {
-    "title": "Admin Profile",
-    "subtitle": "View and manage your account details",
+    "title": "Ṣẹ̀dá Àpamọ́",
+    "subtitle": "Darapọ̀ mọ́ Hopeline lónìí",
     "fullNameLabel": "Full Name",
     "emailLabel": "Email Address",
     "phoneLabel": "Phone Number",
@@ -1031,16 +1031,17 @@
     "signUp": "Sign Up",
     "signingUp": "Creating account...",
     "redirecting": "Redirecting to your dashboard...",
-    "successTitle": "Account Created"
+    "successTitle": "Account Created",
+    "googleSignUp": "Sain soke pẹlu Google"
   },
   "privacy": {
-    "title": "Admin Profile",
+    "title": "Ìjẹ́míímọ̀ & Ìpamọ́",
     "lastUpdated": "Last Updated: {{date}}",
     "introduction": "Ìpamọ́ rẹ ṣe pàtàkì sí wa. Ìlànà Ìpamọ́ yìí ṣàlàyé bí CARITAS HopeLine ṣe ń gba, lo, tí ó sì ń dáàbò bo ìsọfúnni rẹ.",
     "sections": {
       "collection": {
-        "title": "Admin Profile",
-        "description": "Create a training resource. This will automatically notify relevant users and post to group chats."
+        "title": "Ìsọfúnni tí A Ń Gbà",
+        "description": "A ń gba ìsọfúnni tí o pèsè fún wa ní tààràtà nígbà tí o bá ṣẹ̀dá àpamọ́, ṣòfò ìpè SOS, tàbí bá wa sọ̀rọ̀."
       },
       "usage": {
         "title": "Admin Profile",
@@ -1112,12 +1113,12 @@
     "notAvailable": "Kò sí"
   },
   "sos": {
-    "title": "Admin Profile",
-    "subtitle": "View and manage your account details",
+    "title": "Ìrànlọ́wọ́ Pàjáwìrì SOS",
+    "subtitle": "Fi ìránṣẹ́ pàjáwìrì ránṣẹ́ lẹ́sẹ̀kẹsẹ̀ sí CARITAS Nàìjíríà, Àwọn Ọlọ́pàá, àti ẹgbẹ́ ìdáhùn àdúgbò.",
     "immediateEmergency": "Ìṣẹ̀lẹ̀ Pàjáwìrì tó lè gba ẹ̀mí?",
     "clickToInstruction": "Tẹ bọtini tó wà nísàlẹ̀ láti ránṣẹ́ SOS lẹ lẹ́sẹ̀kẹsẹ̀ pẹ̀lú ibí tí o wà.",
-    "sosButton": "SOS",
-    "emergency": "Pajawiri",
+    "sosButton": "RÀNWỌ́",
+    "emergency": "MÌ!!!",
     "gettingLocation": "A ń wá ibí tí o wà...",
     "emergencyTypeTitle": "Irú Ìṣẹ̀lẹ̀ Pàjáwìrì",
     "emergencyTypeSelect": "Yan irú ìṣẹ̀lẹ̀ pàjáwìrì láti ran àwọn ẹgbẹ́ ìdáhùn lọ́wọ́ láti múra ìrànwọ́ tó tọ́ sílẹ̀",

@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { auth, db, functions } from "@/lib/firebase";
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp, updateDoc } from "firebase/firestore";
 import type { AdminUser } from "@/lib/data";
 import { Separator } from "@/components/ui/separator";
 import { AnonymousSosDialog } from "@/components/anonymous-sos-dialog";
@@ -78,6 +78,12 @@ export default function LoginPage() {
       if (userDoc.exists()) {
         const userData = userDoc.data();
         const role = userData.role?.toLowerCase();
+
+        // Sync profile image from Google if it's missing or different
+        if (user.photoURL && userData.image !== user.photoURL) {
+          console.log("Syncing Google photo to image field for existing user");
+          await updateDoc(userDocRef, { image: user.photoURL });
+        }
 
         if (role === 'admin' || role === 'super-admin' || role === 'super admin' || role === 'superadmin') {
           toast({ title: "Welcome back!", description: "Redirecting to the admin dashboard..." });

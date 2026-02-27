@@ -97,6 +97,7 @@ service cloud.firestore {
       allow read: if request.auth != null && (
         isAdmin() ||
         (resource != null && request.auth.uid in resource.data.participants) ||
+        (resource != null && resource.data.get('isSystemGroup', false) == true) || // Anyone can read system groups
         (isSupportAgent() && (resource == null || resource.data.agentId == request.auth.uid || resource.data.status in ['waiting', 'active']))
       );
       allow create: if request.auth != null && (
@@ -115,14 +116,19 @@ service cloud.firestore {
       match /messages/{messageId} {
         allow read: if request.auth != null && (
           get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid]) ||
+          get(/databases/$(database)/documents/chats/$(chatId)).data.get('isSystemGroup', false) == true ||
           isAdmin() ||
           (isSupportAgent() && get(/databases/$(database)/documents/chats/$(chatId)).data.agentId == request.auth.uid) ||
           (isSupportAgent() && get(/databases/$(database)/documents/chats/$(chatId)).data.status == 'active')
         );
 
         allow create: if request.auth != null &&
-          request.auth.uid == request.resource.data.senderId &&
-          (isAdmin() || get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid]));
+          request.auth.uid == request.resource.data.senderId && (
+            isAdmin() ||
+            get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid]) ||
+            get(/databases/$(database)/documents/chats/$(chatId)).data.get('isSystemGroup', false) == true ||
+            (isSupportAgent() && get(/databases/$(database)/documents/chats/$(chatId)).data.status in ['waiting', 'active'])
+          );
 
         allow update: if request.auth != null && (
           request.auth.uid == resource.data.senderId ||
@@ -132,6 +138,7 @@ service cloud.firestore {
         );
       }
     }
+
 
     // Rules for the 'calls' collection (Voice and Video Calls)
     match /calls/{callId} {

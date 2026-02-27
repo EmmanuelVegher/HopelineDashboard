@@ -119,7 +119,8 @@ export default function SOSPage() {
   }, [toast, t]);
 
   useEffect(() => {
-    // Only fetch USSD codes on launch, require user interaction for geolocation to prevent rate limiting
+    // Automatically trigger location detection on mount
+    getLocation();
 
     const fetchUssd = async () => {
       setUssdLoading(true);
@@ -261,8 +262,8 @@ export default function SOSPage() {
               <div className="absolute inset-0 bg-gradient-to-br from-red-500 to-orange-500 rounded-full shadow-2xl transform transition-all duration-300 group-hover:scale-105 group-active:scale-95"></div>
               <div className="absolute inset-2 bg-white rounded-full shadow-lg flex items-center justify-center">
                 <div className="text-center">
-                  <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-red-600 mb-2">{t('sos.sosButton')}</div>
-                  <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium">{t('sos.emergency')}</div>
+                  <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-red-600 leading-tight">{t('sos.sosButton')}</div>
+                  <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-red-600 leading-tight">{t('sos.emergency')}</div>
                 </div>
               </div>
               {isSubmitting && (
