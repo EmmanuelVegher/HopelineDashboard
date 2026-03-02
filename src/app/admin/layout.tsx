@@ -25,7 +25,8 @@ import {
   UserCheck,
   Truck,
   MessageSquare,
-  BookOpen
+  BookOpen,
+  Shield
 } from "lucide-react";
 import { useLocation, useNavigate, Outlet } from "react-router-dom";
 import { AdminDataProvider, useAdminData } from "@/contexts/AdminDataProvider";
@@ -36,7 +37,7 @@ import { useLoading } from "@/contexts/LoadingProvider";
 import { useEffect, useState, useMemo } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
 import { LoadingSpinner } from "@/components/loading-spinner";
 import { User } from "lucide-react";
@@ -52,9 +53,13 @@ const getNavLinks = (t: any) => [
   { to: "/admin/contact-management", label: t("admin.sidebar.contactDirectory"), icon: PhoneOutgoing },
   { to: "/admin/chats", label: t("admin.sidebar.chats"), icon: MessageSquare },
   { to: "/admin/training", label: t("admin.sidebar.training"), icon: BookOpen },
+  { to: "/admin/government-branding", label: t("admin.governmentBranding.title"), icon: Shield, superOnly: true },
 ];
 
-function AdminSidebar({ adminProfile }: { adminProfile?: { firstName: string; lastName: string; image?: string } | null }) {
+function AdminSidebar({ adminProfile, orgBranding }: {
+  adminProfile?: { firstName: string; lastName: string; image?: string; role?: string; state?: string } | null;
+  orgBranding?: { name: string; logoUrl: string } | null;
+}) {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
@@ -80,13 +85,37 @@ function AdminSidebar({ adminProfile }: { adminProfile?: { firstName: string; la
     <Sidebar>
       <SidebarHeader>
         <div className="flex items-center gap-2">
-          <img src="/shelter_logo.png" alt="Caritas Nigeria Logo" width={40} height={40} />
-          {state === 'expanded' && <h1 className="text-xl font-bold">{t("admin.sidebar.tacticalCommandCenter")}</h1>}
+          <img
+            src={orgBranding?.logoUrl || "/shelter_logo.png"}
+            alt={`${orgBranding?.name || 'Hopeline'} Logo`}
+            width={40}
+            height={40}
+            className="object-contain"
+          />
+          {state === 'expanded' && (
+            <div>
+              <h1 className="text-base font-bold leading-tight uppercase tracking-tight">
+                {orgBranding?.name || (
+                  adminProfile?.role === 'State Government' ?
+                    `${adminProfile.state || ''} State Government` :
+                    adminProfile?.role === 'Federal Government' ?
+                      'Federal Government, Nigeria' :
+                      t("admin.sidebar.tacticalCommandCenter")
+                )}
+              </h1>
+              {orgBranding && <p className="text-[10px] text-muted-foreground">Powered by Hopeline</p>}
+            </div>
+          )}
         </div>
       </SidebarHeader>
       <SidebarContent className="p-2">
         <SidebarMenu>
-          {navLinks.map(({ to, label, icon: Icon }) => {
+          {navLinks.map(({ to, label, icon: Icon, superOnly }) => {
+            if (superOnly) {
+              const role = adminProfile?.role?.toLowerCase() || '';
+              const isSuper = role.includes('super') || role === 'admin';
+              if (!isSuper) return null;
+            }
             const isActive = location.pathname === to;
             return (
               <SidebarMenuItem key={label}>
@@ -164,7 +193,8 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const [authLoading, setAuthLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
-  const [adminProfile, setAdminProfile] = useState<{ firstName: string; lastName: string; image?: string; role: string; state?: string } | null>(null);
+  const [adminProfile, setAdminProfile] = useState<{ firstName: string; lastName: string; image?: string; role: string; state?: string; organizationId?: string } | null>(null);
+  const [orgBranding, setOrgBranding] = useState<{ name: string; logoUrl: string } | null>(null);
 
   useEffect(() => {
     setIsLoading(false);
@@ -191,7 +221,8 @@ export default function AdminLayout() {
           const role = userData.role?.toLowerCase();
           console.log("Admin layout: User role from Firestore:", role);
 
-          if (role === 'admin' || role === 'super-admin' || role === 'super admin' || role === 'superadmin') {
+          const adminRoles = ['admin', 'super-admin', 'super admin', 'superadmin', 'federal government', 'state government', 'organization admin', 'shelter manager'];
+          if (adminRoles.includes(role)) {
             console.log("Admin layout: User authorized as", role);
             // Authorized admin
             setIsAuthorized(true);
@@ -244,11 +275,51 @@ export default function AdminLayout() {
             lastName: userData.lastName || '',
             image: userData.image || userData.profileImage || '',
             role: userData.role || 'Admin',
-            state: userData.state || ''
+            state: userData.state || '',
+            organizationId: userData.organizationId || ''
           };
 
-          console.log('Admin layout: Setting adminProfile:', profileData);
           setAdminProfile(profileData);
+
+          // Fetch organization branding if org-scoped admin
+          const roleFromData = userData.role?.toLowerCase();
+          const getOrgId = () => {
+            if (userData.organizationId && userData.organizationId !== 'all') return userData.organizationId;
+            if (roleFromData === 'state government' && userData.state) return `gov_state_${userData.state.replace(/\s+/g, '_')}`;
+            if (roleFromData === 'federal government') return 'gov_federal_Nigeria';
+            return null;
+          };
+
+          const orgId = getOrgId();
+          if (orgId) {
+            const orgDocRef = doc(db, 'organizations', orgId);
+            const unsubscribeOrg = onSnapshot(orgDocRef, (orgDoc: any) => {
+              if (orgDoc.exists()) {
+                const orgData = orgDoc.data();
+                setOrgBranding({
+                  name: orgData.name || 'Organization',
+                  logoUrl: orgData.logoUrl || '/shelter_logo.png'
+                });
+              } else {
+                // Return default branding for gov roles if not set
+                const isGovRole = roleFromData === 'state government' || roleFromData === 'federal government';
+                if (isGovRole) {
+                  const defaultName = roleFromData === 'state government' ?
+                    `${userData.state} State Government` :
+                    'Federal Government, Nigeria';
+                  setOrgBranding({
+                    name: defaultName,
+                    logoUrl: '/shelter_logo.png'
+                  });
+                }
+              }
+            }, (error: Error) => {
+              console.warn('Could not listen to org branding:', error);
+            });
+
+            // Cleanup listener on unmount
+            return () => unsubscribeOrg();
+          }
         } else {
           console.log('Admin layout: No user document found for profile');
         }
@@ -280,13 +351,21 @@ export default function AdminLayout() {
     <UserManagementProvider>
       <AdminDataProvider profile={adminProfile}>
         <SidebarProvider>
-          <AdminSidebar adminProfile={adminProfile} />
+          <AdminSidebar adminProfile={adminProfile} orgBranding={orgBranding} />
           <SidebarInset>
             <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
               <SidebarTrigger className="-ml-1" />
               <div className="flex items-center gap-2">
-                <img src="/shelter_logo.png" alt="Hopeline Admin Logo" width={32} height={32} />
-                <h1 className="text-lg font-semibold">{t("admin.sidebar.dashboard")}</h1>
+                <img src={orgBranding?.logoUrl || "/shelter_logo.png"} alt="Logo" width={32} height={32} className="object-contain" />
+                <h1 className="text-lg font-semibold">
+                  {orgBranding?.name || (
+                    adminProfile?.role === 'State Government' ?
+                      `${adminProfile.state || ''} State Government` :
+                      adminProfile?.role === 'Federal Government' ?
+                        'Federal Government, Nigeria' :
+                        t("admin.sidebar.dashboard")
+                  )}
+                </h1>
               </div>
             </header>
             <main className="flex flex-1 flex-col gap-4 p-4 sm:px-8 sm:py-6 bg-gray-50/50 dark:bg-gray-900/50 min-h-screen">

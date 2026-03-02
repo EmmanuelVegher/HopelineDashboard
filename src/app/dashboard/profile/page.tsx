@@ -22,7 +22,7 @@ import 'react-international-phone/style.css';
 import { useTranslation } from 'react-i18next';
 
 const nigerianStates = [
-  "Abuja (FCT)",
+  "Federal Capital Territory",
   "Abia",
   "Adamawa",
   "Akwa Ibom",

@@ -24,7 +24,7 @@ import {
   Settings,
   LogOut,
   GraduationCap,
-  Shield,
+  HeartHandshake,
 } from "lucide-react";
 import { useLocation, useNavigate, Outlet } from "react-router-dom";
 import { NavLink } from "@/components/nav-link";
@@ -49,6 +49,7 @@ function DashboardContent({ userProfile }: { userProfile?: { firstName: string; 
     { to: "/dashboard/find-shelter", label: t('navigation.findShelter'), icon: Building },
     { to: "/dashboard/sos", label: t('navigation.sos'), icon: AlertTriangle },
     { to: "/dashboard/assistance", label: t('navigation.assistance'), icon: MessageSquare },
+    { to: "/dashboard/services", label: 'Services', icon: HeartHandshake },
     { to: "/dashboard/navigate", label: t('navigation.navigate'), icon: Navigation },
     { to: "/dashboard/weather", label: t('navigation.weather'), icon: Sun },
     { to: "/dashboard/profile", label: t('navigation.profile'), icon: User },
@@ -193,7 +194,8 @@ export default function DashboardLayout() {
           const role = userData.role?.toLowerCase();
           console.log("Dashboard layout: User role from Firestore:", role);
 
-          if (role === 'admin' || role === 'super-admin' || role === 'super admin' || role === 'superadmin') {
+          const adminRoles = ['admin', 'super-admin', 'super admin', 'superadmin', 'federal government', 'state government', 'organization admin', 'shelter manager'];
+          if (adminRoles.includes(role)) {
             console.log("Dashboard layout: User is admin, redirecting to admin dashboard");
             navigate('/admin');
           } else if (role === 'support agent') {

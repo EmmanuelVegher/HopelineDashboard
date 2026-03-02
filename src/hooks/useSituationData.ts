@@ -64,7 +64,7 @@ const STATE_COORDINATES: Record<string, { x: number; y: number }> = {
     'Niger': { x: 173, y: 259 },
     'Kwara': { x: 112, y: 303 },
     'Kogi': { x: 245, y: 392 },
-    'Abuja': { x: 280, y: 314 }, // FCT
+    'Federal Capital Territory': { x: 280, y: 314 }, // FCT
     'Nasarawa': { x: 348, y: 334 },
     'Plateau': { x: 429, y: 285 },
     'Benue': { x: 374, y: 413 },
@@ -93,7 +93,7 @@ const STATE_COORDINATES: Record<string, { x: number; y: number }> = {
     'Cross River': { x: 372, y: 506 },
 };
 
-export const useSituationData = (filterState?: string) => {
+export const useSituationData = (filterState?: string, organizationId?: string) => {
     const [stateData, setStateData] = useState<StateData[]>([]);
     const [kpis, setKpis] = useState<SituationKPIs>({
         totalDisplaced: 0,
@@ -110,12 +110,21 @@ export const useSituationData = (filterState?: string) => {
     useEffect(() => {
         setLoading(true);
 
-        const sheltersQuery = filterState
-            ? query(collection(db, 'shelters'), where('state', '==', filterState))
-            : query(collection(db, 'shelters'));
-        const personsQuery = filterState
-            ? query(collection(db, 'displacedPersons'), where('state', '==', filterState))
-            : query(collection(db, 'displacedPersons'));
+        // 1. Build Base Queries
+        let sheltersQuery = query(collection(db, 'shelters'));
+        if (organizationId) {
+            sheltersQuery = query(collection(db, 'shelters'), where('organizationId', '==', organizationId));
+        } else if (filterState) {
+            sheltersQuery = query(collection(db, 'shelters'), where('state', '==', filterState));
+        }
+
+        let personsQuery = query(collection(db, 'displacedPersons'));
+        if (organizationId) {
+            personsQuery = query(collection(db, 'displacedPersons'), where('organizationId', '==', organizationId));
+        } else if (filterState) {
+            personsQuery = query(collection(db, 'displacedPersons'), where('state', '==', filterState));
+        }
+
         const alertsQuery = query(collection(db, 'sosAlerts'), orderBy('timestamp', 'desc'), limit(1000));
 
         const unsubscribeShelters = onSnapshot(sheltersQuery, (shelterSnap) => {
@@ -143,21 +152,33 @@ export const useSituationData = (filterState?: string) => {
             if (p) latestPersons = p;
             if (a) latestAlerts = a;
 
-            // Wait for initial load of all three? Or just process what we have?
-            // To match original behavior we can start once alerts fire (the core anchor)
             if (latestAlerts.length === 0 && !a) return;
 
             const shelters = latestShelters;
             const persons = latestPersons;
             const rawAlerts = latestAlerts;
 
-            // Filter alerts if state-bound
-            const alerts = filterState
+            // Determine relevant states if Org Admin
+            const activeStates = organizationId
+                ? Array.from(new Set(shelters.map(s => s.state).filter(Boolean)))
+                : filterState ? [filterState] : [];
+
+            // Filter alerts: 
+            // - If Global: No filter
+            // - If State Gov: Filter by single state
+            // - If Org Admin: Filter by ALL states where they have shelters
+            const alerts = (organizationId || filterState)
                 ? rawAlerts.filter((a: any) => {
                     const lat = a.location?.latitude || a.location?.lat || a.location?._lat || 0;
                     const lng = a.location?.longitude || a.location?.lng || a.location?.long || a.location?._long || 0;
                     const address = (a.location?.address || '');
-                    return isPointInState(lat, lng, filterState) || isAddressInState(address, filterState);
+
+                    if (organizationId) {
+                        // For Org Admins, show alerts in ANY state they operate in
+                        return (activeStates as string[]).some(state => isAddressInState(address, state) || isPointInState(lat, lng, state));
+                    }
+
+                    return isPointInState(lat, lng, filterState!) || isAddressInState(address, filterState!);
                 })
                 : rawAlerts;
 
@@ -261,8 +282,8 @@ export const useSituationData = (filterState?: string) => {
             shelters.forEach(s => {
                 const address = s.location || '';
                 let foundState = Object.keys(STATE_COORDINATES).find(stateName => isAddressInState(address, stateName));
-                if (isAddressInState(address, 'Abuja')) foundState = 'Abuja';
-                if (!foundState) foundState = 'Abuja';
+                if (isAddressInState(address, 'Federal Capital Territory')) foundState = 'Federal Capital Territory';
+                if (!foundState) foundState = 'Federal Capital Territory';
 
                 if (stateMap[foundState]) {
                     stateMap[foundState].shelterCount++;
@@ -275,8 +296,8 @@ export const useSituationData = (filterState?: string) => {
             persons.forEach(p => {
                 const address = p.currentLocation || '';
                 let foundState = Object.keys(STATE_COORDINATES).find(stateName => isAddressInState(address, stateName));
-                if (isAddressInState(address, 'Abuja')) foundState = 'Abuja';
-                if (!foundState) foundState = 'Abuja';
+                if (isAddressInState(address, 'Federal Capital Territory')) foundState = 'Federal Capital Territory';
+                if (!foundState) foundState = 'Federal Capital Territory';
 
                 if (stateMap[foundState]) {
                     stateMap[foundState].displacedCount++;
@@ -304,8 +325,8 @@ export const useSituationData = (filterState?: string) => {
                 if (!foundState) {
                     foundState = Object.keys(STATE_COORDINATES).find(stateName => isPointInState(lat, lng, stateName));
                 }
-                if (isPointInState(lat, lng, 'Abuja') || isAddressInState(address, 'Abuja')) {
-                    foundState = 'Abuja';
+                if (isPointInState(lat, lng, 'Federal Capital Territory') || isAddressInState(address, 'Federal Capital Territory')) {
+                    foundState = 'Federal Capital Territory';
                 }
 
                 if (foundState && stateMap[foundState] && (a.status === 'Active' || a.status === 'transmitting')) {
@@ -325,7 +346,15 @@ export const useSituationData = (filterState?: string) => {
                 }
             });
 
-            setStateData(Object.values(stateMap));
+            // If we have an organizationId, only show states that actually have some data
+            let finalStateData = Object.values(stateMap);
+            if (organizationId) {
+                finalStateData = finalStateData.filter(state =>
+                    state.shelterCount > 0 || state.displacedCount > 0 || state.criticalAlerts > 0
+                );
+            }
+
+            setStateData(finalStateData);
             setLoading(false);
         };
 
@@ -334,7 +363,7 @@ export const useSituationData = (filterState?: string) => {
             unsubscribePersons();
             unsubscribeAlerts();
         };
-    }, [filterState]);
+    }, [filterState, organizationId]);
 
     return { kpis, stateData, recentActivity, allAlerts, loading };
 };

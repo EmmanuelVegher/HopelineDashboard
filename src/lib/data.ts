@@ -29,6 +29,11 @@ export type Shelter = {
     photoGallery?: string[];
     state?: string;
     kmlUrl?: string;
+    rooms?: {
+        id: string;
+        name: string;
+        capacity: number;
+    }[];
 };
 
 export type Driver = {
@@ -55,6 +60,8 @@ export type Driver = {
     gpsStatus?: 'good' | 'weak' | 'lost' | 'unknown';
     signalStrength?: number;
     isOffline?: boolean;
+    organizationId?: string;
+    organizationName?: string;
 };
 
 export type DisplacedPerson = {
@@ -137,6 +144,7 @@ export type UserProfile = {
     locationTimestamp?: number;
     trackingStatus?: 'active' | 'inactive' | 'error';
     lastUpdate?: any; // Firestore timestamp
+    organizationId?: string;
 };
 
 export type AdminUser = {
@@ -156,6 +164,7 @@ export type AdminUser = {
     isOnline?: boolean;
     uid?: string;
     state?: string;
+    organizationId?: string;
 };
 
 export type UssdCode = {
@@ -184,6 +193,8 @@ export type Vehicle = {
     fuelType?: string;
     color?: string;
     state?: string;
+    organizationId?: string;
+    organizationName?: string;
     notes?: string;
     createdAt: string;
     updatedAt: string;

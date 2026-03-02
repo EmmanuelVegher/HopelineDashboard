@@ -789,7 +789,7 @@
     "locationAccessTitle": "Location Access Required",
     "mobileUsersHint": "Mobile/iOS Users: Ensure location services are enabled in Settings → Privacy → Location Services, and grant permission when prompted. For best results, use the app outdoors with GPS signal.",
     "enterLocationManually": "Enter Location Manually",
-    "useDefaultLocation": "Use Default Location (Abuja)",
+    "useDefaultLocation": "Use Default Location (FCT)",
     "tryAgain": "Try Again",
     "enterLocationDesc": "Enter coordinates or search for a city to get weather information.",
     "latitude": "Latitude",
@@ -1634,7 +1634,24 @@
       "emergencyTypes": "Emergency Types",
       "alertTypesBreakdown": "Breakdown of alert types received.",
       "displacedPersonsStatus": "Displaced Persons Status",
-      "currentStatusTracked": "Current status of all tracked individuals."
+      "currentStatusTracked": "Current status of all tracked individuals.",
+      "exportPDF": "Download PDF Report",
+      "exportExcel": "Download Excel Report",
+      "downloading": "Preparing download...",
+      "exportSuccess": "Report downloaded successfully",
+      "exportError": "Failed to generate report"
+    },
+    "governmentBranding": {
+      "title": "Government Branding",
+      "subtitle": "Manage branding and logos for all state and federal government entities.",
+      "searchPlaceholder": "Search by state or entity name...",
+      "editEntity": "Edit Government Branding",
+      "entityName": "Entity Name",
+      "entityLogo": "Entity Logo",
+      "federalGovernment": "Federal Government",
+      "nigeria": "Nigeria",
+      "saveSuccess": "Government branding updated successfully.",
+      "saveError": "Failed to update government branding."
     },
     "chats": {
       "title": "Communications Tactical Center",
@@ -1665,6 +1682,27 @@
     "profile": {
       "title": "Admin Profile",
       "subtitle": "View and manage your account details",
+      "tabs": {
+        "personal": "Personal Profile",
+        "organization": "Organization Settings"
+      },
+      "organization": {
+        "tab": "Organization Settings",
+        "title": "Organization Branding",
+        "subtitle": "Customize your organization's identity across the dashboard.",
+        "description": "Customize your organization's identity across the dashboard.",
+        "name": "Organization Name",
+        "nameLabel": "Organization Name",
+        "logo": "Organization Logo",
+        "logoLabel": "Organization Logo",
+        "save": "Save Branding",
+        "saveBtn": "Save Branding",
+        "saving": "Saving Branding...",
+        "updated": "Branding Updated",
+        "updatedDesc": "Your organization branding has been successfully updated.",
+        "updateFailed": "Update Failed",
+        "updateFailedDesc": "Could not update organization branding. Please try again."
+      },
       "editProfile": "Edit Profile",
       "saveChanges": "Save Changes",
       "cancel": "Cancel",
@@ -1770,8 +1808,20 @@
         "supportAgent": "Support Agent",
         "admin": "Admin",
         "superAdmin": "Super Admin",
-        "noStateUnassigned": "No State (Unassigned)"
+        "noStateUnassigned": "No State (Unassigned)",
+        "organizationAdmin": "Organization Admin",
+        "shelterManager": "Shelter Manager",
+        "federalGovernment": "Federal Government",
+        "stateGovernment": "State Government"
       },
+      "loadingOrganizations": "Loading organizations...",
+      "noOrganizationsFound": "No organizations found",
+      "standardRoles": "Standard Roles",
+      "administrativeTiers": "Administrative Tiers",
+      "multiTenantAssignment": "Multi-Tenant Assignment",
+      "statusActive": "Active",
+      "statusSuspended": "Suspended",
+      "statusTerminated": "Terminated",
       "table": {
         "heads": {
           "name": "Name",
@@ -1782,7 +1832,9 @@
           "profileCompletion": "Profile Completion",
           "actions": "Actions"
         },
-        "noUsers": "No users found."
+        "noUsers": "No users found.",
+        "noOrganizationAssigned": "No Organization Assigned",
+        "noOrganizationAssignedDesc": "Your account is not currently associated with any specific organization records."
       },
       "actions": {
         "openMenu": "Open menu",
@@ -1887,6 +1939,10 @@
         "statusAssisting": "Assisting",
         "statusEmergency": "Emergency",
         "statusOffDuty": "Off Duty",
+        "organization": "Organization",
+        "selectOrganization": "Select organization",
+        "noneOrganization": "None",
+        "organizationFixed": "Your assigned organization is fixed.",
         "currentTask": "Current Task",
         "cancel": "Cancel",
         "saving": "Saving...",
@@ -2056,6 +2112,10 @@
         "uploading": "Uploading...",
         "notes": "Notes",
         "notesPlaceholder": "Additional notes...",
+        "organization": "Organization",
+        "selectOrganization": "Select organization",
+        "noneOrganization": "None",
+        "organizationFixed": "Your assigned organization is fixed.",
         "cancel": "Cancel",
         "saving": "Saving...",
         "saveVehicle": "Save Vehicle"

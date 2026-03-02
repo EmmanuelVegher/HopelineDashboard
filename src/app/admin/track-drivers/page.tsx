@@ -62,7 +62,7 @@ const getStatusStyles = (status: string) => {
     }
 }
 
-const initialDriverState: Partial<Driver & { role: string; email: string }> = {
+const initialDriverState: Partial<Driver & { role: string; email: string; password?: string }> = {
     name: '',
     vehicle: '',
     phone: '',
@@ -75,6 +75,8 @@ const initialDriverState: Partial<Driver & { role: string; email: string }> = {
     vehicleImageUrl: '',
     state: '',
     password: '',
+    organizationId: '',
+    organizationName: '',
 };
 
 function DriverForm({ driver, onSave, onCancel }: { driver?: Driver | null, onSave: () => void, onCancel: () => void }) {
@@ -91,7 +93,9 @@ function DriverForm({ driver, onSave, onCancel }: { driver?: Driver | null, onSa
     const adminRole = adminProfile?.role?.toLowerCase() || '';
     const isSuperAdmin = adminRole.includes('super');
     const adminState = adminProfile?.state || '';
-    const states = Object.keys(NIGERIA_STATE_BOUNDS).sort();
+    const { organizations } = useAdminData();
+    const isOrgAdmin = adminRole.includes('organization') || adminRole.includes('shelter');
+    const states = Object.keys(NIGERIA_STATE_BOUNDS).sort().map(s => s === "Abuja" ? "Federal Capital Territory" : s);
 
     useEffect(() => {
         if (driver) {
@@ -219,6 +223,8 @@ function DriverForm({ driver, onSave, onCancel }: { driver?: Driver | null, onSa
                     name: formData.name,
                     role: formData.role,
                     state: formData.state,
+                    organizationId: formData.organizationId,
+                    organizationName: formData.organizationName,
                     vehicleId: formData.vehicle, // Using vehicle field as ID/Plate for now
                     vehicleImageUrl: imageUrl
                 });
@@ -297,6 +303,38 @@ function DriverForm({ driver, onSave, onCancel }: { driver?: Driver | null, onSa
                 </Select>
                 {!isSuperAdmin && (
                     <p className="text-[10px] text-muted-foreground">{t("admin.trackDrivers.form.adminRestricted")}</p>
+                )}
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="organization">{t("admin.trackDrivers.form.organization")}</Label>
+                <Select
+                    value={formData.organizationId || 'none'}
+                    onValueChange={(selectedId) => {
+                        const orgIdValue = selectedId === 'none' ? '' : selectedId;
+                        const selectedOrg = organizations?.find(o => o.id === orgIdValue);
+                        setFormData(prev => ({
+                            ...prev,
+                            organizationId: orgIdValue,
+                            organizationName: selectedOrg?.name || '',
+                        }));
+                    }}
+                    disabled={isOrgAdmin}
+                >
+                    <SelectTrigger id="organization">
+                        <SelectValue placeholder={t("admin.trackDrivers.form.selectOrganization")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="none">{t("admin.trackDrivers.form.noneOrganization")}</SelectItem>
+                        {organizations?.map(org => (
+                            <SelectItem key={org.id} value={org.id}>
+                                {org.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                {isOrgAdmin && (
+                    <p className="text-[10px] text-muted-foreground">{t("admin.trackDrivers.form.organizationFixed")}</p>
                 )}
             </div>
 

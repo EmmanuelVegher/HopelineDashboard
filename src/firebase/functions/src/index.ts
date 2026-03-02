@@ -10,6 +10,15 @@ import { RtcTokenBuilder, RtcRole } from 'agora-token';
 // Import translation function
 export { translateNewMessage } from './translate-only';
 
+// WhatsApp Integration (Options 2 & 3)
+export {
+  sendWhatsAppMessage,
+  notifyBeneficiaryViaWhatsApp,
+  whatsappWebhook,
+  replyToWhatsApp
+} from './whatsapp';
+
+
 admin.initializeApp();
 
 /**

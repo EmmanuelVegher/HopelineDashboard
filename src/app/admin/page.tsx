@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, ArrowDown, ArrowUp, Clock, Users, Shield, RefreshCw, MapPin, User, Calendar, Car, Edit, FileText, BarChart3, Activity, AlertCircle, CheckCircle, Siren, HomeIcon, Play, Pause, SkipBack, SkipForward, RotateCcw, Target } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, Clock, Users, Shield, RefreshCw, MapPin, User, Calendar, Car, Edit, FileText, BarChart3, Activity, AlertCircle, CheckCircle, Siren, HomeIcon, Play, Pause, SkipBack, SkipForward, RotateCcw, Target, FileDown, Download } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -30,6 +30,7 @@ import { useSituationData, type StateData } from "@/hooks/useSituationData";
 import { DisplacementMap } from "@/components/situation-room/displacement-map";
 import { ActivityItem } from "@/hooks/useSituationData";
 import { useTranslation } from "react-i18next";
+import * as XLSX from 'xlsx';
 
 
 const getStatusBadgeVariant = (status: string) => {
@@ -42,6 +43,7 @@ const getStatusBadgeVariant = (status: string) => {
         default: return 'outline';
     }
 };
+
 
 const getPriorityBadgeVariant = (priority: string) => {
     switch (priority) {
@@ -347,12 +349,20 @@ export default function AdminDashboardPage() {
     const [isPlaying, setIsPlaying] = useState(false);
     const [playbackSpeed, setPlaybackSpeed] = useState(2);
     const [isFetchingHistory, setIsFetchingHistory] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
 
     // Robust role and state detection
     const role = adminProfile?.role?.toLowerCase() || '';
-    const filterState = (role === 'admin' || role === 'support agent') ? adminProfile?.state : undefined;
+    const organizationId = adminProfile?.organizationId;
 
-    const { stateData, recentActivity, allAlerts, loading: _mapsLoading } = useSituationData(filterState);
+    // Global roles see everything
+    const isGlobal = role.includes('super') || role.includes('federal');
+
+    // If not global, and has a state assigned, filter by that state
+    // (Applicable to State Government, Admin, Support Agent)
+    const filterState = !isGlobal ? adminProfile?.state : undefined;
+
+    const { stateData, recentActivity, allAlerts, loading: _mapsLoading } = useSituationData(filterState, organizationId);
     const [selectedState, setSelectedState] = useState<StateData | null>(null);
     const [isDeepDiveOpen, setIsDeepDiveOpen] = useState(false);
     const [currentTime, setCurrentTime] = useState<Date | null>(null);
@@ -378,6 +388,95 @@ export default function AdminDashboardPage() {
 
         return () => clearInterval(interval);
     }, [isPlaying, playbackData.length, playbackSpeed]);
+
+
+    const handleDownloadExcel = () => {
+        try {
+            // 1. Prepare Alerts Data
+            const alertsData = alerts.map(a => ({
+                ID: a.id,
+                Type: a.emergencyType,
+                Status: a.status,
+                Address: typeof a.location === 'object' ? a.location.address : a.location,
+                Latitude: typeof a.location === 'object' ? a.location.latitude : '',
+                Longitude: typeof a.location === 'object' ? a.location.longitude : '',
+                User: a.userEmail || 'Anonymous',
+                Timestamp: a.timestamp?.toDate ? a.timestamp.toDate().toLocaleString() :
+                    (a.timestamp?.seconds ? new Date(a.timestamp.seconds * 1000).toLocaleString() : '')
+            }));
+
+            // 2. Prepare Shelters Data
+            const sheltersData = (shelters || []).map(s => ({
+                Name: s.name,
+                Location: s.location,
+                Status: s.status,
+                Capacity: s.capacity,
+                Available: s.availableCapacity,
+                Occupied: s.capacity - s.availableCapacity
+            }));
+
+            // 3. Prepare Displaced Persons Data
+            const personsData = (persons || []).map(p => ({
+                ID: p.id,
+                Name: p.name,
+                Gender: p.gender,
+                Status: p.status,
+                Origin: p.origin,
+                ShelterID: p.shelterId
+            }));
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(alertsData), "Alerts");
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheltersData), "Shelters");
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(personsData), "Displaced Persons");
+
+            XLSX.writeFile(wb, `Hopeline_Analytics_${new Date().toISOString().split('T')[0]}.xlsx`);
+            toast({ title: t("admin.dashboard.exportSuccess") });
+        } catch (error) {
+            console.error("Excel Export Error:", error);
+            toast({ title: t("admin.dashboard.exportError"), variant: "destructive" });
+        }
+    };
+
+    const handleDownloadPDF = async () => {
+        setIsExporting(true);
+        toast({ title: t("admin.dashboard.downloading") });
+        try {
+            const html2canvas = (await import('html2canvas')).default;
+            const { jsPDF } = await import('jspdf');
+
+            const input = document.getElementById('analytics-content');
+            if (!input) {
+                toast({ title: "Error", description: "Analytics content not found", variant: "destructive" });
+                return;
+            }
+
+            const canvas = await html2canvas(input, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff',
+                windowWidth: input.scrollWidth,
+                windowHeight: input.scrollHeight
+            });
+
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const imgProps = pdf.getImageProperties(imgData);
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+            // Simple one page for now, can expand later
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdf.save(`Hopeline_Analytics_${new Date().toISOString().split('T')[0]}.pdf`);
+            toast({ title: t("admin.dashboard.exportSuccess") });
+        } catch (error) {
+            console.error("PDF Export Error:", error);
+            toast({ title: t("admin.dashboard.exportError"), variant: "destructive" });
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     const handleFetchHistory = async () => {
         if (!selectedDriver) {
@@ -1477,13 +1576,35 @@ export default function AdminDashboardPage() {
                     <TabsContent value="analytics" className="mt-6">
                         <Card className="border-0 shadow-lg">
                             <CardHeader>
-                                <CardTitle className="text-lg sm:text-xl flex items-center justify-between gap-2">
+                                <CardTitle className="text-lg sm:text-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                     <div className="flex items-center gap-2">
                                         <BarChart3 className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600" />
                                         {t("admin.dashboard.operationalAnalytics")}
                                     </div>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleDownloadPDF}
+                                            disabled={isExporting}
+                                            className="h-8 text-[10px] font-bold uppercase tracking-widest border-purple-100 text-purple-600 hover:bg-purple-50"
+                                        >
+                                            <FileText className="h-3.5 w-3.5 mr-1.5" />
+                                            {t("admin.dashboard.exportPDF")}
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleDownloadExcel}
+                                            disabled={isExporting}
+                                            className="h-8 text-[10px] font-bold uppercase tracking-widest border-emerald-100 text-emerald-600 hover:bg-emerald-50"
+                                        >
+                                            <Download className="h-3.5 w-3.5 mr-1.5" />
+                                            {t("admin.dashboard.exportExcel")}
+                                        </Button>
+                                    </div>
                                     <Badge variant="outline" className={cn(
-                                        "ml-auto text-[10px] uppercase tracking-tighter font-bold",
+                                        "sm:ml-0 ml-auto text-[10px] uppercase tracking-tighter font-bold",
                                         adminProfile?.role?.toLowerCase().includes('super')
                                             ? "bg-purple-50 text-purple-700 border-purple-100"
                                             : "bg-blue-50 text-blue-700 border-blue-100"
@@ -1496,7 +1617,7 @@ export default function AdminDashboardPage() {
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">
-                                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                                <div id="analytics-content" className="grid grid-cols-1 xl:grid-cols-2 gap-6 bg-white p-4 rounded-xl">
                                     <AlertsOverTimeChart alerts={alerts || []} />
                                     <ShelterOccupancyChart shelters={shelters || []} />
                                     <EmergencyTypesChart alerts={alerts || []} />

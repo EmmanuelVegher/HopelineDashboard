@@ -29,17 +29,38 @@ type UserActionsProps = {
   currentRole: string;
   currentState: string;
   currentStatus: string;
+  currentOrgId?: string;
   onUpdate: () => void;
 };
 
-const UserActionsMenu = ({ userId, currentRole, currentState, currentStatus, onUpdate }: UserActionsProps) => {
+const UserActionsMenu = ({ userId, currentRole, currentState, currentStatus, currentOrgId, onUpdate }: UserActionsProps) => {
   const { toast } = useToast();
   const { t } = useTranslation();
+  const { adminProfile } = useAdminData();
+  const [organizations, setOrganizations] = React.useState<{ id: string; name: string }[]>([]);
+  const [orgsLoading, setOrgsLoading] = React.useState(false);
 
-  const handleUpdate = async (field: string, value: string) => {
+  // Fetch organizations for assignment
+  React.useEffect(() => {
+    const fetchOrgs = async () => {
+      setOrgsLoading(true);
+      try {
+        const { collection, getDocs } = await import("firebase/firestore");
+        const snapshot = await getDocs(collection(db, 'organizations'));
+        setOrganizations(snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name || doc.id })));
+      } catch (err) {
+        console.error('Failed to fetch orgs for assignment:', err);
+      } finally {
+        setOrgsLoading(false);
+      }
+    };
+    fetchOrgs();
+  }, []);
+
+  const handleUpdate = async (field: string, value: string, additionalFields: Record<string, any> = {}) => {
     try {
       const userRef = doc(db, "users", userId);
-      await updateDoc(userRef, { [field]: value });
+      await updateDoc(userRef, { [field]: value, ...additionalFields });
       toast({ title: t("admin.userManagement.toasts.success") || "Success", description: t("admin.userManagement.toasts.updated") || "User updated successfully." });
       onUpdate();
     } catch (error) {
@@ -47,6 +68,12 @@ const UserActionsMenu = ({ userId, currentRole, currentState, currentStatus, onU
       toast({ title: t("admin.userManagement.toasts.error") || "Error", description: t("admin.userManagement.toasts.updateFailed") || "Failed to update user.", variant: "destructive" });
     }
   };
+
+  const currentAdminRole = (adminProfile?.role || '').toLowerCase();
+  const isSuperAdmin = currentAdminRole.includes('super') || currentAdminRole.includes('federal');
+
+  // Define which roles this admin can assign
+  const canManageHighLevelRoles = isSuperAdmin || currentAdminRole.includes('support agent');
 
   return (
     <DropdownMenu>
@@ -56,7 +83,7 @@ const UserActionsMenu = ({ userId, currentRole, currentState, currentStatus, onU
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel>{t("admin.userManagement.actions.label") || "Actions"}</DropdownMenuLabel>
         <DropdownMenuSeparator />
 
@@ -67,7 +94,8 @@ const UserActionsMenu = ({ userId, currentRole, currentState, currentStatus, onU
             <span>{t("admin.userManagement.actions.modifyPermissions") || "Modify Permissions"}</span>
           </DropdownMenuSubTrigger>
           <DropdownMenuPortal>
-            <DropdownMenuSubContent>
+            <DropdownMenuSubContent className="max-h-[400px] overflow-y-auto">
+              <DropdownMenuLabel className="text-[10px] uppercase text-muted-foreground px-2">{t("admin.userManagement.standardRoles")}</DropdownMenuLabel>
               <DropdownMenuItem onClick={() => handleUpdate('role', 'displaced_person')}>
                 {currentRole === 'displaced_person' && <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />}
                 {t("admin.userManagement.roles.beneficiary")}
@@ -84,14 +112,78 @@ const UserActionsMenu = ({ userId, currentRole, currentState, currentStatus, onU
                 {currentRole === 'support agent' && <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />}
                 {t("admin.userManagement.roles.supportAgent")}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleUpdate('role', 'Admin')}>
-                {currentRole === 'Admin' && <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />}
-                {t("admin.userManagement.roles.admin")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleUpdate('role', 'super-admin')}>
-                {currentRole === 'super-admin' && <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />}
-                {t("admin.userManagement.roles.superAdmin")}
-              </DropdownMenuItem>
+
+              {canManageHighLevelRoles && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-[10px] uppercase text-muted-foreground px-2">{t("admin.userManagement.administrativeTiers")}</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => handleUpdate('role', 'Admin')}>
+                    {currentRole === 'Admin' && <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />}
+                    {t("admin.userManagement.roles.admin")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleUpdate('role', 'super-admin')}>
+                    {currentRole === 'super-admin' && <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />}
+                    {t("admin.userManagement.roles.superAdmin")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleUpdate('role', 'Federal Government')}>
+                    {currentRole === 'Federal Government' && <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />}
+                    {t("admin.userManagement.roles.federalGovernment")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleUpdate('role', 'State Government')}>
+                    {currentRole === 'State Government' && <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />}
+                    {t("admin.userManagement.roles.stateGovernment")}
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-[10px] uppercase text-muted-foreground px-2">{t("admin.userManagement.multiTenantAssignment")}</DropdownMenuLabel>
+
+                  {/* Organization Admin Assignment */}
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <span>{t("admin.userManagement.roles.organizationAdmin")}</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                      <DropdownMenuSubContent className="max-h-[200px] overflow-y-auto">
+                        {orgsLoading ? (
+                          <DropdownMenuItem disabled>{t("admin.userManagement.loadingOrganizations")}</DropdownMenuItem>
+                        ) : organizations.length === 0 ? (
+                          <DropdownMenuItem disabled>{t("admin.userManagement.noOrganizationsFound")}</DropdownMenuItem>
+                        ) : (
+                          organizations.map(org => (
+                            <DropdownMenuItem key={org.id} onClick={() => handleUpdate('role', 'Organization Admin', { organizationId: org.id })}>
+                              {currentRole === 'Organization Admin' && currentOrgId === org.id && <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />}
+                              {org.name}
+                            </DropdownMenuItem>
+                          ))
+                        )}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                  </DropdownMenuSub>
+
+                  {/* Shelter Manager Assignment */}
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <span>{t("admin.userManagement.roles.shelterManager")}</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                      <DropdownMenuSubContent className="max-h-[200px] overflow-y-auto">
+                        {orgsLoading ? (
+                          <DropdownMenuItem disabled>{t("admin.userManagement.loadingOrganizations")}</DropdownMenuItem>
+                        ) : organizations.length === 0 ? (
+                          <DropdownMenuItem disabled>{t("admin.userManagement.noOrganizationsFound")}</DropdownMenuItem>
+                        ) : (
+                          organizations.map(org => (
+                            <DropdownMenuItem key={org.id} onClick={() => handleUpdate('role', 'Shelter Manager', { organizationId: org.id })}>
+                              {currentRole === 'Shelter Manager' && currentOrgId === org.id && <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />}
+                              {org.name}
+                            </DropdownMenuItem>
+                          ))
+                        )}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                  </DropdownMenuSub>
+                </>
+              )}
             </DropdownMenuSubContent>
           </DropdownMenuPortal>
         </DropdownMenuSub>
@@ -146,6 +238,7 @@ const UserActionsMenu = ({ userId, currentRole, currentState, currentStatus, onU
     </DropdownMenu>
   );
 };
+
 
 
 function EditUserDialog({ user, isOpen, onClose, onSave }: { user: AdminUser | null, isOpen: boolean, onClose: () => void, onSave: () => void }) {
@@ -260,7 +353,7 @@ export default function UserManagementPage() {
   console.log('UserManagementPage - permissionError:', permissionError);
 
   // Fallback dummy data for testing when Firestore is offline
-  const dummyUsers = [
+  const dummyUsers: AdminUser[] = [
     {
       id: '1',
       email: 'admin@hopeline.com',
@@ -273,7 +366,8 @@ export default function UserManagementPage() {
       gender: 'Male',
       mobile: '08100000000',
       profileCompleted: 100,
-      state: ''
+      state: '',
+      organizationId: ''
     },
     {
       id: '2',
@@ -287,7 +381,8 @@ export default function UserManagementPage() {
       gender: 'Female',
       mobile: '08100000001',
       profileCompleted: 85,
-      state: ''
+      state: '',
+      organizationId: ''
     }
   ];
 
@@ -343,11 +438,43 @@ export default function UserManagementPage() {
     switch (status.toLowerCase()) {
       case 'active':
         return 'secondary';
+      case 'suspended':
       case 'inactive':
         return 'outline';
+      case 'terminated':
+        return 'destructive';
       default:
         return 'outline';
     }
+  };
+
+  const getStatusTranslation = (status: string | undefined) => {
+    if (!status) return t("admin.userManagement.statusActive");
+    const s = status.toLowerCase();
+    if (s === 'active') return t("admin.userManagement.statusActive");
+    if (s === 'suspended' || s === 'inactive') return t("admin.userManagement.statusSuspended");
+    if (s === 'terminated') return t("admin.userManagement.statusTerminated");
+    return status;
+  };
+
+  const getRoleTranslation = (role: string) => {
+    if (!role) return t("admin.userManagement.roles.userStandard");
+
+    // Normalize role string for translation mapping
+    const normalizedRole = role.toLowerCase();
+
+    if (normalizedRole === 'displaced_person') return t("admin.userManagement.roles.beneficiary");
+    if (normalizedRole === 'user') return t("admin.userManagement.roles.userStandard");
+    if (normalizedRole === 'driver') return t("admin.userManagement.roles.driver");
+    if (normalizedRole === 'support agent') return t("admin.userManagement.roles.supportAgent");
+    if (normalizedRole === 'admin') return t("admin.userManagement.roles.admin");
+    if (normalizedRole === 'super-admin' || normalizedRole === 'super admin') return t("admin.userManagement.roles.superAdmin");
+    if (normalizedRole === 'federal government') return t("admin.userManagement.roles.federalGovernment");
+    if (normalizedRole === 'state government') return t("admin.userManagement.roles.stateGovernment");
+    if (normalizedRole === 'organization admin') return t("admin.userManagement.roles.organizationAdmin");
+    if (normalizedRole === 'shelter manager') return t("admin.userManagement.roles.shelterManager");
+
+    return role; // Fallback to raw role if no translation exists
   };
 
   return (
@@ -355,7 +482,7 @@ export default function UserManagementPage() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <Card className="bg-white">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">{t("admin.userManagement.stats.totalUsers") || "Total Users"}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("admin.userManagement.stats.totalUsers")}</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -365,7 +492,7 @@ export default function UserManagementPage() {
 
         <Card className="bg-red-50 border-red-100">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-red-700">{t("admin.userManagement.stats.superAdmins") || "Super Admins"}</CardTitle>
+            <CardTitle className="text-sm font-medium text-red-700">{t("admin.userManagement.stats.superAdmins")}</CardTitle>
             <ShieldCheck className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
@@ -375,7 +502,7 @@ export default function UserManagementPage() {
 
         <Card className="bg-blue-50 border-blue-100">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-blue-700">{t("admin.userManagement.stats.admins") || "Admins"}</CardTitle>
+            <CardTitle className="text-sm font-medium text-blue-700">{t("admin.userManagement.stats.admins")}</CardTitle>
             <Shield className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
@@ -385,7 +512,7 @@ export default function UserManagementPage() {
 
         <Card className="bg-indigo-50 border-indigo-100">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-indigo-700">{t("admin.userManagement.stats.agents") || "Agents"}</CardTitle>
+            <CardTitle className="text-sm font-medium text-indigo-700">{t("admin.userManagement.stats.agents")}</CardTitle>
             <UserCog className="h-4 w-4 text-indigo-600" />
           </CardHeader>
           <CardContent>
@@ -395,7 +522,7 @@ export default function UserManagementPage() {
 
         <Card className="bg-green-50 border-green-100">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-green-700">{t("admin.userManagement.stats.beneficiaries") || "Beneficiaries"}</CardTitle>
+            <CardTitle className="text-sm font-medium text-green-700">{t("admin.userManagement.stats.beneficiaries")}</CardTitle>
             <Heart className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
@@ -406,7 +533,7 @@ export default function UserManagementPage() {
 
         <Card className="bg-gray-50 border-gray-100">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-gray-700">{t("admin.userManagement.stats.regularUsers") || "Regular Users"}</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-700">{t("admin.userManagement.stats.regularUsers")}</CardTitle>
             <UserCheck className="h-4 w-4 text-gray-600" />
           </CardHeader>
           <CardContent>
@@ -426,17 +553,17 @@ export default function UserManagementPage() {
           <div>
             <CardTitle className="flex items-center gap-2">
               <UserCog className="h-5 w-5" />
-              {t("admin.userManagement.title") || "User Management"}
+              {t("admin.userManagement.title")}
             </CardTitle>
             <CardDescription>
-              {t("admin.userManagement.subtitle") || "View and manage all registered users in the system."}
+              {t("admin.userManagement.subtitle")}
             </CardDescription>
           </div>
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
-              placeholder={t("admin.userManagement.searchPlaceholder") || "Search by name, email, or phone..."}
+              placeholder={t("admin.userManagement.searchPlaceholder")}
               className="pl-9 w-full"
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
@@ -447,9 +574,9 @@ export default function UserManagementPage() {
           {permissionError && (
             <Alert variant="destructive" className="mb-4">
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>{t("admin.userManagement.permissionError.title") || "Permission Denied"}</AlertTitle>
+              <AlertTitle>{t("admin.userManagement.permissionError.title")}</AlertTitle>
               <AlertDescription>
-                {t("admin.userManagement.permissionError.description") || "You do not have permission to view users. Please check your Firestore security rules to allow read access to the 'users' collection for administrators."}
+                {t("admin.userManagement.permissionError.description")}
               </AlertDescription>
             </Alert>
           )}
@@ -478,7 +605,7 @@ export default function UserManagementPage() {
                         <div className="flex gap-2">
                           <Badge variant={getRoleBadgeVariant(user.role)} className="gap-1.5">
                             {getRoleIcon(user.role)}
-                            {user.role === 'displaced_person' ? (t("admin.userManagement.stats.beneficiaries") || 'Beneficiary') : user.role}
+                            {getRoleTranslation(user.role)}
                           </Badge>
                         </div>
                       </div>
@@ -486,7 +613,7 @@ export default function UserManagementPage() {
                         <div>
                           <p className="text-muted-foreground">{t("admin.userManagement.table.heads.status") || "Status"}</p>
                           <Badge variant={getStatusBadgeVariant(user.accountStatus)} className="mt-1">
-                            {user.accountStatus}
+                            {getStatusTranslation(user.accountStatus)}
                           </Badge>
                         </div>
                         <div>
@@ -523,6 +650,7 @@ export default function UserManagementPage() {
                           currentRole={user.role || 'user'}
                           currentState={user.state || ''}
                           currentStatus={user.accountStatus || 'active'}
+                          currentOrgId={user.organizationId}
                           onUpdate={() => fetchData()}
                         />
                       </div>
@@ -572,12 +700,12 @@ export default function UserManagementPage() {
                         <TableCell>
                           <Badge variant={getRoleBadgeVariant(user.role)} className="gap-1.5">
                             {getRoleIcon(user.role)}
-                            {user.role === 'displaced_person' ? (t("admin.userManagement.stats.beneficiaries") || 'Beneficiary') : user.role}
+                            {getRoleTranslation(user.role)}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           <Badge variant={getStatusBadgeVariant(user.accountStatus)}>
-                            {user.accountStatus}
+                            {getStatusTranslation(user.accountStatus)}
                           </Badge>
                         </TableCell>
                         <TableCell className="flex items-center gap-2">
@@ -609,6 +737,7 @@ export default function UserManagementPage() {
                               currentRole={user.role || 'user'}
                               currentState={user.state || ''}
                               currentStatus={user.accountStatus || 'active'}
+                              currentOrgId={user.organizationId}
                               onUpdate={() => fetchData()}
                             />
                           </div>

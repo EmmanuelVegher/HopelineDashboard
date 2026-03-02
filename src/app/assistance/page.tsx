@@ -171,7 +171,8 @@ export default function AssistancePage() {
                 }
 
                 // 2. Sum counts from all possible keys (supporting legacy and new fields)
-                const count = (data.unreadCountBeneficiary || 0) + (data.unreadCount || 0);
+                // We sum because a user might have multiple chat docs with one agent in weird edge cases
+                const count = (data.unreadCountBeneficiary || 0);
 
                 if (otherId && count > 0) {
                     counts[otherId] = (counts[otherId] || 0) + count;
@@ -401,7 +402,7 @@ export default function AssistancePage() {
                             const existing = lastMessagesMap.get(otherId) || { text: '', unread: 0 };
                             lastMessagesMap.set(otherId, {
                                 text: data.lastMessage || existing.text,
-                                unread: (data.unreadCountBeneficiary || 0) + (data.unreadCount || 0) + existing.unread
+                                unread: (data.unreadCountBeneficiary || 0) + existing.unread
                             });
                         }
                     });
@@ -1051,16 +1052,6 @@ export default function AssistancePage() {
                                                                 setMessages([]);
                                                                 setSupportAgent(agent);
                                                                 setActiveTab('chat');
-                                                                if (user?.uid) {
-                                                                    const uids = [user.uid, agent.uid].sort();
-                                                                    const chatIdForReset = uids.join('_');
-                                                                    const chatRef = doc(db, 'chats', chatIdForReset);
-                                                                    getDoc(chatRef).then(snap => {
-                                                                        if (snap.exists() && (snap.data().unreadCountBeneficiary || 0) > 0) {
-                                                                            updateDoc(chatRef, { unreadCountBeneficiary: 0 });
-                                                                        }
-                                                                    });
-                                                                }
                                                             }}
                                                         />
                                                     );
@@ -1115,22 +1106,12 @@ export default function AssistancePage() {
                                                         key={otherUser.uid} 
                                                         agent={otherUser} 
                                                         unreadCount={uCount}
-                                                        onSelect={() => {
-                                                            setChatId(null);
-                                                            setMessages([]);
-                                                            setSupportAgent(otherUser);
-                                                            setActiveTab('chat');
-                                                            if (user?.uid) {
-                                                                const uids = [user.uid, otherUser.uid].sort();
-                                                                const chatIdForReset = uids.join('_');
-                                                                const chatRef = doc(db, 'chats', chatIdForReset);
-                                                                getDoc(chatRef).then(snap => {
-                                                                    if (snap.exists() && (snap.data().unreadCountBeneficiary || 0) > 0) {
-                                                                        updateDoc(chatRef, { unreadCountBeneficiary: 0 });
-                                                                    }
-                                                                });
-                                                            }
-                                                        }}
+                                                            onSelect={() => {
+                                                                setChatId(null);
+                                                                setMessages([]);
+                                                                setSupportAgent(otherUser);
+                                                                setActiveTab('chat');
+                                                            }}
                                                     />
                                                 );
                                             })}
@@ -1190,16 +1171,6 @@ export default function AssistancePage() {
                                                                 setMessages([]);
                                                                 setSupportAgent(admin);
                                                                 setActiveTab('chat');
-                                                                if (user?.uid) {
-                                                                    const uids = [user.uid, admin.uid].sort();
-                                                                    const chatIdForReset = uids.join('_');
-                                                                    const chatRef = doc(db, 'chats', chatIdForReset);
-                                                                    getDoc(chatRef).then(snap => {
-                                                                        if (snap.exists() && (snap.data().unreadCountBeneficiary || 0) > 0) {
-                                                                            updateDoc(chatRef, { unreadCountBeneficiary: 0 });
-                                                                        }
-                                                                    });
-                                                                }
                                                             }}
                                                         />
                                                     );

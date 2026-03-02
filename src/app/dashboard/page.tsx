@@ -160,6 +160,17 @@ export default function Home() {
       borderColor: "border-green-200",
       iconColor: "text-green-600",
       iconBg: "bg-green-100"
+    },
+    {
+      title: 'Access Services',
+      description: 'GBV support, WASH, protection, medical & more',
+      icon: Heart,
+      color: "default",
+      href: "/dashboard/services",
+      bgColor: "bg-rose-50",
+      borderColor: "border-rose-200",
+      iconColor: "text-rose-600",
+      iconBg: "bg-rose-100"
     }
   ];
 

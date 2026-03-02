@@ -97,6 +97,26 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
     const [loading, setLoading] = useState(false);
     const { toast } = useToast();
 
+    // Room management state
+    const [rooms, setRooms] = useState<{ id: string; name: string; capacity: number }[]>(
+        shelter?.rooms || []
+    );
+
+    const addRoom = () => {
+        setRooms(prev => [...prev, { id: `room_${Date.now()}`, name: '', capacity: 0 }]);
+    };
+
+    const updateRoom = (id: string, field: 'name' | 'capacity', value: string | number) => {
+        setRooms(prev => prev.map(r => r.id === id ? { ...r, [field]: field === 'capacity' ? Number(value) : value } : r));
+    };
+
+    const removeRoom = (id: string) => {
+        setRooms(prev => prev.filter(r => r.id !== id));
+    };
+
+    const totalRoomCapacity = rooms.reduce((sum, r) => sum + (r.capacity || 0), 0);
+    const roomCapacityMismatch = rooms.length > 0 && totalRoomCapacity !== (formData.capacity || 0);
+
     // Organizations fetched from Firestore
     const [organizations, setOrganizations] = useState<{ id: string; name: string }[]>([]);
     const [orgsLoading, setOrgsLoading] = useState(true);
@@ -162,16 +182,24 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        // Validate room capacity if rooms are defined
+        if (rooms.length > 0 && totalRoomCapacity !== (formData.capacity || 0)) {
+            toast({
+                title: 'Capacity Mismatch',
+                description: `Room totals (${totalRoomCapacity} beds) must equal the total shelter capacity (${formData.capacity} beds).`,
+                variant: 'destructive'
+            });
+            return;
+        }
         setLoading(true);
         try {
+            const dataToSave = { ...formData, rooms };
             if (shelter) {
-                // Update existing shelter
                 const shelterRef = doc(db, "shelters", shelter.id);
-                await updateDoc(shelterRef, formData);
+                await updateDoc(shelterRef, dataToSave);
                 toast({ title: t('admin.trackShelter.form.updated') });
             } else {
-                // Create new shelter
-                await addDoc(collection(db, "shelters"), formData);
+                await addDoc(collection(db, "shelters"), dataToSave);
                 toast({ title: t('admin.trackShelter.form.created') });
             }
             onSave();
@@ -250,6 +278,50 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
                     <Input id="availableCapacity" name="availableCapacity" type="number" value={formData.availableCapacity} onChange={handleChange} />
                 </div>
             </div>
+
+            {/* Room Management Section */}
+            <div className="space-y-3 pt-4 border-t">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h3 className="font-semibold text-sm">Room / Ward Configuration</h3>
+                        <p className="text-xs text-muted-foreground">Customize room names and bed spaces. Total must equal the shelter capacity.</p>
+                    </div>
+                    <Button type="button" size="sm" variant="outline" onClick={addRoom}>
+                        <Plus className="h-3.5 w-3.5 mr-1" /> Add Room
+                    </Button>
+                </div>
+                {rooms.length > 0 && (
+                    <div className="space-y-2">
+                        {rooms.map((room) => (
+                            <div key={room.id} className="flex items-center gap-2 p-2 border rounded-lg bg-slate-50">
+                                <Input
+                                    placeholder="Room name (e.g. Ward A)"
+                                    value={room.name}
+                                    onChange={e => updateRoom(room.id, 'name', e.target.value)}
+                                    className="flex-1 h-8 text-sm"
+                                />
+                                <Input
+                                    type="number"
+                                    placeholder="Beds"
+                                    value={room.capacity}
+                                    onChange={e => updateRoom(room.id, 'capacity', e.target.value)}
+                                    className="w-24 h-8 text-sm"
+                                    min={0}
+                                />
+                                <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0" onClick={() => removeRoom(room.id)}>
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        ))}
+                        <div className={`flex justify-between items-center text-sm font-medium px-2 py-1.5 rounded-md ${roomCapacityMismatch ? 'text-red-600 bg-red-50' : 'text-green-700 bg-green-50'}`}>
+                            <span>Total Room Beds: <strong>{totalRoomCapacity}</strong></span>
+                            <span>Shelter Capacity: <strong>{formData.capacity || 0}</strong></span>
+                            {roomCapacityMismatch && <span className="text-xs">⚠ Mismatch!</span>}
+                        </div>
+                    </div>
+                )}
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
                     <Label htmlFor="requests">{t('admin.trackShelter.form.emergencyRequests')}</Label>
@@ -639,8 +711,8 @@ export default function TrackShelterPage() {
                                                     key={s.id}
                                                     onClick={() => setFocusedShelterIndex(idx)}
                                                     className={`w-full text-left px-3 py-2.5 border-b border-slate-800 transition-all duration-200 ${isActive
-                                                            ? 'bg-blue-600/30 border-l-2 border-l-blue-400'
-                                                            : 'hover:bg-slate-800/60'
+                                                        ? 'bg-blue-600/30 border-l-2 border-l-blue-400'
+                                                        : 'hover:bg-slate-800/60'
                                                         }`}
                                                 >
                                                     <div className="flex justify-between items-start gap-1 mb-1">

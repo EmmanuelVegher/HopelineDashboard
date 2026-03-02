@@ -25,10 +25,11 @@ import { useTranslation } from "react-i18next";
 
 function UssdForm({ ussdCode, onSave, onCancel }: { ussdCode?: UssdCode | null; onSave: () => void; onCancel: () => void }) {
   const { adminProfile } = useAdminData();
-  const isSuperAdmin = adminProfile?.role?.toLowerCase().includes('super');
+  const role = adminProfile?.role?.toLowerCase() || '';
+  const isGlobal = role.includes('super') || role.includes('federal');
 
-  // If not super admin, default to their profile state
-  const defaultState = ussdCode?.state || (!isSuperAdmin ? adminProfile?.state : '') || '';
+  // If not global, default to their profile state
+  const defaultState = ussdCode?.state || (!isGlobal ? adminProfile?.state : '') || '';
 
   const [name, setName] = useState(ussdCode?.name || '');
   const [code, setCode] = useState(ussdCode?.code || '');
@@ -80,7 +81,7 @@ function UssdForm({ ussdCode, onSave, onCancel }: { ussdCode?: UssdCode | null; 
 
       <div className="space-y-2">
         <Label htmlFor="state">{t("admin.contactManagement.form.state") || "State"}</Label>
-        {isSuperAdmin ? (
+        {isGlobal ? (
           <Select value={state} onValueChange={setState}>
             <SelectTrigger>
               <SelectValue placeholder={t("admin.contactManagement.form.statePlaceholder") || "Select State (Optional)"} />
@@ -95,7 +96,7 @@ function UssdForm({ ussdCode, onSave, onCancel }: { ussdCode?: UssdCode | null; 
         ) : (
           <Input value={state} disabled className="bg-muted text-muted-foreground" />
         )}
-        {!isSuperAdmin && <p className="text-[10px] text-muted-foreground">{t("admin.contactManagement.form.adminLocked") || "Admin locked to assigned state."}</p>}
+        {!isGlobal && <p className="text-[10px] text-muted-foreground">{t("admin.contactManagement.form.adminLocked") || "Admin locked to assigned state."}</p>}
       </div>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onCancel}>{t("admin.contactManagement.form.cancel") || "Cancel"}</Button>
@@ -203,7 +204,14 @@ export default function ContactManagementPage() {
                     <div className="space-y-3">
                       <div>
                         <h3 className="font-medium text-base">{code.name}</h3>
-                        <Badge variant="outline" className="mt-1">{code.code}</Badge>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline">{code.code}</Badge>
+                          {code.state && (
+                            <Badge variant="secondary" className="font-normal text-[10px]">
+                              {code.state === 'All' ? (t("admin.contactManagement.table.nationwide") || 'Nationwide') : code.state}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                       <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={() => handleEdit(code)} className="flex-1">

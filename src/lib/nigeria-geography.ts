@@ -26,7 +26,7 @@ export const NIGERIA_STATE_BOUNDS: Record<string, BoundingBox> = {
     "Edo": { minLat: 5.75, maxLat: 7.6, minLng: 4.9, maxLng: 6.75 },
     "Ekiti": { minLat: 7.25, maxLat: 8.1, minLng: 4.7, maxLng: 5.75 },
     "Enugu": { minLat: 5.88, maxLat: 7.12, minLng: 6.8, maxLng: 7.75 },
-    "Abuja": { minLat: 7.9, maxLat: 9.45, minLng: 6.4, maxLng: 7.85 }, // FCT
+    "Federal Capital Territory": { minLat: 7.9, maxLat: 9.45, minLng: 6.4, maxLng: 7.85 }, // FCT
     "Gombe": { minLat: 9.25, maxLat: 11.45, minLng: 10.15, maxLng: 11.75 },
     "Imo": { minLat: 5.15, maxLat: 6.0, minLng: 6.6, maxLng: 7.5 },
     "Jigawa": { minLat: 11.0, maxLat: 13.15, minLng: 8.0, maxLng: 11.0 },
@@ -63,7 +63,7 @@ export const isPointInState = (lat: number, lng: number, stateName: string): boo
     let normalized = stateName;
     const lowerName = stateName.toLowerCase();
     if (lowerName.includes('abuja') || lowerName.includes('fct') || lowerName.includes('federal capital')) {
-        normalized = 'Abuja';
+        normalized = 'Federal Capital Territory';
     }
 
     const bounds = NIGERIA_STATE_BOUNDS[normalized];

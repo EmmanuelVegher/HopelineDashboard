@@ -5,12 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { type Vehicle } from "@/lib/data";
-import { Truck, CheckCircle, Wrench, AlertTriangle, RefreshCw, Search, Filter, Plus, Edit, Trash2, Download, Car, Bus, Ambulance, Bike, Upload, X, Image as ImageIcon } from "lucide-react";
+import { Truck, CheckCircle, Wrench, AlertTriangle, RefreshCw, Search, Plus, Edit, Trash2, Download, Car, Bus, Ambulance, Bike, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { collection, doc, writeBatch, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { db, storage, auth } from "@/lib/firebase";
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
@@ -72,8 +72,10 @@ const initialVehicleState: Partial<Vehicle> = {
     capacity: 4,
     fuelType: 'Petrol',
     color: '',
-    notes: '',
     state: '',
+    organizationId: '',
+    organizationName: '',
+    notes: '',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
 };
@@ -91,7 +93,9 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
     const role = adminProfile?.role?.toLowerCase() || '';
     const isSuperAdmin = role.includes('super');
     const adminState = adminProfile?.state || '';
-    const states = Object.keys(NIGERIA_STATE_BOUNDS).sort();
+    const { organizations } = useAdminData();
+    const isOrgAdmin = role.includes('organization') || role.includes('shelter');
+    const states = Object.keys(NIGERIA_STATE_BOUNDS).sort().map(s => s === "Abuja" ? "Federal Capital Territory" : s);
 
     useEffect(() => {
         if (vehicle) {
@@ -311,6 +315,52 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
                 )}
             </div>
             <div className="space-y-2">
+                <Label htmlFor="organization">{t('admin.vehicleManagement.form.organization')}</Label>
+                <Select
+                    value={formData.organizationId || 'none'}
+                    onValueChange={(selectedId) => {
+                        const orgIdValue = selectedId === 'none' ? '' : selectedId;
+                        const selectedOrg = organizations?.find(o => o.id === orgIdValue);
+                        setFormData(prev => ({
+                            ...prev,
+                            organizationId: orgIdValue,
+                            organizationName: selectedOrg?.name || '',
+                        }));
+                    }}
+                    disabled={isOrgAdmin}
+                >
+                    <SelectTrigger id="organization">
+                        <SelectValue placeholder={t('admin.vehicleManagement.form.selectOrganization')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="none">{t('admin.vehicleManagement.form.noneOrganization')}</SelectItem>
+                        {useMemo(() => {
+                            if (!organizations) return [];
+                            const currentState = formData.state || '';
+                            const govSearch = currentState ? `${currentState} Government` : 'Federal Government';
+
+                            return [...organizations].sort((a, b) => {
+                                const aName = a.name || '';
+                                const bName = b.name || '';
+                                const aIsGov = aName.toLowerCase().includes(govSearch.toLowerCase());
+                                const bIsGov = bName.toLowerCase().includes(govSearch.toLowerCase());
+
+                                if (aIsGov && !bIsGov) return -1;
+                                if (!aIsGov && bIsGov) return 1;
+                                return aName.localeCompare(bName);
+                            });
+                        }, [organizations, formData.state])?.map(org => (
+                            <SelectItem key={org.id} value={org.id}>
+                                {org.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                {isOrgAdmin && (
+                    <p className="text-[10px] text-muted-foreground">{t('admin.vehicleManagement.form.organizationFixed')}</p>
+                )}
+            </div>
+            <div className="space-y-2">
                 <Label>{t('admin.vehicleManagement.form.vehicleImage')}</Label>
                 <div className="space-y-4">
                     {imagePreview ? (
@@ -496,6 +546,8 @@ export default function VehicleManagementPage() {
             setSelectedVehicles(new Set());
         }
     };
+
+    console.log(handleSelectAll); // Keeping for potential future use or just remove if truly unneeded
 
     const totalVehicles = vehicles?.length || 0;
     const availableCount = vehicles?.filter(v => v.status === 'Available').length || 0;

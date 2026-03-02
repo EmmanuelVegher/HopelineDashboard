@@ -85,7 +85,8 @@ export default function LoginPage() {
           await updateDoc(userDocRef, { image: user.photoURL });
         }
 
-        if (role === 'admin' || role === 'super-admin' || role === 'super admin' || role === 'superadmin') {
+        const adminRoles = ['admin', 'super-admin', 'super admin', 'superadmin', 'federal government', 'state government', 'organization admin', 'shelter manager'];
+        if (adminRoles.includes(role)) {
           toast({ title: "Welcome back!", description: "Redirecting to the admin dashboard..." });
           navigate("/admin");
         } else if (['driver', 'pilot', 'responder', 'rider'].includes(role)) {
@@ -192,7 +193,8 @@ export default function LoginPage() {
         const role = userData.role?.toLowerCase();
         console.log("User document found. Role:", role);
 
-        if (role === 'admin' || role === 'super-admin' || role === 'super admin' || role === 'superadmin') {
+        const adminRoles = ['admin', 'super-admin', 'super admin', 'superadmin', 'federal government', 'state government', 'organization admin', 'shelter manager'];
+        if (adminRoles.includes(role)) {
           toast({ title: "Admin Login Successful", description: "Redirecting to the admin dashboard..." });
           navigate("/admin");
         } else if (['driver', 'pilot', 'responder', 'rider'].includes(role)) {

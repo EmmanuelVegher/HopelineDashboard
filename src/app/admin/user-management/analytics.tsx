@@ -12,7 +12,7 @@ const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3
 
 const userRoleConfig = {
     count: {
-        label: "User Count",
+        label: "count",
     },
 } satisfies ChartConfig
 
@@ -30,11 +30,27 @@ export function UserRoleDistributionChart({ users, drivers }: { users: AdminUser
             roleCounts['driver'] = (roleCounts['driver'] || 0) + drivers.length;
         }
 
+        const getRoleTranslation = (role: string) => {
+            if (!role) return t("admin.userManagement.roles.userStandard");
+            const normalizedRole = role.toLowerCase();
+            if (normalizedRole === 'displaced_person') return t("admin.userManagement.roles.beneficiary");
+            if (normalizedRole === 'user') return t("admin.userManagement.roles.userStandard");
+            if (normalizedRole === 'driver') return t("admin.userManagement.roles.driver");
+            if (normalizedRole === 'support agent') return t("admin.userManagement.roles.supportAgent");
+            if (normalizedRole === 'admin') return t("admin.userManagement.roles.admin");
+            if (normalizedRole === 'super-admin' || normalizedRole === 'super admin') return t("admin.userManagement.roles.superAdmin");
+            if (normalizedRole === 'federal government') return t("admin.userManagement.roles.federalGovernment");
+            if (normalizedRole === 'state government') return t("admin.userManagement.roles.stateGovernment");
+            if (normalizedRole === 'organization admin') return t("admin.userManagement.roles.organizationAdmin");
+            if (normalizedRole === 'shelter manager') return t("admin.userManagement.roles.shelterManager");
+            return role.charAt(0).toUpperCase() + role.slice(1);
+        };
+
         return Object.entries(roleCounts).map(([name, count]) => ({
-            name: name === 'displaced_person' ? 'Beneficiary' : name.charAt(0).toUpperCase() + name.slice(1),
+            name: getRoleTranslation(name),
             count
         }));
-    }, [users, drivers]);
+    }, [users, drivers, t]);
 
     const total = data.reduce((sum, item) => sum + item.count, 0);
 
@@ -93,7 +109,7 @@ export function RegistrationTrendChart({ users }: { users: AdminUser[] }) {
                 <CardDescription>{t("admin.userManagement.charts.profileCompletionDesc")}</CardDescription>
             </CardHeader>
             <CardContent>
-                <ChartContainer config={{ users: { label: "Users", color: "hsl(var(--chart-1))" } }} className="h-[300px] w-full">
+                <ChartContainer config={{ users: { label: t("admin.userManagement.stats.totalUsers"), color: "hsl(var(--chart-1))" } }} className="h-[300px] w-full">
                     <BarChart data={data}>
                         <CartesianGrid vertical={false} strokeDasharray="3 3" />
                         <XAxis dataKey="range" axisLine={false} tickLine={false} tickMargin={10} />
