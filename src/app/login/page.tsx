@@ -492,12 +492,42 @@ export default function LoginPage() {
                       data-ai-hint="logo"
                     />
                   </div>
+                  <Separator />
+                  <div className="flex flex-col items-center gap-2 pt-2 pb-1">
+                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Download Mobile App</p>
+                    <div className="flex items-center gap-4 bg-white/50 p-2 rounded-xl border border-slate-200 w-full">
+                      <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center p-1 border border-slate-100 shadow-sm shrink-0">
+                        <img
+                          src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://play.google.com/store/apps/details?id=org.ccfng.hopeline"
+                          alt="Play Store QR Code"
+                          className="w-full h-full"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <a
+                          href="https://play.google.com/store/apps/details?id=org.ccfng.hopeline"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:scale-105 transition-transform active:scale-95"
+                        >
+                          <img
+                            src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg"
+                            alt="Get it on Google Play"
+                            className="h-8 w-auto"
+                          />
+                        </a>
+                        <p className="text-[8px] text-muted-foreground leading-snug">
+                          Scan or click to download the official HopeLine app.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </CardFooter>
             </Card>
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 }

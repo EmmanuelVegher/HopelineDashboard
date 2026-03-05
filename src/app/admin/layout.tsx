@@ -49,6 +49,7 @@ const getNavLinks = (t: any) => [
   { to: "/admin/vehicle-management", label: t("admin.sidebar.fleetVehicles"), icon: Truck },
   { to: "/admin/displaced-persons", label: t("admin.sidebar.beneficiaries"), icon: Users },
   { to: "/admin/track-shelter", label: t("admin.sidebar.shelters"), icon: Building },
+  { to: "/admin/organizations", label: t("admin.sidebar.organizations"), icon: Building, superOrFederalOnly: true },
   { to: "/admin/user-management", label: t("admin.sidebar.userManagement"), icon: UserCog },
   { to: "/admin/contact-management", label: t("admin.sidebar.contactDirectory"), icon: PhoneOutgoing },
   { to: "/admin/chats", label: t("admin.sidebar.chats"), icon: MessageSquare },
@@ -110,12 +111,13 @@ function AdminSidebar({ adminProfile, orgBranding }: {
       </SidebarHeader>
       <SidebarContent className="p-2">
         <SidebarMenu>
-          {navLinks.map(({ to, label, icon: Icon, superOnly }) => {
-            if (superOnly) {
-              const role = adminProfile?.role?.toLowerCase() || '';
-              const isSuper = role.includes('super') || role === 'admin';
-              if (!isSuper) return null;
-            }
+          {navLinks.map(({ to, label, icon: Icon, superOnly, superOrFederalOnly }) => {
+            const role = adminProfile?.role?.toLowerCase() || '';
+            const isSuper = role.includes('super') || role === 'admin';
+            const isFederal = role === 'federal government';
+
+            if (superOnly && !isSuper) return null;
+            if (superOrFederalOnly && !isSuper && !isFederal) return null;
             const isActive = location.pathname === to;
             return (
               <SidebarMenuItem key={label}>

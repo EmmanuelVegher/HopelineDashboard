@@ -174,6 +174,17 @@ export type UssdCode = {
     state?: string;
 };
 
+export type Organization = {
+    id: string;
+    name: string;
+    logoUrl: string;
+    type: 'standard' | 'state' | 'federal';
+    isGovernment: boolean;
+    states?: string[];
+    entityName?: string;
+    updatedAt: any;
+};
+
 export type Vehicle = {
     id: string;
     make: string;

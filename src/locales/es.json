@@ -116,20 +116,20 @@
       "orContinueWith": "O continuar con",
       "sosAlert": "SOS de Emergencia",
       "anonymousSos": "Use el botón SOS para emergencias sin iniciar sesión."
+    }
+  },
+  "training": {
+    "buttons": {
+      "edit": "Editar",
+      "update": "Actualizar Módulo"
     },
-    "signup": {
-      "title": "Crear cuenta",
-      "subtitle": "Únase a nuestra misión para ayudar a las comunidades",
-      "fullNameLabel": "Nombre completo",
-      "emailLabel": "Correo electrónico (Opcional)",
-      "phoneLabel": "Número de teléfono",
-      "passwordLabel": "Contraseña",
-      "languageLabel": "Idioma",
-      "stateLabel": "Estado (Requerido)",
-      "signUp": "Crear cuenta",
-      "signingUp": "Creando...",
-      "alreadyHaveAccount": "¿Ya tiene una cuenta?",
-      "logIn": "Iniciar sesión"
+    "modal": {
+      "editTitle": "Editar Módulo de Capacitación",
+      "editDescription": "Actualiza los detalles de este material de capacitación."
+    },
+    "toasts": {
+      "updated": "Capacitación Actualizada",
+      "updatedDesc": "El módulo se ha actualizado correctamente."
     }
   },
   "common": {

@@ -1,12 +1,12 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Plus, Edit, Trash2, AlertTriangle, Loader2 } from "lucide-react";
+import { MoreHorizontal, Plus, Edit, Trash2, AlertTriangle, Loader2, Search } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -117,6 +117,18 @@ export default function ContactManagementPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedUssd, setSelectedUssd] = useState<UssdCode | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredAndSortedContacts = useMemo(() => {
+    if (!ussdCodes) return [];
+
+    return ussdCodes
+      .filter(code =>
+        code.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        code.code.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [ussdCodes, searchQuery]);
 
   const handleAddNew = () => {
     setSelectedUssd(null);
@@ -167,14 +179,27 @@ export default function ContactManagementPage() {
       </Dialog>
 
       <Card className="max-w-full overflow-hidden">
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <CardTitle>{t("admin.contactManagement.title") || "Contact Numbers Management"}</CardTitle>
-            <CardDescription>
-              {t("admin.contactManagement.subtitle") || "Add, edit, or delete USSD codes and emergency numbers that are displayed on user-facing pages."}
-            </CardDescription>
+        <CardHeader>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <CardTitle>{t("admin.contactManagement.title") || "Contact Numbers Management"}</CardTitle>
+              <CardDescription>
+                {t("admin.contactManagement.subtitle") || "Add, edit, or delete USSD codes and emergency numbers that are displayed on user-facing pages."}
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="relative w-full md:w-64">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder={t("admin.contactManagement.searchPlaceholder") || "Search by name or code..."}
+                  className="pl-8"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <Button onClick={handleAddNew} className="whitespace-nowrap"><Plus className="mr-2 h-4 w-4" /> {t("admin.contactManagement.addNew") || "Add New"}</Button>
+            </div>
           </div>
-          <Button onClick={handleAddNew} className="self-start sm:self-auto"><Plus className="mr-2 h-4 w-4" /> {t("admin.contactManagement.addNew") || "Add New Number"}</Button>
         </CardHeader>
         <CardContent className="p-2 sm:p-6">
           {permissionError && (
@@ -198,8 +223,8 @@ export default function ContactManagementPage() {
                     <Skeleton className="h-8 w-24" />
                   </Card>
                 ))
-              ) : ussdCodes.length > 0 ? (
-                ussdCodes.map((code) => (
+              ) : filteredAndSortedContacts.length > 0 ? (
+                filteredAndSortedContacts.map((code) => (
                   <Card key={code.id} className="p-4">
                     <div className="space-y-3">
                       <div>
@@ -251,8 +276,8 @@ export default function ContactManagementPage() {
                         <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                       </TableRow>
                     ))
-                  ) : ussdCodes.length > 0 ? (
-                    ussdCodes.map((code) => (
+                  ) : filteredAndSortedContacts.length > 0 ? (
+                    filteredAndSortedContacts.map((code) => (
                       <TableRow key={code.id}>
                         <TableCell className="font-medium">{code.name}</TableCell>
                         <TableCell>

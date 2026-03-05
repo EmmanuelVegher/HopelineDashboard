@@ -429,6 +429,7 @@
   "common": {
     "supportedBy": "Supported By",
     "loading": "Loading...",
+    "notApplicable": "N/A",
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",
@@ -990,8 +991,10 @@
       "watchNow": "Watch Now",
       "readGuide": "Read Guide",
       "viewContent": "View Content",
+      "edit": "Edit",
       "cancel": "Cancel",
       "publish": "Publish Training",
+      "update": "Update Module",
       "openDownload": "Open in New Tab / Download"
     },
     "empty": {
@@ -1005,7 +1008,9 @@
     },
     "modal": {
       "title": "Publish New Training Module",
+      "editTitle": "Edit Training Module",
       "description": "Create a training resource. This will automatically notify relevant users and post to group chats.",
+      "editDescription": "Update the details for this training material.",
       "form": {
         "titleLabel": "Title",
         "titlePlaceholder": "e.g. Extreme Weather Protocol",
@@ -1039,7 +1044,9 @@
     },
     "toasts": {
       "published": "Training Published",
+      "updated": "Training Updated",
       "publishedDesc": "Module created and notifications dispatched.",
+      "updatedDesc": "The module has been successfully updated.",
       "publishFailed": "Publish Failed",
       "publishFailedDesc": "Error uploading training module.",
       "deleted": "Module Deleted",
@@ -1509,6 +1516,7 @@
       "fleetVehicles": "Fleet Vehicles",
       "beneficiaries": "Beneficiaries",
       "shelters": "Shelters",
+      "organizations": "Organization Management",
       "userManagement": "User Management",
       "contactDirectory": "Contact Directory",
       "chats": "Chat Page",
@@ -1893,6 +1901,10 @@
       "title": "Field Team Management",
       "subtitle": "Real-time tracking and management of field response teams",
       "addTeamMember": "Add Team Member",
+      "unassigned": "Unassigned Organization",
+      "staffMember": "staff member",
+      "staffMembers": "staff members",
+      "noTeamMembers": "No team members found in the database. Click \"Add New Team Member\" to get started.",
       "stats": {
         "totalTeamMembers": "Total Team Members",
         "available": "Available",
@@ -2024,7 +2036,6 @@
         "denied": "Permission Denied",
         "desc": "You do not have permission to view driver data. Please check your Firestore security rules to allow read access to the 'drivers' collection for administrators."
       },
-      "noTeamMembers": "No team members found in the database. Click \"Add New Team Member\" to get started.",
       "toasts": {
         "success": "Success",
         "error": "Error",
@@ -2577,6 +2588,7 @@
       "title": "Contact Numbers Management",
       "subtitle": "Add, edit, or delete USSD codes and emergency numbers displayed on user-facing pages.",
       "addNew": "Add New Number",
+      "searchPlaceholder": "Search by name or code...",
       "deleteConfirm": "Are you sure you want to delete this contact number?",
       "table": {
         "heads": {
@@ -2622,6 +2634,36 @@
         "missingFields": "Missing Fields",
         "missingFieldsDesc": "Please provide both a name and a number/code."
       }
+    },
+    "organizations": {
+      "title": "Organization Management",
+      "subtitle": "Manage standard and governmental organizations",
+      "addOrganization": "Add Organization",
+      "editOrganization": "Edit Organization",
+      "orgName": "Organization Name",
+      "logo": "Logo",
+      "type": "Type",
+      "standard": "Standard Organization",
+      "stateGov": "State Government",
+      "federalGov": "Federal Government",
+      "coverageStates": "Coverage States",
+      "entityName": "Entity Name (State/Country)",
+      "isGovernment": "Government Entity",
+      "logoUpload": "Upload Logo",
+      "saveOrganization": "Save Organization",
+      "deleteOrganization": "Delete Organization",
+      "deleteConfirm": "Are you sure you want to delete this organization?",
+      "noOrganizations": "No organizations found.",
+      "allTypes": "All Types",
+      "filter": "Filter by type",
+      "fetchError": "Failed to fetch organizations. Please check your connection.",
+      "saveSuccess": "Organization saved successfully.",
+      "saveError": "Failed to save organization. Please try again.",
+      "deleteSuccess": "Organization deleted successfully.",
+      "deleteError": "Failed to delete organization.",
+      "formDescription": "Enter the details for the organization below. Governmental entities require specific entity names.",
+      "selectType": "Select organization type",
+      "noStatesSelected": "No states selected"
     }
   }
 }

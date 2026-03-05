@@ -29,6 +29,7 @@ import SituationRoomPage from './app/admin/situation-room/page';
 import AdminChatsPage from './app/admin/chats/page';
 import TrainingCenterPage from './app/admin/training/page';
 import GovernmentBrandingPage from './app/admin/government-branding/page';
+import OrganizationsPage from './app/admin/organizations/page';
 import DriverLayout from './app/driver/layout';
 import DriverProfilePage from './app/driver/profile/page';
 import DriverSettingsPage from './app/driver/settings/page';
@@ -134,6 +135,7 @@ function App() {
               <Route path="chats" element={<AdminChatsPage />} />
               <Route path="training" element={<TrainingCenterPage />} />
               <Route path="government-branding" element={<GovernmentBrandingPage />} />
+              <Route path="organizations" element={<OrganizationsPage />} />
             </Route>
             <Route path="privacy" element={<PrivacyPage />} />
             <Route path="delete-account" element={<DeleteAccountPage />} />

@@ -18,7 +18,7 @@ interface AdminDataContextType {
     vehicles: Vehicle[] | null;
     users: AdminUser[] | null;
     ussdCodes: UssdCode[] | null;
-    organizations: { id: string; name: string; state?: string }[] | null;
+    organizations: { id: string; name: string; state?: string; states?: string[] }[] | null;
     loading: boolean;
     permissionError: boolean;
     adminProfile: { role: string; state?: string; firstName?: string; lastName?: string; image?: string; organizationId?: string } | null;
@@ -52,7 +52,7 @@ export function AdminDataProvider({ children, profile }: { children: ReactNode, 
     const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
     const [users, setUsers] = useState<AdminUser[] | null>(null);
     const [ussdCodes, setUssdCodes] = useState<UssdCode[] | null>(null);
-    const [organizations, setOrganizations] = useState<{ id: string; name: string; state?: string }[] | null>(null);
+    const [organizations, setOrganizations] = useState<{ id: string; name: string; state?: string; states?: string[] }[] | null>(null);
     const [activeAlerts, setActiveAlerts] = useState<SosAlert[] | null>(null);
     const [loading, setLoading] = useState(true);
     const [permissionError, setPermissionError] = useState(false);
@@ -197,19 +197,37 @@ export function AdminDataProvider({ children, profile }: { children: ReactNode, 
 
             // Organizations listener with role-based filtering
             unsubscribers.push(onSnapshot(collection(db, "organizations"), (snap) => {
-                let orgs = snap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; name: string; state?: string }));
+                let orgs = snap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; name: string; state?: string; states?: string[] }));
 
                 if (isGlobal) {
                     // Show all
                 } else if (isStateGov && adminState) {
                     orgs = orgs.filter(o => {
-                        const orgState = o.state || '';
-                        return orgState === adminState || orgState === 'All' || o.id.includes(adminState.replace(/\s+/g, '_'));
+                        const cleanState = adminState.replace(/ State$/i, '').trim();
+                        const orgStateLower = (o.state || '').toLowerCase();
+                        const adminStateLower = adminState.toLowerCase();
+                        const cleanStateLower = cleanState.toLowerCase();
+                        // Include if explicitly matches state, 'All', ID matches state, OR included in org's coverage states array
+                        return orgStateLower === adminStateLower ||
+                            orgStateLower === cleanStateLower ||
+                            orgStateLower === 'all' ||
+                            o.id.toLowerCase().includes(cleanStateLower.replace(/\s+/g, '_')) ||
+                            (o.states && Array.isArray(o.states) && o.states.map(s => s.toLowerCase()).some(s => s === adminStateLower || s === cleanStateLower));
                     });
                 } else if (isOrgAdmin && orgId) {
                     orgs = orgs.filter(o => o.id === orgId);
                 } else if (adminState) {
-                    orgs = orgs.filter(o => o.state === adminState || o.state === 'All');
+                    const cleanState = adminState.replace(/ State$/i, '').trim();
+                    const adminStateLower = adminState.toLowerCase();
+                    const cleanStateLower = cleanState.toLowerCase();
+                    orgs = orgs.filter(o => {
+                        const orgStateLower = (o.state || '').toLowerCase();
+                        return orgStateLower === adminStateLower ||
+                            orgStateLower === cleanStateLower ||
+                            orgStateLower === 'all' ||
+                            o.id.toLowerCase().includes(cleanStateLower.replace(/\s+/g, '_')) ||
+                            (o.states && Array.isArray(o.states) && o.states.map(s => s.toLowerCase()).some(s => s === adminStateLower || s === cleanStateLower));
+                    });
                 }
 
                 setOrganizations(orgs);

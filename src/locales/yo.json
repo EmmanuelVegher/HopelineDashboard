@@ -954,8 +954,10 @@
       "watchNow": "Wo Bayi",
       "readGuide": "Ka Itọsọna",
       "viewContent": "Wo Akoonu",
+      "edit": "Ṣe àtúnṣe",
       "cancel": "Fagilee",
       "publish": "Gbé Ìdánilẹ́kọ̀ọ́ Jáde",
+      "update": "Ṣe Imudojuiwọn Module",
       "openDownload": "Ṣii ni Tab Tuntun / Gba lati ayelujara"
     },
     "empty": {
@@ -969,7 +971,9 @@
     },
     "modal": {
       "title": "Gbé Module Ìdánilẹ́kọ̀ọ́ Tuntun Jáde",
+      "editTitle": "Ṣe Àtúnṣe Module Ìdánilẹ́kọ̀ọ́",
       "description": "Ṣẹda orisun ìdánilẹ́kọ̀ọ́ kan. Eyi yoo sọ fun awọn olumulo ti o wulo laifọwọyi ati fi ranṣẹ si awọn ibaraẹnisọrọ ẹgbẹ.",
+      "editDescription": "Ṣe imudojuiwọn alaye fun iṣẹ ìdánilẹ́kọ̀ọ́ yii.",
       "form": {
         "titleLabel": "Akọle",
         "titlePlaceholder": "fun apẹẹrẹ. Ilana Oju-ọjọ ti o buruju",
@@ -1003,7 +1007,9 @@
     },
     "toasts": {
       "published": "Ti Gbé Ìdánilẹ́kọ̀ọ́ Jáde",
+      "updated": "Ìdánilẹ́kọ̀ọ́ ti Ṣe Imudojuiwọn",
       "publishedDesc": "A ṣẹda module ati pe a ti firanṣẹ awọn iwifunni.",
+      "updatedDesc": "A ti ṣe imudojuiwọn module naa ni aṣeyọri.",
       "publishFailed": "Gbigbe Jáde Kuna",
       "publishFailedDesc": "Aṣiṣe lakoko ikojọpọ module ìdánilẹ́kọ̀ọ́.",
       "deleted": "Ti Pa Module Rẹ",

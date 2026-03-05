@@ -1,7 +1,7 @@
 
 "use client"
 
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Pie, PieChart, Cell, Area, AreaChart, Tooltip as RechartsTooltip } from "recharts"
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Pie, PieChart, Cell, Area, AreaChart, Tooltip as RechartsTooltip, LabelList } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
 import { type SosAlert } from "@/ai/schemas/sos"
@@ -48,7 +48,16 @@ export function AlertsOverTimeChart({ alerts }: { alerts: SosAlert[] }) {
             <CartesianGrid vertical={false} />
             <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} />
             <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
-            <Area dataKey="alerts" type="natural" fill="var(--color-alerts)" fillOpacity={0.4} stroke="var(--color-alerts)" />
+            <Area dataKey="alerts" type="natural" fill="var(--color-alerts)" fillOpacity={0.4} stroke="var(--color-alerts)">
+              <LabelList
+                dataKey="alerts"
+                position="top"
+                offset={10}
+                className="fill-foreground font-bold"
+                fontSize={12}
+                formatter={(value: number) => value > 0 ? value : ''}
+              />
+            </Area>
           </AreaChart>
         </ChartContainer>
       </CardContent>
@@ -91,8 +100,24 @@ export function ShelterOccupancyChart({ shelters }: { shelters: Shelter[] }) {
             <YAxis dataKey="name" type="category" tickLine={false} tickMargin={10} axisLine={false} width={80} />
             <ChartTooltip content={<ChartTooltipContent />} />
             <ChartLegend content={<ChartLegendContent />} />
-            <Bar dataKey="occupied" stackId="a" fill="var(--color-occupied)" radius={[0, 4, 4, 0]} />
-            <Bar dataKey="available" stackId="a" fill="var(--color-available)" radius={[4, 0, 0, 4]} />
+            <Bar dataKey="occupied" stackId="a" fill="var(--color-occupied)" radius={[0, 4, 4, 0]}>
+              <LabelList
+                dataKey="occupied"
+                position="insideRight"
+                className="fill-white font-bold"
+                fontSize={12}
+                formatter={(value: number) => value > 0 ? value : ''}
+              />
+            </Bar>
+            <Bar dataKey="available" stackId="a" fill="var(--color-available)" radius={[4, 0, 0, 4]}>
+              <LabelList
+                dataKey="available"
+                position="insideRight"
+                className="fill-slate-800 font-bold"
+                fontSize={12}
+                formatter={(value: number) => value > 0 ? value : ''}
+              />
+            </Bar>
           </BarChart>
         </ChartContainer>
       </CardContent>
@@ -131,7 +156,7 @@ export function EmergencyTypesChart({ alerts }: { alerts: SosAlert[] }) {
         <ChartContainer config={emergencyTypesChartConfig} className="mx-auto aspect-square h-[250px]">
           <PieChart>
             <ChartTooltip content={<ChartTooltipContent nameKey="name" hideLabel />} />
-            <Pie data={data} dataKey="count" nameKey="name" innerRadius={60} strokeWidth={5} label={(entry) => `${((entry.value / total) * 100).toFixed(1)}%`}>
+            <Pie data={data} dataKey="count" nameKey="name" innerRadius={60} strokeWidth={5} label={(entry) => `${entry.value} (${((entry.value / total) * 100).toFixed(1)}%)`}>
               {data.map((_, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
@@ -183,7 +208,7 @@ export function DisplacedPersonsStatusChart({ persons }: { persons: DisplacedPer
         <ChartContainer config={personStatusChartConfig} className="mx-auto aspect-square h-[250px]">
           <PieChart>
             <ChartTooltip content={<ChartTooltipContent nameKey="name" hideLabel />} />
-            <Pie data={data} dataKey="count" nameKey="name" innerRadius={60} outerRadius={80} startAngle={90} endAngle={450} label={(entry) => `${((entry.value / total) * 100).toFixed(1)}%`}>
+            <Pie data={data} dataKey="count" nameKey="name" innerRadius={60} outerRadius={80} startAngle={90} endAngle={450} label={(entry) => `${entry.value} (${((entry.value / total) * 100).toFixed(1)}%)`}>
               {data.map((_, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}

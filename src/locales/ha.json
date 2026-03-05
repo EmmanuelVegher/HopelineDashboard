@@ -961,8 +961,10 @@
       "watchNow": "Kalla Yanzu",
       "readGuide": "Karanta Jagora",
       "viewContent": "Duba Abun Ciki",
+      "edit": "Gyara",
       "cancel": "Soke",
       "publish": "Buga Horarwa",
+      "update": "Sabunta Module",
       "openDownload": "Bude don Saukewa"
     },
     "trainingPrefix": "Horarwa:",
@@ -978,7 +980,9 @@
     },
     "modal": {
       "title": "Ƙirƙiri Kayan Horarwa",
+      "editTitle": "Gyara Module na Horarwa",
       "description": "Ƙirƙiri sabon kayan horarwa don sanar da masu amfani kai tsaye.",
+      "editDescription": "Sabunta bayanan wannan kayan horarwar.",
       "form": {
         "titleLabel": "Taken Hotarwa",
         "titlePlaceholder": "Misali: Ka'idodin Tsaron Gaggawa",
@@ -1012,7 +1016,9 @@
     },
     "toasts": {
       "published": "An Buga Horarwa",
+      "updated": "An Sabunta Horarwa",
       "publishedDesc": "An ƙirƙiri module kuma an aika sanarwa cikin nasara.",
+      "updatedDesc": "An sabunta module cikin nasara.",
       "publishFailed": "Buga Ya Kasa",
       "publishFailedDesc": "An sami kuskure wajen buga horarwa.",
       "deleted": "An Share Module",

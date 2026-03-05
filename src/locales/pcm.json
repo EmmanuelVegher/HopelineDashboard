@@ -956,8 +956,10 @@
       "watchNow": "Watch am Now",
       "readGuide": "Read di Guide",
       "viewContent": "See wetin dey inside",
+      "edit": "Change am",
       "cancel": "Cancel",
       "publish": "Publish Training",
+      "update": "Update Module",
       "openDownload": "Open for New Tab / Download"
     },
     "empty": {
@@ -971,7 +973,9 @@
     },
     "modal": {
       "title": "Publish New Training Module",
+      "editTitle": "Change Training Module",
       "description": "Create training thing. Dis one go values notify users and post am for group chat.",
+      "editDescription": "Update di details for dis training.",
       "form": {
         "titleLabel": "Title",
         "titlePlaceholder": "e.g. Extreme Weather Protocol",
@@ -1005,7 +1009,9 @@
     },
     "toasts": {
       "published": "Training Published",
+      "updated": "Training Don Update",
       "publishedDesc": "Module don set and we don send message.",
+      "updatedDesc": "Di module don update well well.",
       "publishFailed": "E No Work",
       "publishFailedDesc": "Wahala dey to upload training module.",
       "deleted": "Module Deleted",

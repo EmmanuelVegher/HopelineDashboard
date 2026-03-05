@@ -9,7 +9,8 @@ export default function TrainingCenterPage() {
     // Normalize role checked to include both Admin and super-admin
     const userRole = adminProfile?.role?.toLowerCase() || '';
     const isSuperAdmin = userRole === 'super-admin' || userRole === 'super admin';
-    const isAdminUser = isSuperAdmin || userRole === 'admin';
+    const isFederalGov = userRole === 'federal government';
+    const isAdminUser = isSuperAdmin || isFederalGov || userRole === 'admin';
 
     return (
         <TrainingCenter

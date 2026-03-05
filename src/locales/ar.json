@@ -116,20 +116,20 @@
       "orContinueWith": "أو المتابعة باستخدام",
       "sosAlert": "SOS للطوارئ",
       "anonymousSos": "استخدم زر SOS للطوارئ دون تسجيل الدخول."
+    }
+  },
+  "training": {
+    "buttons": {
+      "edit": "تعديل",
+      "update": "تحديث الوحدة"
     },
-    "signup": {
-      "title": "إنشاء حساب",
-      "subtitle": "انضم إلى مهمتنا لمساعدة المجتمعات",
-      "fullNameLabel": "الاسم الكامل",
-      "emailLabel": "البريد الإلكتروني (اختياري)",
-      "phoneLabel": "رقم الهاتف",
-      "passwordLabel": "كلمة المرور",
-      "languageLabel": "اللغة",
-      "stateLabel": "الولاية (مطلوب)",
-      "signUp": "إنشاء حساب",
-      "signingUp": "جاري الإنشاء...",
-      "alreadyHaveAccount": "لديك حساب بالفعل؟",
-      "logIn": "تسجيل الدخول"
+    "modal": {
+      "editTitle": "تعديل وحدة التدريب",
+      "editDescription": "تحديث تفاصيل مادة التدريب هذه."
+    },
+    "toasts": {
+      "updated": "تم تحديث التدريب",
+      "updatedDesc": "تم تحديث الوحدة بنجاح."
     }
   },
   "common": {

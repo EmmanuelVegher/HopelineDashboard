@@ -27,7 +27,8 @@ import {
     Eye,
     LayoutDashboard,
     Settings,
-    Loader2
+    Loader2,
+    Edit
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { db, auth, storage } from "@/lib/firebase";
@@ -64,6 +65,7 @@ export default function TrainingCenter({ canManage = false, userProfile }: Train
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [trainings, setTrainings] = useState<TrainingModule[]>([]);
     const [viewModule, setViewModule] = useState<TrainingModule | null>(null);
+    const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
 
     // Form State
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -113,7 +115,24 @@ export default function TrainingCenter({ canManage = false, userProfile }: Train
         return () => unsubscribeAuth();
     }, []);
 
-    const handleCreateModule = async (e: React.FormEvent) => {
+    const handleEditModule = (module: TrainingModule) => {
+        setEditingModuleId(module.id);
+        const rawData = trainings.find(t => t.id === module.id) as any;
+        setNewModule({
+            title: module.title,
+            description: module.description,
+            type: module.type,
+            category: module.category,
+            url: module.url || "",
+            content: rawData?.content || "",
+            targetedRoles: rawData?.targetedRoles || ["user", "support-agent", "admin"]
+        });
+        setFile(null);
+        setUploadProgress(0);
+        setIsCreateModalOpen(true);
+    };
+
+    const handleSaveModule = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
         let downloadURL = newModule.url;
@@ -139,14 +158,25 @@ export default function TrainingCenter({ canManage = false, userProfile }: Train
                 });
             }
 
-            await addDoc(collection(db, "trainingMaterials"), {
-                ...newModule,
-                url: downloadURL,
-                views: 0,
-                updatedAt: serverTimestamp(),
-                createdAt: serverTimestamp(),
-                publishedBy: userProfile?.firstName || t('training.admin')
-            });
+            if (editingModuleId) {
+                // Update Existing
+                await updateDoc(doc(db, "trainingMaterials", editingModuleId), {
+                    ...newModule,
+                    url: downloadURL,
+                    updatedAt: serverTimestamp(),
+                    publishedBy: userProfile?.firstName || t('training.admin')
+                });
+            } else {
+                // Create New
+                await addDoc(collection(db, "trainingMaterials"), {
+                    ...newModule,
+                    url: downloadURL,
+                    views: 0,
+                    updatedAt: serverTimestamp(),
+                    createdAt: serverTimestamp(),
+                    publishedBy: userProfile?.firstName || t('training.admin')
+                });
+            }
 
             // Automated Messaging Logic (Similar to original)
             try {
@@ -213,8 +243,12 @@ export default function TrainingCenter({ canManage = false, userProfile }: Train
                 console.error("Failed to send training notifications:", notifyError);
             }
 
-            toast({ title: t('training.toasts.published'), description: t('training.toasts.publishedDesc') });
+            toast({
+                title: editingModuleId ? t('training.toasts.updated') || "Updated" : t('training.toasts.published'),
+                description: editingModuleId ? t('training.toasts.updatedDesc') || "The module has been updated." : t('training.toasts.publishedDesc')
+            });
             setIsCreateModalOpen(false);
+            setEditingModuleId(null);
             setNewModule({
                 title: "",
                 description: "",
@@ -318,7 +352,7 @@ export default function TrainingCenter({ canManage = false, userProfile }: Train
                     <p className="text-muted-foreground">{t('training.subtitle')}</p>
                 </div>
                 {canManage && (
-                    <Button className="gap-2" onClick={() => setIsCreateModalOpen(true)}>
+                    <Button className="gap-2" onClick={() => { setEditingModuleId(null); setIsCreateModalOpen(true); }}>
                         <Plus className="h-4 w-4" />
                         {t('training.newModule')}
                     </Button>
@@ -411,9 +445,14 @@ export default function TrainingCenter({ canManage = false, userProfile }: Train
                                     <div className="border-t p-4 bg-gray-50/50 flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             {canManage && (
-                                                <Button size="sm" variant="ghost" onClick={() => handleDeleteModule(module.id)} className="h-8 px-2 text-xs text-red-500 hover:text-red-700 hover:bg-red-50">
-                                                    {t('training.buttons.delete')}
-                                                </Button>
+                                                <>
+                                                    <Button size="sm" variant="ghost" onClick={() => handleEditModule(module)} className="h-8 px-2 text-xs text-blue-500 hover:text-blue-700 hover:bg-blue-50">
+                                                        <Edit className="h-3 w-3 mr-1" /> {t('training.buttons.edit') || "Edit"}
+                                                    </Button>
+                                                    <Button size="sm" variant="ghost" onClick={() => handleDeleteModule(module.id)} className="h-8 px-2 text-xs text-red-500 hover:text-red-700 hover:bg-red-50">
+                                                        {t('training.buttons.delete')}
+                                                    </Button>
+                                                </>
                                             )}
                                         </div>
                                         <Button size="sm" className="gap-1 h-8" onClick={() => handleViewModule(module)}>
@@ -441,12 +480,12 @@ export default function TrainingCenter({ canManage = false, userProfile }: Train
                 <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
                     <DialogContent className="sm:max-w-[600px]">
                         <DialogHeader>
-                            <DialogTitle>{t('training.modal.title')}</DialogTitle>
+                            <DialogTitle>{editingModuleId ? (t('training.modal.editTitle') || "Edit Training Module") : t('training.modal.title')}</DialogTitle>
                             <DialogDescription>
-                                {t('training.modal.description')}
+                                {editingModuleId ? (t('training.modal.editDescription') || "Update the details for this training material.") : t('training.modal.description')}
                             </DialogDescription>
                         </DialogHeader>
-                        <form onSubmit={handleCreateModule} className="grid gap-4 py-4">
+                        <form onSubmit={handleSaveModule} className="grid gap-4 py-4">
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="title" className="text-right">{t('training.modal.form.titleLabel')}</Label>
                                 <Input
@@ -546,10 +585,12 @@ export default function TrainingCenter({ canManage = false, userProfile }: Train
                                 </p>
                             </div>
                             <DialogFooter>
-                                <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>{t('training.buttons.cancel')}</Button>
+                                <Button type="button" variant="outline" onClick={() => { setIsCreateModalOpen(false); setEditingModuleId(null); }}>
+                                    {t('training.buttons.cancel')}
+                                </Button>
                                 <Button type="submit" disabled={isSubmitting} className="gap-2">
                                     {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                                    {t('training.buttons.publish')}
+                                    {editingModuleId ? (t('training.buttons.update') || "Update Module") : t('training.buttons.publish')}
                                 </Button>
                             </DialogFooter>
                         </form>

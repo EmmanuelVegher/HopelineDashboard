@@ -954,8 +954,10 @@
       "watchNow": "Lelee Ugbu a",
       "readGuide": "Gụọ Ntuziaka",
       "viewContent": "Hụ Ihe Dị n'ime",
+      "edit": "Dezie",
       "cancel": "Kagbuo",
       "publish": "Bipụta Ọzụzụ",
+      "update": "Melite Module",
       "openDownload": "Mepee na Tab Ọhụrụ / Budata"
     },
     "empty": {
@@ -969,7 +971,9 @@
     },
     "modal": {
       "title": "Bipụta Module Ọzụzụ Ọhụrụ",
+      "editTitle": "Dezie Module Ọzụzụ",
       "description": "Mepụta ihe ọzụzụ. Nke a ga-agwa ndị ọrụ ruru eru ozugbo ma bipụta ya na nkata otu.",
+      "editDescription": "Melite nkọwa maka ihe ọzụzụ a.",
       "form": {
         "titleLabel": "Isiokwu",
         "titlePlaceholder": "dgz. Usoro Ihu Igwe Dị Njọ",
@@ -1003,7 +1007,9 @@
     },
     "toasts": {
       "published": "Ebipụtara Ọzụzụ",
+      "updated": "Emelitere Ọzụzụ",
       "publishedDesc": "Emepụtara module ma ziga ozi ọkwa.",
+      "updatedDesc": "Emelitere module ahụ nke ọma.",
       "publishFailed": "Mbipụta Adaala",
       "publishFailedDesc": "Njehie n'ibunye module ọzụzụ.",
       "deleted": "Ehichapụrụ Module",

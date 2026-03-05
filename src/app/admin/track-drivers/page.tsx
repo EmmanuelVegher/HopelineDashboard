@@ -3,13 +3,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { type Driver, type Vehicle } from "@/lib/data";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle as AlertDialogTitle } from "@/components/ui/alert";
-import { Car, CheckCircle, Send as SendIcon, AlertTriangle, Search, Filter, MapPinned, Briefcase, Clock, Phone, MessageSquare, RefreshCw, Plus, Edit, ImagePlus, Trash2, Mail, Calendar, Target, Activity, Play, Pause, RotateCcw } from "lucide-react";
+import { Car, CheckCircle, Send as SendIcon, AlertTriangle, Search, Filter, MapPinned, Phone, MessageSquare, Plus, Edit, ImagePlus, Trash2, Mail, Calendar, Target, Activity, Play, Pause, RotateCcw, Building2, Users } from "lucide-react";
 import { cn, calculateETA, formatTimestamp } from "@/lib/utils";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { collection, addDoc, updateDoc, doc } from "firebase/firestore";
 import { db, storage, functions } from "@/lib/firebase";
 import { httpsCallable } from "firebase/functions";
@@ -27,7 +27,7 @@ import GPSTroubleshootingDialog from "@/components/gps-troubleshooting-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { type SosAlert, type Vehicle as SosVehicle } from "@/ai/schemas/sos";
+import { type SosAlert } from "@/ai/schemas/sos";
 import { useTranslation } from "react-i18next";
 
 
@@ -92,6 +92,7 @@ function DriverForm({ driver, onSave, onCancel }: { driver?: Driver | null, onSa
     const { adminProfile } = useAdminData();
     const adminRole = adminProfile?.role?.toLowerCase() || '';
     const isSuperAdmin = adminRole.includes('super');
+    const isFederalGov = adminRole.includes('federal');
     const adminState = adminProfile?.state || '';
     const { organizations } = useAdminData();
     const isOrgAdmin = adminRole.includes('organization') || adminRole.includes('shelter');
@@ -134,7 +135,15 @@ function DriverForm({ driver, onSave, onCancel }: { driver?: Driver | null, onSa
     }
 
     const handleSelectChange = (name: string, value: string) => {
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData(prev => {
+            const newData = { ...prev, [name]: value };
+            // If state changes, reset organization to prevent orphaned selections
+            if (name === 'state') {
+                newData.organizationId = 'none';
+                newData.organizationName = '';
+            }
+            return newData;
+        });
     }
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,6 +157,47 @@ function DriverForm({ driver, onSave, onCancel }: { driver?: Driver | null, onSa
             setImagePreview(previewUrl);
         }
     };
+
+    const sortedOrganizations = useMemo(() => {
+        if (!organizations) return [];
+        const currentState = (formData.state || '').replace(/ State$/i, '').trim();
+        const stateSearchUrl = currentState ? currentState.toLowerCase() : 'federal';
+
+        // Filter organizations by selected state
+        let filteredOrgs = organizations;
+        if (currentState && (isSuperAdmin || isFederalGov)) {
+            const cleanCurrentState = currentState.toLowerCase();
+            filteredOrgs = organizations.filter(o => {
+                const orgState = (o.state || '').toLowerCase();
+                const orgStates = (o.states || []).map(s => s.toLowerCase());
+
+                return orgState === cleanCurrentState ||
+                    orgState === 'all' ||
+                    orgState === 'federal' ||
+                    orgStates.includes(cleanCurrentState) ||
+                    // Also match if state name is in the organization name as a fallback
+                    (o.name || '').toLowerCase().includes(cleanCurrentState);
+            });
+        }
+
+        console.log("--- DriverForm filtering/sorting DEBUG ---");
+        console.log("currentState:", currentState);
+        console.log("stateSearchUrl:", stateSearchUrl);
+        console.log("Filtered organizations count:", filteredOrgs.length);
+
+        return [...filteredOrgs].sort((a, b) => {
+            const aName = a.name || '';
+            const bName = b.name || '';
+            const aIsGov = aName.toLowerCase().includes(stateSearchUrl) && aName.toLowerCase().includes('gov');
+            const bIsGov = bName.toLowerCase().includes(stateSearchUrl) && bName.toLowerCase().includes('gov');
+
+            if (aIsGov && !bIsGov) return -1;
+            if (!aIsGov && bIsGov) return 1;
+            return aName.localeCompare(bName);
+        });
+    }, [organizations, formData.state, isSuperAdmin, isFederalGov]);
+
+    const needsVehicle = formData.role === 'driver';
 
     const handleImageRemove = () => {
         setImageFile(null);
@@ -271,11 +321,10 @@ function DriverForm({ driver, onSave, onCancel }: { driver?: Driver | null, onSa
                         <SelectTrigger id="role">
                             <SelectValue placeholder={t("admin.trackDrivers.form.selectRole")} />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="z-[2000]">
                             <SelectItem value="driver">{t("admin.trackDrivers.form.driver")}</SelectItem>
-                            <SelectItem value="pilot">{t("admin.trackDrivers.form.pilot")}</SelectItem>
-                            <SelectItem value="responder">{t("admin.trackDrivers.form.responder")}</SelectItem>
-                            <SelectItem value="rider">{t("admin.trackDrivers.form.rider")}</SelectItem>
+                            <SelectItem value="organization_admin">Organization Admin</SelectItem>
+                            <SelectItem value="support_agent">Support Agent</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -291,7 +340,7 @@ function DriverForm({ driver, onSave, onCancel }: { driver?: Driver | null, onSa
                     <SelectTrigger id="state">
                         <SelectValue placeholder={t("admin.trackDrivers.form.selectState")} />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[2000]">
                         {isSuperAdmin ? (
                             states.map(s => (
                                 <SelectItem key={s} value={s}>{s}</SelectItem>
@@ -319,14 +368,14 @@ function DriverForm({ driver, onSave, onCancel }: { driver?: Driver | null, onSa
                             organizationName: selectedOrg?.name || '',
                         }));
                     }}
-                    disabled={isOrgAdmin}
+                    disabled={isOrgAdmin || ((isSuperAdmin || isFederalGov) && !formData.state)}
                 >
                     <SelectTrigger id="organization">
                         <SelectValue placeholder={t("admin.trackDrivers.form.selectOrganization")} />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[2000]">
                         <SelectItem value="none">{t("admin.trackDrivers.form.noneOrganization")}</SelectItem>
-                        {organizations?.map(org => (
+                        {sortedOrganizations.map(org => (
                             <SelectItem key={org.id} value={org.id}>
                                 {org.name}
                             </SelectItem>
@@ -338,64 +387,68 @@ function DriverForm({ driver, onSave, onCancel }: { driver?: Driver | null, onSa
                 )}
             </div>
 
-            <div className="space-y-2">
-                <Label htmlFor="vehicle">{t("admin.trackDrivers.form.vehicleId")}</Label>
-                <Input id="vehicle" name="vehicle" value={formData.vehicle || ''} onChange={handleChange} required />
-            </div>
+            {needsVehicle && (
+                <>
+                    <div className="space-y-2">
+                        <Label htmlFor="vehicle">{t("admin.trackDrivers.form.vehicleId")}</Label>
+                        <Input id="vehicle" name="vehicle" value={formData.vehicle || ''} onChange={handleChange} required />
+                    </div>
 
-            <div className="space-y-2">
-                <Label>{t("admin.trackDrivers.form.vehicleImage")}</Label>
-                <div className="flex items-center gap-4">
-                    <div className="w-24 h-24 rounded-md border border-dashed flex items-center justify-center bg-muted overflow-hidden">
-                        {imagePreview ? (
-                            <img src={imagePreview} alt={t("admin.trackDrivers.form.vehiclePreview")} className="object-cover w-full h-full" />
-                        ) : (
-                            <ImagePlus className="h-8 w-8 text-muted-foreground" />
+                    <div className="space-y-2">
+                        <Label>{t("admin.trackDrivers.form.vehicleImage")}</Label>
+                        <div className="flex items-center gap-4">
+                            <div className="w-24 h-24 rounded-md border border-dashed flex items-center justify-center bg-muted overflow-hidden">
+                                {imagePreview ? (
+                                    <img src={imagePreview} alt={t("admin.trackDrivers.form.vehiclePreview")} className="object-cover w-full h-full" />
+                                ) : (
+                                    <ImagePlus className="h-8 w-8 text-muted-foreground" />
+                                )}
+                            </div>
+                            <div className="flex-1">
+                                <Input id="vehicleImageUrl" type="file" onChange={handleImageChange} accept="image/*" />
+                                <p className="text-xs text-muted-foreground mt-1">{t("admin.trackDrivers.form.uploadPhoto")}</p>
+                                {imagePreview && (
+                                    <Button type="button" size="sm" variant="ghost" className="text-red-500 hover:text-red-600 mt-1" onClick={handleImageRemove}>
+                                        <Trash2 className="mr-1 h-4 w-4" /> {t("admin.trackDrivers.form.removeImage")}
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                        {uploadProgress !== null && (
+                            <div className="space-y-1">
+                                <Label>{t("admin.trackDrivers.form.uploadProgress")}</Label>
+                                <Progress value={uploadProgress} />
+                            </div>
                         )}
                     </div>
-                    <div className="flex-1">
-                        <Input id="vehicleImageUrl" type="file" onChange={handleImageChange} accept="image/*" />
-                        <p className="text-xs text-muted-foreground mt-1">{t("admin.trackDrivers.form.uploadPhoto")}</p>
-                        {imagePreview && (
-                            <Button type="button" size="sm" variant="ghost" className="text-red-500 hover:text-red-600 mt-1" onClick={handleImageRemove}>
-                                <Trash2 className="mr-1 h-4 w-4" /> {t("admin.trackDrivers.form.removeImage")}
-                            </Button>
-                        )}
-                    </div>
-                </div>
-                {uploadProgress !== null && (
-                    <div className="space-y-1">
-                        <Label>{t("admin.trackDrivers.form.uploadProgress")}</Label>
-                        <Progress value={uploadProgress} />
-                    </div>
-                )}
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <Label htmlFor="location">{t("admin.trackDrivers.form.currentLocation")}</Label>
-                    <Input id="location" name="location" value={formData.location || ''} onChange={handleChange} />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="status">{t("admin.trackDrivers.form.status")}</Label>
-                    <Select value={formData.status} onValueChange={handleStatusChange}>
-                        <SelectTrigger id="status">
-                            <SelectValue placeholder={t("admin.trackDrivers.form.selectStatus")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Available">{t("admin.trackDrivers.form.statusAvailable")}</SelectItem>
-                            <SelectItem value="En Route">{t("admin.trackDrivers.form.statusEnRoute")}</SelectItem>
-                            <SelectItem value="Assisting">{t("admin.trackDrivers.form.statusAssisting")}</SelectItem>
-                            <SelectItem value="Emergency">{t("admin.trackDrivers.form.statusEmergency")}</SelectItem>
-                            <SelectItem value="Off Duty">{t("admin.trackDrivers.form.statusOffDuty")}</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="task">{t("admin.trackDrivers.form.currentTask")}</Label>
-                <Input id="task" name="task" value={formData.task || ''} onChange={handleChange} />
-            </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="location">{t("admin.trackDrivers.form.currentLocation")}</Label>
+                            <Input id="location" name="location" value={formData.location || ''} onChange={handleChange} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="status">{t("admin.trackDrivers.form.status")}</Label>
+                            <Select value={formData.status} onValueChange={handleStatusChange}>
+                                <SelectTrigger id="status">
+                                    <SelectValue placeholder={t("admin.trackDrivers.form.selectStatus")} />
+                                </SelectTrigger>
+                                <SelectContent className="z-[2000]">
+                                    <SelectItem value="Available">{t("admin.trackDrivers.form.statusAvailable")}</SelectItem>
+                                    <SelectItem value="En Route">{t("admin.trackDrivers.form.statusEnRoute")}</SelectItem>
+                                    <SelectItem value="Assisting">{t("admin.trackDrivers.form.statusAssisting")}</SelectItem>
+                                    <SelectItem value="Emergency">{t("admin.trackDrivers.form.statusEmergency")}</SelectItem>
+                                    <SelectItem value="Off Duty">{t("admin.trackDrivers.form.statusOffDuty")}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="task">{t("admin.trackDrivers.form.currentTask")}</Label>
+                        <Input id="task" name="task" value={formData.task || ''} onChange={handleChange} />
+                    </div>
+                </>
+            )}
 
             <DialogFooter>
                 <Button type="button" variant="outline" onClick={onCancel}>{t("admin.trackDrivers.form.cancel")}</Button>
@@ -594,6 +647,8 @@ export default function TrackDriversPage() {
         vehicles: contextVehicles,
         alerts: contextAlerts,
         loading: contextLoading,
+        users: contextUsers,
+        organizations: contextOrgs,
         locationHistory,
         fetchLocationHistoryRange
     } = useAdminData();
@@ -626,6 +681,8 @@ export default function TrackDriversPage() {
     const drivers = contextDrivers || [];
     const vehicles = contextVehicles || [];
     const alerts = contextAlerts || [];
+    const users = contextUsers || [];
+    const organizations = contextOrgs || [];
     const loading = contextLoading;
     const permissionError = null; // Managed by provider
 
@@ -867,19 +924,62 @@ export default function TrackDriversPage() {
         setIsGPSTroubleshootingOpen(true);
     };
 
-    // Filter drivers based on search and tracking status
-    const filteredDrivers = drivers.filter(driver => {
-        const matchesSearch = searchQuery === '' ||
-            driver.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            driver.vehicle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            driver.status.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            driver.location.toLowerCase().includes(searchQuery.toLowerCase());
+    // Filter team members (drivers, agents, admins) based on search
+    const filteredTeamMembers = useMemo(() => {
+        // Roles we want to show in this list
+        const relevantRoles = ['driver', 'support agent', 'organization_admin', 'state_government', 'federal_government', 'super_admin'];
 
-        const matchesTracking = trackingStatusFilter === 'all' ||
-            driver.trackingStatus === trackingStatusFilter;
+        // Combine users and drivers
+        // Drivers are specialized users, they might exist in both or just users collection depending on sync
+        // But contextDrivers mostly contains the real-time tracking data
+        const members = users.filter(u => relevantRoles.includes(u.role?.toLowerCase() || ''))
+            .map(u => {
+                const driverData = drivers.find(d => d.id === u.id || d.email === u.email);
+                return {
+                    ...u,
+                    // If it's a driver, merge status and vehicle info from drivers context
+                    status: (driverData?.status || u.accountStatus || 'Available') as Driver['status'],
+                    vehicle: driverData?.vehicle || '',
+                    trackingStatus: driverData?.trackingStatus,
+                    gpsStatus: driverData?.gpsStatus,
+                    isOffline: driverData?.isOffline,
+                    location: driverData?.location || u.state || 'Base Station',
+                    lastUpdate: driverData?.lastUpdate || (u.createdAt ? new Date(u.createdAt.seconds * 1000).toLocaleTimeString() : ''),
+                    phone: u.mobile || '',
+                    vehicleImageUrl: driverData?.vehicleImageUrl || '',
+                    vehicleDetails: driverData?.vehicleDetails,
+                };
+            });
 
-        return matchesSearch && matchesTracking;
-    });
+        return members.filter(m => {
+            const searchLower = searchQuery.toLowerCase();
+            const matchesSearch = searchQuery === '' ||
+                m.displayName.toLowerCase().includes(searchLower) ||
+                (m.firstName || '').toLowerCase().includes(searchLower) ||
+                (m.lastName || '').toLowerCase().includes(searchLower) ||
+                (m.vehicle || '').toLowerCase().includes(searchLower) ||
+                (m.role || '').toLowerCase().includes(searchLower) ||
+                (m.organizationId || '').toLowerCase().includes(searchLower);
+
+            const matchesTracking = trackingStatusFilter === 'all' ||
+                m.trackingStatus === trackingStatusFilter;
+
+            return matchesSearch && matchesTracking;
+        });
+    }, [users, drivers, searchQuery, trackingStatusFilter]);
+
+    // Group members by organization
+    const groupedTeamMembers = useMemo(() => {
+        const groups: Record<string, typeof filteredTeamMembers> = {};
+
+        filteredTeamMembers.forEach(member => {
+            const orgId = member.organizationId || 'unassigned';
+            if (!groups[orgId]) groups[orgId] = [];
+            groups[orgId].push(member);
+        });
+
+        return groups;
+    }, [filteredTeamMembers]);
 
     const availableDrivers = drivers?.filter(d => d.status === 'Available').length || 0;
     const activeDrivers = drivers?.filter(d => d.status === 'En Route' || d.status === 'Assisting').length || 0;
@@ -1309,122 +1409,146 @@ export default function TrackDriversPage() {
             )
             }
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {loading || !drivers ? (
-                    Array.from({ length: 6 }).map((_, i) => (
-                        <Card key={i}><CardContent className="p-4"><Skeleton className="h-80 w-full" /></CardContent></Card>
-                    ))
-                ) : filteredDrivers.length > 0 ? (
-                    filteredDrivers.map(driver => {
-                        const { badgeVariant, cardClass, icon } = getStatusStyles(driver.status);
+            <div className="space-y-12">
+                {loading || !contextUsers ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {Array.from({ length: 6 }).map((_, i) => (
+                            <Card key={i}><CardContent className="p-4"><Skeleton className="h-80 w-full" /></CardContent></Card>
+                        ))}
+                    </div>
+                ) : Object.keys(groupedTeamMembers).length > 0 ? (
+                    Object.entries(groupedTeamMembers).map(([orgId, members]) => {
+                        const organization = organizations.find(o => o.id === orgId);
+                        const orgName = organization?.name || (orgId === 'unassigned' ? t("admin.trackDrivers.unassigned") : orgId);
+
                         return (
-                            <Card key={driver.id} className={cn("transition-shadow hover:shadow-md", cardClass)}>
-                                <CardContent className="p-0">
-                                    <div className="relative aspect-video w-full">
-                                        <img
-                                            src={driver.vehicleDetails?.imageUrl || driver.vehicleImageUrl || 'https://placehold.co/600x400.png'}
-                                            alt={`${t("admin.trackDrivers.card.vehicleFor")} ${driver.name}`}
-                                            className="object-cover rounded-t-lg w-full h-full"
-                                        />
-                                    </div>
-                                    <div className="p-4 space-y-4">
-                                        <div className="flex items-center gap-3">
-                                            <Avatar className="h-12 w-12">
-                                                <AvatarFallback>{driver.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                                            </Avatar>
-                                            <div>
-                                                <p className="font-bold text-lg">{driver.name}</p>
-                                                <div className="flex gap-2">
-                                                    <Badge variant={badgeVariant} className="flex gap-1.5 items-center capitalize">
-                                                        {icon}
-                                                        {driver.status}
-                                                    </Badge>
-                                                    {driver.trackingStatus && (
-                                                        <Badge
-                                                            variant={driver.trackingStatus === 'active' ? 'default' : driver.trackingStatus === 'offline' ? 'destructive' : driver.trackingStatus === 'error' ? 'destructive' : 'secondary'}
-                                                            className="text-xs"
-                                                        >
-                                                            {driver.trackingStatus === 'active' ? 'Live' : driver.trackingStatus === 'offline' ? 'Offline' : driver.trackingStatus === 'inactive' ? 'Inactive' : 'Error'}
-                                                        </Badge>
-                                                    )}
-                                                    {driver.gpsStatus && (
-                                                        <Badge
-                                                            variant={driver.gpsStatus === 'good' ? 'default' : driver.gpsStatus === 'weak' ? 'secondary' : 'destructive'}
-                                                            className="text-xs ml-1"
-                                                        >
-                                                            GPS: {driver.gpsStatus}
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                                <p className="text-sm text-muted-foreground">
-                                                    {driver.vehicle ? (
-                                                        driver.vehicleDetails ?
-                                                            `${driver.vehicleDetails.make} ${driver.vehicleDetails.model} (${driver.vehicle})` :
-                                                            `${t("admin.trackDrivers.card.vehicle")} ${driver.vehicle}`
-                                                    ) : t("admin.trackDrivers.card.noVehicle")}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-3 text-sm pl-2 border-l-2 ml-6">
-                                            <div className="flex items-start gap-3">
-                                                <Phone className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                                                <div>
-                                                    <p className="font-medium">{t("admin.trackDrivers.contact.title")}</p>
-                                                    <p className="text-muted-foreground">{driver.phone}</p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-start gap-3">
-                                                <MapPinned className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                                                <div>
-                                                    <p className="font-medium">{t("admin.trackDrivers.tracking.currentLocation")}</p>
-                                                    <p className="text-muted-foreground">{typeof driver.location === 'string' ? driver.location : (driver.location as any)?._lat ? `${(driver.location as any)._lat}, ${(driver.location as any)._long}` : 'Unknown'}</p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-start gap-3">
-                                                <Briefcase className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                                                <div>
-                                                    <p className="font-medium">{t("admin.trackDrivers.tracking.currentTask")}</p>
-                                                    <p className={cn("text-muted-foreground", driver.status === "Emergency" && "text-red-600 font-medium")}>{typeof driver.task === 'string' ? driver.task : driver.task ? JSON.stringify(driver.task) : 'None'}</p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-start gap-3">
-                                                <Clock className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                                                <div>
-                                                    <p className="font-medium">{t("admin.trackDrivers.tracking.lastUpdate")}</p>
-                                                    <p className="text-muted-foreground">{formatTimestamp(driver.lastUpdate)}</p>
-                                                    {driver.locationAccuracy && (
-                                                        <p className="text-xs text-muted-foreground">{t("admin.trackDrivers.tracking.accuracy")}: ±{Math.round(driver.locationAccuracy)}m</p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            {driver.state && (
-                                                <div className="flex items-start gap-3">
-                                                    <MapPinned className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                                                    <div>
-                                                        <p className="font-medium">{t("admin.trackDrivers.tracking.assignedState")}</p>
-                                                        <p className="text-muted-foreground">{driver.state}</p>
+                            <div key={orgId} className="space-y-6">
+                                <div className="flex items-center gap-4">
+                                    <h3 className="text-xl font-bold border-l-4 border-primary pl-4 py-1">{orgName}</h3>
+                                    <Badge variant="outline">{members.length} {members.length === 1 ? t("admin.trackDrivers.staffMember") : t("admin.trackDrivers.staffMembers")}</Badge>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {members.map(member => {
+                                        const { badgeVariant, cardClass, icon } = getStatusStyles(member.status);
+                                        const isDriver = member.role?.toLowerCase() === 'driver';
+
+                                        return (
+                                            <Card key={member.id} className={cn("transition-shadow hover:shadow-md h-full flex flex-col", cardClass)}>
+                                                <CardContent className="p-0 flex-1">
+                                                    <div className="relative aspect-video w-full">
+                                                        <img
+                                                            src={member.image || member.vehicleImageUrl || 'https://placehold.co/600x400.png'}
+                                                            alt={member.displayName}
+                                                            className="object-cover rounded-t-lg w-full h-full"
+                                                        />
+                                                        <div className="absolute top-2 right-2 flex flex-col gap-1">
+                                                            <Badge variant="secondary" className="bg-white/90 backdrop-blur-sm text-[10px] uppercase font-bold text-gray-700">
+                                                                {member.role?.replace('_', ' ')}
+                                                            </Badge>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-2 pt-4 border-t">
-                                            <Button size="sm" onClick={() => handleTrack(driver)}><MapPinned className="mr-2 h-4 w-4" />{t("admin.trackDrivers.card.track")}</Button>
-                                            <Button size="sm" variant="outline" onClick={() => handleContact(driver)}><MessageSquare className="mr-2 h-4 w-4" />{t("admin.trackDrivers.card.contact")}</Button>
-                                            {(driver.gpsStatus === 'lost' || driver.trackingStatus === 'offline' || driver.isOffline) && (
-                                                <Button size="sm" variant="outline" onClick={() => handleGPSTroubleshooting(driver)} className="text-orange-600 border-orange-200 hover:bg-orange-50">
-                                                    <AlertTriangle className="mr-2 h-4 w-4" />{t("admin.trackDrivers.card.gpsHelp")}
-                                                </Button>
-                                            )}
-                                            <Button size="sm" variant="outline" onClick={() => handleAssignVehicle(driver)}><Car className="mr-2 h-4 w-4" />{t("admin.trackDrivers.card.assignVehicle")}</Button>
-                                            <Button size="sm" variant="outline" onClick={() => handleEdit(driver)}><Edit className="mr-2 h-4 w-4" />{t("admin.trackDrivers.card.edit")}</Button>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )
+                                                    <div className="p-4 space-y-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <Avatar className="h-12 w-12 border-2 border-background shadow-sm">
+                                                                <AvatarImage src={member.image} />
+                                                                <AvatarFallback className="bg-primary/10 text-primary">
+                                                                    {(member.displayName || member.firstName || '?').split(' ').map(n => n[0]).join('')}
+                                                                </AvatarFallback>
+                                                            </Avatar>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="font-bold text-lg truncate">{member.displayName || `${member.firstName} ${member.lastName}`}</p>
+                                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                                    <Badge variant={badgeVariant} className="flex gap-1.5 items-center capitalize text-[10px] py-0">
+                                                                        {icon}
+                                                                        {member.status}
+                                                                    </Badge>
+                                                                    {isDriver && member.trackingStatus && (
+                                                                        <Badge
+                                                                            variant={member.trackingStatus === 'active' ? 'default' : member.trackingStatus === 'offline' ? 'destructive' : member.trackingStatus === 'error' ? 'destructive' : 'secondary'}
+                                                                            className="text-[10px] py-0"
+                                                                        >
+                                                                            {member.trackingStatus === 'active' ? 'Live' : member.trackingStatus === 'offline' ? 'Offline' : member.trackingStatus === 'inactive' ? 'Inactive' : 'Error'}
+                                                                        </Badge>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="space-y-3 text-sm border-t pt-4">
+                                                            <div className="flex items-start gap-3">
+                                                                <Phone className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                                                                <div>
+                                                                    <p className="font-medium text-xs text-muted-foreground uppercase tracking-wider">{t("admin.trackDrivers.contact.title")}</p>
+                                                                    <p className="font-medium">{member.phone || t("common.notApplicable")}</p>
+                                                                </div>
+                                                            </div>
+
+                                                            {isDriver ? (
+                                                                <>
+                                                                    <div className="flex items-start gap-3">
+                                                                        <MapPinned className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                                                                        <div>
+                                                                            <p className="font-medium text-xs text-muted-foreground uppercase tracking-wider">{t("admin.trackDrivers.tracking.currentLocation")}</p>
+                                                                            <p className="font-medium truncate max-w-[200px]">{typeof member.location === 'string' ? member.location : (member.location as any)?._lat ? `${(member.location as any)._lat}, ${(member.location as any)._long}` : 'Unknown'}</p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex items-start gap-3">
+                                                                        <Car className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                                                                        <div>
+                                                                            <p className="font-medium text-xs text-muted-foreground uppercase tracking-wider">{t("admin.trackDrivers.card.vehicle")}</p>
+                                                                            <p className="font-medium">{member.vehicle || t("admin.trackDrivers.card.noVehicle")}</p>
+                                                                        </div>
+                                                                    </div>
+                                                                </>
+                                                            ) : (
+                                                                <div className="flex items-start gap-3">
+                                                                    <Building2 className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                                                                    <div>
+                                                                        <p className="font-medium text-xs text-muted-foreground uppercase tracking-wider">{t("admin.trackDrivers.form.organization")}</p>
+                                                                        <p className="font-medium truncate max-w-[200px]">{orgName}</p>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="grid grid-cols-2 gap-2 pt-4 mt-auto">
+                                                            {isDriver && (
+                                                                <Button size="sm" onClick={() => handleTrack(member as unknown as Driver)}>
+                                                                    <MapPinned className="mr-2 h-4 w-4" />{t("admin.trackDrivers.card.track")}
+                                                                </Button>
+                                                            )}
+                                                            <Button size="sm" variant="outline" onClick={() => handleContact(member as unknown as Driver)}>
+                                                                <MessageSquare className="mr-2 h-4 w-4" />{t("admin.trackDrivers.card.contact")}
+                                                            </Button>
+                                                            {isDriver && (
+                                                                <Button size="sm" variant="outline" onClick={() => handleAssignVehicle(member as unknown as Driver)}>
+                                                                    <Car className="mr-2 h-4 w-4" />{t("admin.trackDrivers.card.assignVehicle")}
+                                                                </Button>
+                                                            )}
+                                                            <Button size="sm" variant="outline" onClick={() => handleEdit(member as unknown as Driver)}>
+                                                                <Edit className="mr-2 h-4 w-4" />{t("admin.trackDrivers.card.edit")}
+                                                            </Button>
+                                                            {isDriver && (member.gpsStatus === 'lost' || member.trackingStatus === 'offline' || member.isOffline) && (
+                                                                <Button size="sm" variant="outline" onClick={() => handleGPSTroubleshooting(member as unknown as Driver)} className="text-orange-600 border-orange-200 hover:bg-orange-50 col-span-2">
+                                                                    <AlertTriangle className="mr-2 h-4 w-4" />{t("admin.trackDrivers.card.gpsHelp")}
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
                     })
                 ) : !permissionError ? (
-                    <p className="text-muted-foreground col-span-full text-center py-10">{t("admin.trackDrivers.noTeamMembers")}</p>
+                    <div className="flex flex-col items-center justify-center py-20 bg-muted/20 rounded-xl border-2 border-dashed">
+                        <Users className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
+                        <p className="text-muted-foreground font-medium">{t("admin.trackDrivers.noTeamMembers")}</p>
+                    </div>
                 ) : null}
             </div>
         </div>

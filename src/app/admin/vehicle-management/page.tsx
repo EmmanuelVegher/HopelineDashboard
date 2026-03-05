@@ -140,6 +140,23 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
         }
     };
 
+    const sortedOrganizations = useMemo(() => {
+        if (!organizations) return [];
+        const currentState = (formData.state || '').replace(/ State$/i, '').trim();
+        const stateSearchUrl = currentState ? currentState.toLowerCase() : 'federal';
+
+        return [...organizations].sort((a, b) => {
+            const aName = a.name || '';
+            const bName = b.name || '';
+            const aIsGov = aName.toLowerCase().includes(stateSearchUrl) && aName.toLowerCase().includes('gov');
+            const bIsGov = bName.toLowerCase().includes(stateSearchUrl) && bName.toLowerCase().includes('gov');
+
+            if (aIsGov && !bIsGov) return -1;
+            if (!aIsGov && bIsGov) return 1;
+            return aName.localeCompare(bName);
+        });
+    }, [organizations, formData.state]);
+
     const handleImageRemove = () => {
         setImageFile(null);
         setImagePreview(null);
@@ -334,22 +351,7 @@ function VehicleForm({ vehicle, onSave, onCancel }: { vehicle?: Vehicle | null, 
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="none">{t('admin.vehicleManagement.form.noneOrganization')}</SelectItem>
-                        {useMemo(() => {
-                            if (!organizations) return [];
-                            const currentState = formData.state || '';
-                            const govSearch = currentState ? `${currentState} Government` : 'Federal Government';
-
-                            return [...organizations].sort((a, b) => {
-                                const aName = a.name || '';
-                                const bName = b.name || '';
-                                const aIsGov = aName.toLowerCase().includes(govSearch.toLowerCase());
-                                const bIsGov = bName.toLowerCase().includes(govSearch.toLowerCase());
-
-                                if (aIsGov && !bIsGov) return -1;
-                                if (!aIsGov && bIsGov) return 1;
-                                return aName.localeCompare(bName);
-                            });
-                        }, [organizations, formData.state])?.map(org => (
+                        {sortedOrganizations.map(org => (
                             <SelectItem key={org.id} value={org.id}>
                                 {org.name}
                             </SelectItem>
@@ -720,6 +722,12 @@ export default function VehicleManagementPage() {
                                         <span className="text-xs sm:text-sm">{vehicle.type}</span>
                                     </div>
                                     <div className="space-y-1 sm:space-y-2 text-xs sm:text-sm">
+                                        {vehicle.organizationName && (
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground">{t('admin.vehicleManagement.form.organization')}</span>
+                                                <span className="text-right truncate max-w-[150px] font-medium" title={vehicle.organizationName}>{vehicle.organizationName}</span>
+                                            </div>
+                                        )}
                                         <div className="flex justify-between">
                                             <span className="text-muted-foreground">{t('admin.vehicleManagement.card.capacity')}</span>
                                             <span>{vehicle.capacity} {t('admin.vehicleManagement.card.passengers')}</span>
