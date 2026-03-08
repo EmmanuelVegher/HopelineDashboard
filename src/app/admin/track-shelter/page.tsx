@@ -275,12 +275,12 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="capacity">{t('admin.trackShelter.form.totalCapacity')}</Label>
-                    <Input id="capacity" name="capacity" type="number" value={formData.capacity} onChange={handleChange} />
+                    <Label htmlFor="capacity">{t('admin.trackShelter.form.totalCapacity')} (Auto)</Label>
+                    <Input id="capacity" name="capacity" type="number" value={formData.capacity} onChange={handleChange} readOnly className="bg-slate-50 border-blue-100 font-semibold" />
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="availableCapacity">{t('admin.trackShelter.form.availableCapacity')}</Label>
-                    <Input id="availableCapacity" name="availableCapacity" type="number" value={formData.availableCapacity} onChange={handleChange} />
+                    <Label htmlFor="availableCapacity">{t('admin.trackShelter.form.availableCapacity')} (Auto)</Label>
+                    <Input id="availableCapacity" name="availableCapacity" type="number" value={formData.availableCapacity} onChange={handleChange} readOnly className="bg-slate-50 border-green-100 font-semibold text-green-700" />
                 </div>
             </div>
 
