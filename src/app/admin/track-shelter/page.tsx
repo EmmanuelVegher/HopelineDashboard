@@ -98,16 +98,16 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
     const { toast } = useToast();
 
     // Room management state
-    const [rooms, setRooms] = useState<{ id: string; name: string; capacity: number }[]>(
-        shelter?.rooms || []
+    const [rooms, setRooms] = useState<{ id: string; name: string; capacity: number; available: number }[]>(
+        shelter?.rooms?.map(r => ({ ...r, available: r.available ?? 0 })) || []
     );
 
     const addRoom = () => {
-        setRooms(prev => [...prev, { id: `room_${Date.now()}`, name: '', capacity: 0 }]);
+        setRooms(prev => [...prev, { id: `room_${Date.now()}`, name: '', capacity: 0, available: 0 }]);
     };
 
-    const updateRoom = (id: string, field: 'name' | 'capacity', value: string | number) => {
-        setRooms(prev => prev.map(r => r.id === id ? { ...r, [field]: field === 'capacity' ? Number(value) : value } : r));
+    const updateRoom = (id: string, field: 'name' | 'capacity' | 'available', value: string | number) => {
+        setRooms(prev => prev.map(r => r.id === id ? { ...r, [field]: field === 'name' ? value : Number(value) } : r));
     };
 
     const removeRoom = (id: string) => {
@@ -115,7 +115,7 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
     };
 
     const totalRoomCapacity = rooms.reduce((sum, r) => sum + (r.capacity || 0), 0);
-    const roomCapacityMismatch = rooms.length > 0 && totalRoomCapacity !== (formData.capacity || 0);
+
 
     // Organizations fetched from Firestore
     const [organizations, setOrganizations] = useState<{ id: string; name: string }[]>([]);
@@ -139,8 +139,22 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
     useEffect(() => {
         if (shelter) {
             setFormData(shelter);
+            setRooms(shelter.rooms?.map(r => ({ ...r, available: r.available ?? 0 })) || []);
         }
     }, [shelter]);
+
+    // Auto-calculate capacities when rooms change
+    useEffect(() => {
+        if (rooms.length > 0) {
+            const total = rooms.reduce((sum, r) => sum + (r.capacity || 0), 0);
+            const available = rooms.reduce((sum, r) => sum + (r.available || 0), 0);
+            setFormData(prev => ({
+                ...prev,
+                capacity: total,
+                availableCapacity: available
+            }));
+        }
+    }, [rooms]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -182,15 +196,6 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Validate room capacity if rooms are defined
-        if (rooms.length > 0 && totalRoomCapacity !== (formData.capacity || 0)) {
-            toast({
-                title: 'Capacity Mismatch',
-                description: `Room totals (${totalRoomCapacity} beds) must equal the total shelter capacity (${formData.capacity} beds).`,
-                variant: 'destructive'
-            });
-            return;
-        }
         setLoading(true);
         try {
             const dataToSave = { ...formData, rooms };
@@ -293,30 +298,47 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
                 {rooms.length > 0 && (
                     <div className="space-y-2">
                         {rooms.map((room) => (
-                            <div key={room.id} className="flex items-center gap-2 p-2 border rounded-lg bg-slate-50">
-                                <Input
-                                    placeholder="Room name (e.g. Ward A)"
-                                    value={room.name}
-                                    onChange={e => updateRoom(room.id, 'name', e.target.value)}
-                                    className="flex-1 h-8 text-sm"
-                                />
-                                <Input
-                                    type="number"
-                                    placeholder="Beds"
-                                    value={room.capacity}
-                                    onChange={e => updateRoom(room.id, 'capacity', e.target.value)}
-                                    className="w-24 h-8 text-sm"
-                                    min={0}
-                                />
-                                <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0" onClick={() => removeRoom(room.id)}>
-                                    <X className="h-4 w-4" />
-                                </Button>
+                            <div key={room.id} className="flex flex-col gap-2 p-3 border rounded-lg bg-slate-50">
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        placeholder="Room name (e.g. Ward A)"
+                                        value={room.name}
+                                        onChange={e => updateRoom(room.id, 'name', e.target.value)}
+                                        className="flex-1 h-9 text-sm"
+                                    />
+                                    <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0" onClick={() => removeRoom(room.id)}>
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase font-bold text-slate-500">Total Beds</Label>
+                                        <Input
+                                            type="number"
+                                            placeholder="Total"
+                                            value={room.capacity}
+                                            onChange={e => updateRoom(room.id, 'capacity', e.target.value)}
+                                            className="h-9 text-sm"
+                                            min={0}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase font-bold text-slate-500">Available</Label>
+                                        <Input
+                                            type="number"
+                                            placeholder="Available"
+                                            value={room.available}
+                                            onChange={e => updateRoom(room.id, 'available', e.target.value)}
+                                            className="h-9 text-sm font-semibold text-green-700"
+                                            min={0}
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         ))}
-                        <div className={`flex justify-between items-center text-sm font-medium px-2 py-1.5 rounded-md ${roomCapacityMismatch ? 'text-red-600 bg-red-50' : 'text-green-700 bg-green-50'}`}>
-                            <span>Total Room Beds: <strong>{totalRoomCapacity}</strong></span>
-                            <span>Shelter Capacity: <strong>{formData.capacity || 0}</strong></span>
-                            {roomCapacityMismatch && <span className="text-xs">⚠ Mismatch!</span>}
+                        <div className="flex justify-between items-center text-sm font-medium px-2 py-2 rounded-md bg-blue-50 text-blue-700 border border-blue-100 italic">
+                            <span>Calculated Total: <strong>{totalRoomCapacity}</strong></span>
+                            <span>Calculated Available: <strong>{rooms.reduce((sum, r) => sum + (r.available || 0), 0)}</strong></span>
                         </div>
                     </div>
                 )}

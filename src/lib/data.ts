@@ -33,6 +33,7 @@ export type Shelter = {
         id: string;
         name: string;
         capacity: number;
+        available: number;
     }[];
 };
 

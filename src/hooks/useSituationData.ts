@@ -249,16 +249,17 @@ export const useSituationData = (filterState?: string, organizationId?: string) 
                 });
             });
 
-            // Sort by timestamp desc
+            // Sort by timestamp asc (oldest to newest) as requested for the Regional SOS Feed
             allActivity.sort((a, b) => {
                 const timeA = a.timestamp?.seconds ? new Date(a.timestamp.seconds * 1000).getTime() :
                     (a.timestamp instanceof Date ? a.timestamp.getTime() : new Date().getTime());
                 const timeB = b.timestamp?.seconds ? new Date(b.timestamp.seconds * 1000).getTime() :
                     (b.timestamp instanceof Date ? b.timestamp.getTime() : new Date().getTime());
-                return timeB - timeA;
+                return timeA - timeB;
             });
 
-            setRecentActivity(allActivity.slice(0, 20));
+            // For the sidebar feed, let's keep it limited to the latest 20 oldest active things, or just the first 20 since they are oldest
+            setRecentActivity(allActivity.slice(0, 50)); // Increased limit slightly since we are viewing oldest first
             setAllAlerts(allActivity.filter(a => a.type === 'alert'));
 
             // 3. Aggregate by State

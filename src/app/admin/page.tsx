@@ -31,6 +31,7 @@ import { DisplacementMap } from "@/components/situation-room/displacement-map";
 import { ActivityItem } from "@/hooks/useSituationData";
 import { useTranslation } from "react-i18next";
 import * as XLSX from 'xlsx';
+import { SOSTimer } from "@/components/situation-room/sos-timer";
 
 
 const getStatusBadgeVariant = (status: string) => {
@@ -80,48 +81,108 @@ function PageSkeleton() {
     )
 }
 
-const ActivityFeedItem = ({ item }: { item: ActivityItem }) => (
-    <div className="p-4 hover:bg-slate-50 transition-colors cursor-pointer border-l-4 border-transparent hover:border-blue-600 group">
-        <div className="flex gap-4">
-            <div className="mt-1 shrink-0">
-                {item.severity === 'critical' ? (
-                    <div className="p-2 bg-red-50 text-red-600 rounded-full group-hover:bg-red-100 transition-colors">
-                        <Siren className="h-4 w-4" />
-                    </div>
-                ) : item.type === 'displacement' ? (
-                    <div className="p-2 bg-blue-50 text-blue-600 rounded-full group-hover:bg-blue-100 transition-colors">
-                        <Users className="h-4 w-4" />
-                    </div>
-                ) : (
-                    <div className="p-2 bg-emerald-50 text-emerald-600 rounded-full group-hover:bg-emerald-100 transition-colors">
-                        <HomeIcon className="h-4 w-4" />
-                    </div>
-                )}
-            </div>
-            <div className="space-y-1 min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-3">
-                    <h4 className={cn("text-xs font-bold truncate tracking-tight uppercase",
-                        item.severity === 'critical' ? "text-red-700" : "text-slate-900"
-                    )}>
-                        {item.title}
-                    </h4>
-                    <span className="text-[9px] text-slate-400 font-bold whitespace-nowrap bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-full">
-                        {item.time}
-                    </span>
+const ActivityFeedItem = ({ item }: { item: ActivityItem }) => {
+    // Check if the item is older than 24 hours
+    let isOverdue = false;
+    if (item.type === 'alert' && item.timestamp) {
+        const now = Date.now();
+        let itemTime = 0;
+        if (typeof item.timestamp === 'number') {
+            itemTime = item.timestamp > 1e11 ? item.timestamp : item.timestamp * 1000;
+        } else if (item.timestamp?.toMillis) {
+            itemTime = item.timestamp.toMillis();
+        } else if (item.timestamp?.seconds) {
+            itemTime = item.timestamp.seconds * 1000;
+        } else if (item.timestamp instanceof Date) {
+            itemTime = item.timestamp.getTime();
+        } else {
+            const parsed = new Date(item.timestamp).getTime();
+            if (!isNaN(parsed)) itemTime = parsed;
+        }
+
+        if (itemTime > 0 && (now - itemTime) > 24 * 60 * 60 * 1000) {
+            isOverdue = true;
+        }
+    }
+
+    return (
+        <div className={cn(
+            "p-4 transition-colors cursor-pointer border-l-4 group",
+            isOverdue
+                ? "bg-red-50 border-red-600 hover:bg-red-100 ring-1 ring-inset ring-red-200"
+                : "hover:bg-slate-50 border-transparent hover:border-blue-600"
+        )}>
+            <div className="flex gap-4">
+                <div className="mt-1 shrink-0">
+                    {item.severity === 'critical' ? (
+                        <div className={cn(
+                            "p-2 rounded-full transition-colors",
+                            isOverdue ? "bg-red-200 text-red-700" : "bg-red-50 text-red-600 group-hover:bg-red-100"
+                        )}>
+                            <Siren className="h-4 w-4" />
+                        </div>
+                    ) : item.type === 'displacement' ? (
+                        <div className="p-2 bg-blue-50 text-blue-600 rounded-full group-hover:bg-blue-100 transition-colors">
+                            <Users className="h-4 w-4" />
+                        </div>
+                    ) : (
+                        <div className="p-2 bg-emerald-50 text-emerald-600 rounded-full group-hover:bg-emerald-100 transition-colors">
+                            <HomeIcon className="h-4 w-4" />
+                        </div>
+                    )}
                 </div>
-                <p className="text-xs text-slate-500 leading-tight font-medium line-clamp-2">
-                    {item.description}
-                </p>
-                <div className="flex items-center gap-1.5 pt-1">
-                    <MapPin className="h-3 w-3 text-slate-400" />
-                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider truncate">
-                        {item.location}
+                <div className="space-y-1 min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-col gap-1 min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                                <h4 className={cn("text-xs font-black truncate tracking-tight uppercase",
+                                    (item.severity === 'critical' || isOverdue) ? "text-red-700" : "text-slate-900"
+                                )}>
+                                    {item.title}
+                                </h4>
+                            </div>
+                            {isOverdue && (
+                                <Badge variant="destructive" className="text-[9px] h-4 px-1 leading-none font-black animate-pulse whitespace-nowrap w-fit">
+                                    &gt;24H OVERDUE
+                                </Badge>
+                            )}
+                            {item.type === 'alert' && item.timestamp && (
+                                <div className="mt-0.5">
+                                    <SOSTimer timestamp={item.timestamp} />
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                            <span className={cn(
+                                "text-[9px] font-bold whitespace-nowrap px-2 py-0.5 rounded-full border",
+                                isOverdue
+                                    ? "bg-red-100 text-red-700 border-red-200"
+                                    : "bg-slate-50 text-slate-400 border-slate-100"
+                            )}>
+                                {item.time}
+                            </span>
+                        </div>
+                    </div>
+                    <p className={cn(
+                        "text-xs leading-tight font-medium line-clamp-2",
+                        isOverdue ? "text-red-900" : "text-slate-500"
+                    )}>
+                        {item.description}
                     </p>
+                    <div className="flex items-center gap-1.5 pt-1">
+                        <MapPin className={cn("h-3 w-3", isOverdue ? "text-red-400" : "text-slate-400")} />
+                        <p className={cn(
+                            "text-[9px] font-bold uppercase tracking-wider truncate",
+                            isOverdue ? "text-red-500" : "text-slate-400"
+                        )}>
+                            {item.location}
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-);
+    );
+};
 
 function RegionalDeepDiveModal({ state, isOpen, onClose, recentActivity }: { state: StateData | null, isOpen: boolean, onClose: () => void, recentActivity: ActivityItem[] }) {
     const { t } = useTranslation();
@@ -257,7 +318,8 @@ function SosAlertOverlay({ alerts, onClear }: { alerts: SosAlert[], onClear: (id
                                         <Siren className={cn("h-6 w-6", isNewest && "animate-pulse")} />
                                         <CardTitle className="text-xl font-black uppercase tracking-tighter text-white">Emergency SOS</CardTitle>
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="flex gap-2 items-center">
+                                        <SOSTimer timestamp={alert.timestamp} className="bg-red-800/80 text-white border-red-500 font-bold text-[10px]" showIcon={true} />
                                         {isNewest && (
                                             <Badge variant="secondary" className="bg-white text-red-600 animate-bounce font-black text-[10px]">NEW ALERT</Badge>
                                         )}
@@ -388,6 +450,55 @@ export default function AdminDashboardPage() {
 
         return () => clearInterval(interval);
     }, [isPlaying, playbackData.length, playbackSpeed]);
+
+    // Check for unattended SOS alerts periodically
+    useEffect(() => {
+        if (!activeAlerts || activeAlerts.length === 0) return;
+
+        const checkUnattended = () => {
+            const now = Date.now();
+            const unattendedThreshold = 2 * 60 * 1000; // 2 minutes
+
+            let unattendedCount = 0;
+            activeAlerts.forEach(alert => {
+                if (alert.status === 'Active' && !alert.assignedTeam) {
+                    let startTime = 0;
+                    if (typeof alert.timestamp === 'number') {
+                        startTime = alert.timestamp > 1e11 ? alert.timestamp : alert.timestamp * 1000;
+                    } else if (alert.timestamp?.toMillis) {
+                        startTime = alert.timestamp.toMillis();
+                    } else if (alert.timestamp?.seconds) {
+                        startTime = alert.timestamp.seconds * 1000;
+                    } else if (alert.timestamp instanceof Date) {
+                        startTime = alert.timestamp.getTime();
+                    } else if (alert.timestamp) {
+                        const parsed = new Date(alert.timestamp).getTime();
+                        if (!isNaN(parsed)) startTime = parsed;
+                    }
+
+                    if (startTime > 0 && (now - startTime) > unattendedThreshold) {
+                        unattendedCount++;
+                    }
+                }
+            });
+
+            if (unattendedCount > 0) {
+                toast({
+                    title: "⚠️ Unattended SOS Alerts",
+                    description: `There ${unattendedCount === 1 ? 'is 1 active alert' : `are ${unattendedCount} active alerts`} unattended for over 2 minutes. Please dispatch a team.`,
+                    variant: "destructive",
+                });
+            }
+        };
+
+        const initialTimer = setTimeout(checkUnattended, 5000);
+        const interval = setInterval(checkUnattended, 30000); // Check every 30s
+
+        return () => {
+            clearTimeout(initialTimer);
+            clearInterval(interval);
+        };
+    }, [activeAlerts, toast]);
 
 
     const handleDownloadExcel = () => {
@@ -622,7 +733,13 @@ export default function AdminDashboardPage() {
         return <PageSkeleton />;
     }
 
-    const recentAlerts = alerts.slice(0, 5);
+    const activeAlertsForTab = alerts
+        .filter(a => a.status === 'Active' || a.status === 'Responding' || a.status === 'Investigating')
+        .sort((a, b) => {
+            const timeA = typeof a.timestamp === 'number' ? (a.timestamp > 1e11 ? a.timestamp : a.timestamp * 1000) : (a.timestamp?.toMillis?.() || a.timestamp?.seconds * 1000 || 0);
+            const timeB = typeof b.timestamp === 'number' ? (b.timestamp > 1e11 ? b.timestamp : b.timestamp * 1000) : (b.timestamp?.toMillis?.() || b.timestamp?.seconds * 1000 || 0);
+            return timeA - timeB; // Oldest first
+        });
 
     const dashboardStats = (() => {
         if (!shelters || shelters.length === 0) {
@@ -1180,67 +1297,99 @@ export default function AdminDashboardPage() {
                                         </AlertDescription>
                                     </Alert>
                                 )}
-                                {recentAlerts.length > 0 ? (
-                                    recentAlerts.map((alert) => (
-                                        <Card key={alert.id} className="border-0 shadow-md hover:shadow-lg transition-all duration-300">
-                                            <CardContent className="p-4 sm:p-6">
-                                                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                                                    <div className="flex-1">
-                                                        <div className="flex flex-wrap gap-2 mb-3">
-                                                            <Badge variant="secondary" className="font-medium">{alert.emergencyType}</Badge>
-                                                            <Badge variant={getPriorityBadgeVariant("High Priority")}>{t("admin.dashboard.highPriority")}</Badge>
-                                                            <span className="text-xs font-mono text-slate-500 bg-slate-100 px-2 py-1 rounded">{alert.id.substring(0, 6)}...</span>
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-semibold text-slate-800 mb-1">{alert.location.address || t("admin.dashboard.locationNotSpecified")}</p>
-                                                            <p className="text-sm text-slate-600 mb-2">
-                                                                {t("admin.dashboard.user")}: {alert.userEmail || 'Anonymous'}
-                                                            </p>
-                                                            {alert.additionalInfo && (
-                                                                <p className="text-sm bg-yellow-50 border border-yellow-200 p-3 rounded-md mb-2 text-yellow-800">{t("admin.dashboard.note")}: {alert.additionalInfo}</p>
-                                                            )}
-                                                            {alert.assignedTeam && (
-                                                                <p className="text-sm bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md">{t("admin.dashboard.assignedTo")}: {alert.assignedTeam.driverName} ({alert.assignedTeam.vehicle})</p>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex flex-wrap gap-2 mt-4">
-                                                            <Button size="sm" onClick={() => setSelectedAlert(alert)} className="bg-blue-600 hover:bg-blue-700 text-white">
-                                                                {t("admin.dashboard.viewDetails")}
-                                                            </Button>
-                                                            <Button size="sm" variant="outline" onClick={() => handleOpenAssignDialog(alert)} disabled={alert.status === 'Resolved'}>
-                                                                {t("admin.dashboard.assignTeam")}
-                                                            </Button>
-                                                            {(alert.status === 'Active' || alert.status === 'Investigating') && (
-                                                                <>
-                                                                    <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(alert.id, 'Responding')} className="border-blue-200 text-blue-700 hover:bg-blue-50">
-                                                                        {t("admin.dashboard.markResponding")}
-                                                                    </Button>
-                                                                    {alert.status !== 'Investigating' && (
-                                                                        <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(alert.id, 'Investigating')} className="border-amber-200 text-amber-700 hover:bg-amber-50">
-                                                                            {t("admin.dashboard.investigating")}
-                                                                        </Button>
-                                                                    )}
-                                                                    <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(alert.id, 'False Alarm')} className="border-slate-200 text-slate-600 hover:bg-slate-50">
-                                                                        {t("admin.dashboard.falseAlarm")}
-                                                                    </Button>
-                                                                </>
-                                                            )}
-                                                            {alert.status === 'Responding' && (
-                                                                <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(alert.id, 'Resolved')}>
-                                                                    {t("admin.dashboard.markResolved")}
+                                {activeAlertsForTab.length > 0 ? (
+                                    activeAlertsForTab.map((alert) => {
+                                        const now = Date.now();
+                                        let itemTime = 0;
+                                        if (typeof alert.timestamp === 'number') {
+                                            itemTime = alert.timestamp > 1e11 ? alert.timestamp : alert.timestamp * 1000;
+                                        } else if (alert.timestamp?.toMillis) {
+                                            itemTime = alert.timestamp.toMillis();
+                                        } else if (alert.timestamp?.seconds) {
+                                            itemTime = alert.timestamp.seconds * 1000;
+                                        } else if (alert.timestamp instanceof Date) {
+                                            itemTime = alert.timestamp.getTime();
+                                        } else if (alert.timestamp) {
+                                            const parsed = new Date(alert.timestamp).getTime();
+                                            if (!isNaN(parsed)) itemTime = parsed;
+                                        }
+                                        const isOverdue = itemTime > 0 && (now - itemTime) > 24 * 60 * 60 * 1000;
+
+                                        return (
+                                            <Card key={alert.id} className={cn(
+                                                "border-0 shadow-md hover:shadow-lg transition-all duration-300",
+                                                isOverdue ? "bg-red-50 ring-1 ring-red-200" : "bg-white"
+                                            )}>
+                                                <CardContent className="p-4 sm:p-6">
+                                                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                                                        <div className="flex-1">
+                                                            <div className="flex flex-wrap gap-2 mb-3">
+                                                                <Badge variant="secondary" className="font-medium">{alert.emergencyType}</Badge>
+                                                                <Badge variant={getPriorityBadgeVariant("High Priority")}>{t("admin.dashboard.highPriority")}</Badge>
+                                                                <span className="text-xs font-mono text-slate-500 bg-slate-100 px-2 py-1 rounded">{alert.id.substring(0, 6)}...</span>
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-semibold text-slate-800 mb-1">{alert.location.address || t("admin.dashboard.locationNotSpecified")}</p>
+                                                                <p className="text-sm text-slate-600 mb-2">
+                                                                    {t("admin.dashboard.user")}: {alert.userEmail || 'Anonymous'}
+                                                                </p>
+                                                                {alert.additionalInfo && (
+                                                                    <p className="text-sm bg-yellow-50 border border-yellow-200 p-3 rounded-md mb-2 text-yellow-800">{t("admin.dashboard.note")}: {alert.additionalInfo}</p>
+                                                                )}
+                                                                {alert.assignedTeam && (
+                                                                    <p className="text-sm bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md">{t("admin.dashboard.assignedTo")}: {alert.assignedTeam.driverName} ({alert.assignedTeam.vehicle})</p>
+                                                                )}
+                                                            </div>
+                                                            <div className="flex flex-wrap gap-2 mt-4">
+                                                                {isOverdue && (
+                                                                    <Badge variant="destructive" className="animate-pulse font-black uppercase tracking-widest text-[10px]">
+                                                                        &gt;24H OVERDUE
+                                                                    </Badge>
+                                                                )}
+                                                                <Button size="sm" onClick={() => setSelectedAlert(alert)} className="bg-blue-600 hover:bg-blue-700 text-white">
+                                                                    {t("admin.dashboard.viewDetails")}
                                                                 </Button>
-                                                            )}
+                                                                <Button size="sm" variant="outline" onClick={() => handleOpenAssignDialog(alert)} disabled={alert.status === 'Resolved'}>
+                                                                    {t("admin.dashboard.assignTeam")}
+                                                                </Button>
+                                                                {(alert.status === 'Active' || alert.status === 'Investigating') && (
+                                                                    <>
+                                                                        <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(alert.id, 'Responding')} className="border-blue-200 text-blue-700 hover:bg-blue-50">
+                                                                            {t("admin.dashboard.markResponding")}
+                                                                        </Button>
+                                                                        {alert.status !== 'Investigating' && (
+                                                                            <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(alert.id, 'Investigating')} className="border-amber-200 text-amber-700 hover:bg-amber-50">
+                                                                                {t("admin.dashboard.investigating")}
+                                                                            </Button>
+                                                                        )}
+                                                                        <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(alert.id, 'False Alarm')} className="border-slate-200 text-slate-600 hover:bg-slate-50">
+                                                                            {t("admin.dashboard.falseAlarm")}
+                                                                        </Button>
+                                                                    </>
+                                                                )}
+                                                                {alert.status === 'Responding' && (
+                                                                    <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(alert.id, 'Resolved')}>
+                                                                        {t("admin.dashboard.markResolved")}
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right flex-shrink-0 space-y-2">
+                                                            <Badge variant={getStatusBadgeVariant(alert.status)}>{alert.status}</Badge>
+                                                            <div>
+                                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{t("admin.dashboard.timeSent")}</p>
+                                                                <p className="text-xs font-bold text-slate-700">{formatTimestamp(alert.timestamp)}</p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{t("admin.dashboard.unattendedTime")}</p>
+                                                                <SOSTimer timestamp={alert.timestamp} className="justify-end bg-transparent border-none p-0 h-auto" />
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <div className="text-right flex-shrink-0">
-                                                        <Badge variant={getStatusBadgeVariant(alert.status)} className="mb-3">{alert.status}</Badge>
-                                                        <p className="text-xs text-slate-500">{t("admin.dashboard.time")}</p>
-                                                        <p className="font-medium text-slate-800">{formatTimestamp(alert.timestamp)}</p>
-                                                    </div>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    ))
+                                                </CardContent>
+                                            </Card>
+                                        );
+                                    })
                                 ) : !permissionError ? (
                                     <div className="text-center py-12">
                                         <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />

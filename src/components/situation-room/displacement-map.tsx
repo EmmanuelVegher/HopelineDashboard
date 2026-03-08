@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { geoToSvg } from '@/lib/map-utils';
 import { Search, Info, Maximize2, Minimize2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { SOSTimer } from './sos-timer';
 
 interface DisplacementMapProps {
     data: StateData[];
@@ -193,20 +194,30 @@ export const DisplacementMap: React.FC<DisplacementMapProps> = ({ data, alerts =
                         return (
                             <foreignObject
                                 key={alert.id}
-                                x={x - 15}
-                                y={y - 15}
-                                width={30}
-                                height={30}
+                                x={x - 60}
+                                y={y - 40}
+                                width={120}
+                                height={80}
                                 className="overflow-visible pointer-events-none z-50"
                             >
                                 <div
-                                    className="relative w-full h-full flex items-center justify-center pointer-events-auto cursor-pointer"
+                                    className="relative w-full h-full flex flex-col items-center justify-center pointer-events-auto cursor-pointer"
                                     onMouseEnter={() => setHoveredAlert(alert)}
                                     onMouseLeave={() => setHoveredAlert(null)}
                                 >
                                     {/* Urgent Radar Wave */}
-                                    <span className="absolute inline-flex h-full w-full rounded-full bg-[#FF4D4D] opacity-30 animate-[ping_1.2s_cubic-bezier(0,0,0.2,1)_infinite]"></span>
-                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#FF4D4D] border-2 border-white shadow-[0_0_15px_rgba(255,77,77,1)] z-10"></span>
+                                    <div className="relative w-6 h-6 flex items-center justify-center mb-1">
+                                        <span className="absolute inline-flex h-full w-full rounded-full bg-[#FF4D4D] opacity-30 animate-[ping_1.2s_cubic-bezier(0,0,0.2,1)_infinite]"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-[#FF4D4D] border-2 border-white shadow-[0_0_15px_rgba(255,77,77,1)] z-10"></span>
+                                    </div>
+                                    {/* Detailed Global Timer Label */}
+                                    <div className="bg-slate-900/80 backdrop-blur-md px-2 py-0.5 rounded shadow-xl border border-white/20 animate-in fade-in zoom-in duration-500">
+                                        <SOSTimer
+                                            timestamp={alert.timestamp}
+                                            showIcon={false}
+                                            className="bg-transparent border-none text-white p-0 h-auto text-[8px] sm:text-[9px] font-black tracking-tighter"
+                                        />
+                                    </div>
                                 </div>
                             </foreignObject>
                         );
@@ -281,7 +292,10 @@ export const DisplacementMap: React.FC<DisplacementMapProps> = ({ data, alerts =
                     <div className="bg-red-600 text-white rounded-xl shadow-[0_20px_50px_rgba(220,38,38,0.3)] border border-red-500 min-w-[260px] overflow-hidden">
                         <div className="px-4 py-2 border-b border-red-500/30 bg-red-700/50 text-[10px] font-bold uppercase tracking-widest flex justify-between items-center">
                             <span>{hoveredAlert.type === 'alert' ? 'SOS SIGNAL' : 'ALERT'}</span>
-                            <span className="animate-pulse">LIVE</span>
+                            <div className="flex items-center gap-2">
+                                {hoveredAlert.timestamp && <SOSTimer timestamp={hoveredAlert.timestamp} className="bg-red-800/50 text-white border-none font-bold text-[10px]" showIcon={false} />}
+                                <span className="animate-pulse text-red-200">LIVE</span>
+                            </div>
                         </div>
                         <div className="p-4 space-y-3">
                             <div>

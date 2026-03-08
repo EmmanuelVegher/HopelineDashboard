@@ -8,6 +8,7 @@ import {
 import { AlertCircle, Clock, MapPin, User, Siren, X } from 'lucide-react';
 import { type SosAlert } from '@/ai/schemas/sos';
 import { useAdminData } from '@/contexts/AdminDataProvider';
+import { SOSTimer } from './sos-timer';
 
 interface EmergencySignalModalProps {
     alert: SosAlert | null;
@@ -105,7 +106,7 @@ export const EmergencySignalModal: React.FC<EmergencySignalModalProps> = ({ aler
                             <div className="flex flex-col gap-1">
                                 <div className="flex items-center gap-2 text-slate-400 text-sm">
                                     <Clock className="w-4 h-4" />
-                                    <span>{alert.timestamp ? new Date(alert.timestamp.seconds * 1000).toLocaleString() : 'Just now'}</span>
+                                    <SOSTimer timestamp={alert.timestamp} className="bg-transparent border-none p-0 h-auto text-slate-400" showIcon={false} />
                                 </div>
                                 <div className="flex items-center gap-2 text-slate-400 text-sm">
                                     <AlertCircle className="w-4 h-4" />
