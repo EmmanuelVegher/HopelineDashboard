@@ -2458,6 +2458,8 @@
         "noShelters": "No shelters found in the database.",
         "requests": "Requests",
         "totalCapacity": "Total Capacity",
+        "totalBedSpace": "Total Bed Space",
+        "availableBedSpace": "Avail. Bed Space",
         "occupied": "Occupied",
         "available": "Available",
         "manager": "Manager:",

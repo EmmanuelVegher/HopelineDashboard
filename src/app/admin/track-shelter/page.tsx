@@ -842,11 +842,11 @@ export default function TrackShelterPage() {
                                                             <p className="text-sm sm:text-lg font-bold">{shelter.rooms?.length || 0}</p>
                                                         </div>
                                                         <div className="bg-blue-50 p-2 rounded border border-blue-100 italic">
-                                                            <p className="text-[10px] text-blue-600 uppercase font-bold">Total</p>
+                                                            <p className="text-[10px] text-blue-600 uppercase font-bold">{t('admin.trackShelter.overview.totalBedSpace')}</p>
                                                             <p className="text-sm sm:text-lg font-bold text-blue-700">{shelter.capacity}</p>
                                                         </div>
                                                         <div className="bg-green-50 p-2 rounded border border-green-100 italic">
-                                                            <p className="text-[10px] text-green-600 uppercase font-bold">Avail.</p>
+                                                            <p className="text-[10px] text-green-600 uppercase font-bold">{t('admin.trackShelter.overview.availableBedSpace')}</p>
                                                             <p className="text-sm sm:text-lg font-bold text-green-700">{shelter.availableCapacity}</p>
                                                         </div>
                                                     </div>
