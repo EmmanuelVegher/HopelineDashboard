@@ -835,9 +835,21 @@ export default function TrackShelterPage() {
                                                         />
                                                     </div>
                                                 )}
-                                                <div className={cn("flex-1 text-center sm:text-left space-y-1", !shelter.imageUrl && "text-center")}>
-                                                    <p className="text-xs sm:text-sm text-muted-foreground">{t('admin.trackShelter.overview.totalCapacity')}</p>
-                                                    <p className="text-xl sm:text-2xl font-bold">{shelter.capacity}</p>
+                                                <div className={cn("flex-1 text-center sm:text-left space-y-2", !shelter.imageUrl && "text-center")}>
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        <div className="bg-slate-50 p-2 rounded border border-slate-100 italic">
+                                                            <p className="text-[10px] text-muted-foreground uppercase font-bold">Rooms</p>
+                                                            <p className="text-sm sm:text-lg font-bold">{shelter.rooms?.length || 0}</p>
+                                                        </div>
+                                                        <div className="bg-blue-50 p-2 rounded border border-blue-100 italic">
+                                                            <p className="text-[10px] text-blue-600 uppercase font-bold">Total</p>
+                                                            <p className="text-sm sm:text-lg font-bold text-blue-700">{shelter.capacity}</p>
+                                                        </div>
+                                                        <div className="bg-green-50 p-2 rounded border border-green-100 italic">
+                                                            <p className="text-[10px] text-green-600 uppercase font-bold">Avail.</p>
+                                                            <p className="text-sm sm:text-lg font-bold text-green-700">{shelter.availableCapacity}</p>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div className="space-y-2">
@@ -1008,7 +1020,11 @@ export default function TrackShelterPage() {
                                                         </div>
                                                         <Badge variant={getStatusBadgeVariant(shelter.status)}>{shelter.status}</Badge>
                                                     </div>
-                                                    <div className="grid grid-cols-3 gap-3 text-sm">
+                                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                                                        <div>
+                                                            <p className="text-muted-foreground">Rooms</p>
+                                                            <p className="font-medium">{shelter.rooms?.length || 0}</p>
+                                                        </div>
                                                         <div>
                                                             <p className="text-muted-foreground">{t('admin.trackShelter.capacity.occupied')}</p>
                                                             <p className="font-medium">{occupied}</p>
@@ -1047,6 +1063,7 @@ export default function TrackShelterPage() {
                                             <TableRow>
                                                 <TableHead className="min-w-[100px]">{t('admin.trackShelter.capacity.table.shelter')}</TableHead>
                                                 <TableHead className="min-w-[80px]">{t('admin.trackShelter.capacity.table.status')}</TableHead>
+                                                <TableHead className="text-right min-w-[50px]">Rooms</TableHead>
                                                 <TableHead className="text-right min-w-[60px]">{t('admin.trackShelter.capacity.table.occupied')}</TableHead>
                                                 <TableHead className="text-right min-w-[60px]">{t('admin.trackShelter.capacity.table.available')}</TableHead>
                                                 <TableHead className="text-right min-w-[60px]">{t('admin.trackShelter.capacity.table.total')}</TableHead>
@@ -1089,6 +1106,7 @@ export default function TrackShelterPage() {
                                                             </div>
                                                         </TableCell>
                                                         <TableCell><Badge variant={getStatusBadgeVariant(shelter.status)} className="text-xs">{shelter.status}</Badge></TableCell>
+                                                        <TableCell className="text-right font-medium">{shelter.rooms?.length || 0}</TableCell>
                                                         <TableCell className="text-right font-medium text-sm sm:text-base">{occupied}</TableCell>
                                                         <TableCell className="text-right font-medium text-green-600 text-sm sm:text-base">{shelter.availableCapacity}</TableCell>
                                                         <TableCell className="text-right font-medium text-sm sm:text-base">{shelter.capacity}</TableCell>
