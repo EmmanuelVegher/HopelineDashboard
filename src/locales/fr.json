@@ -150,7 +150,206 @@
     "error": "Erreur",
     "success": "Succès",
     "warning": "Avertissement",
-    "select": "Sélectionner...",
-    "actions": "Actions"
+    "select": "Sélectionner",
+    "actions": "Actions",
+    "members": "Membres",
+    "members_one": "Membre",
+    "members_other": "Membres"
+  },
+  "admin": {
+    "displacedPersons": {
+      "form": {
+        "tabs": {
+          "basic": "Infos de base",
+          "assessment": "Évaluation",
+          "services": "Services",
+          "needs": "Besoins en abri",
+          "organization": "Organisation"
+        },
+        "beneficiaryServices": "Services offerts aux bénéficiaires",
+        "subServices": "Services spécifiques fournis",
+        "providingOrg": "Organisation prestataire",
+        "selectProvider": "Sélectionner l'organisation prestataire",
+        "hasSmartphone": "A un smartphone ?",
+        "headRequired": "Requis : Comme cette personne n'a pas de téléphone, vous DEVEZ la lier à un chef de famille ou la définir comme chef.",
+        "missingBasic": "Compléter les infos de base",
+        "missingAssessment": "Vérifier l'onglet évaluation",
+        "missingOrg": "Choisir l'onglet organisation",
+        "duplicateWarning": "Corriger le téléphone en double",
+        "noPhonePlaceholder": "Pas de téléphone ? Un identifiant sera généré",
+        "fullName": "Nom Complet",
+        "householdHead": "Lien avec le chef de ménage",
+        "searchHouseholdHead": "Rechercher le chef de ménage par nom ou téléphone...",
+        "householdHeadName": "Nom du Chef de Ménage",
+        "householdInfo": "Informations sur le ménage",
+        "setAsHead": "Définir comme chef de ménage",
+        "headLinkDesc": "Lier à un chef de ménage existant pour partager l'assignation d'abri.",
+        "linkToHead": "Lier au chef de ménage",
+        "registrationDate": "Date d'inscription",
+        "phoneUsedByAccount": "Ce numéro de téléphone est déjà enregistré sur le compte utilisateur :",
+        "linkAccountBtn": "Lier le compte",
+        "accountLinked": "Compte lié",
+        "linkedToUser": "Lié à l'utilisateur existant :"
+      },
+      "services": {
+        "categories": {
+          "relief": "Secours d'urgence et besoins fondamentaux",
+          "protection": "Protection et services juridiques",
+          "healthcare": "Santé et soutien psychosocial",
+          "cash": "Assistance monétaire et moyens de subsistance",
+          "cccm": "Coordination et gestion des camps (CCCM)",
+          "education": "Éducation"
+        },
+        "items": {
+          "shelter": {
+            "name": "Abri",
+            "description": "Fourniture de tentes, de bâches, de kits d'abris d'urgence et de soutien au logement de transition."
+          },
+          "food": {
+            "name": "Alimentation et nutrition",
+            "description": "Distribution de rations alimentaires, de repas chauds et d'un soutien nutritionnel spécialisé."
+          },
+          "wash": {
+            "name": "Eau, hygiène et assainissement (WASH)",
+            "description": "Assurer l'accès à l'eau potable, construire des latrines et distribuer des kits d'hygiène."
+          },
+          "nfis": {
+            "name": "Articles non alimentaires (NFI)",
+            "description": "Distribution de couvertures, d'ustensiles de cuisine, de lampes solaires, etc."
+          },
+          "protection": {
+            "name": "Protection physique",
+            "description": "Surveillance de la sécurité, création d'espaces sûrs et réduction des risques."
+          },
+          "rfl": {
+            "name": "Rétablissement des liens familiaux (RLF)",
+            "description": "Services pour aider les réfugiés et les PDI à localiser ou à retrouver des membres de leur famille."
+          },
+          "legal": {
+            "name": "Aide juridique et documentation",
+            "description": "Aide à l'enregistrement, conseils juridiques et remplacement des documents perdus."
+          },
+          "vulnerable": {
+            "name": "Assistance aux groupes vulnérables",
+            "description": "Protection spécialisée pour les enfants, les personnes âgées et les personnes handicapées."
+          },
+          "healthcare": {
+            "name": "Soins de santé primaires",
+            "description": "Cliniques mobiles et fournitures médicales d'urgence pour soigner les blessures."
+          },
+          "mhpss": {
+            "name": "Santé mentale et soutien psychosocial (SMSPS)",
+            "description": "Conseils en cas de traumatisme et premiers secours psychologiques."
+          },
+          "cash": {
+            "name": "Assistance monétaire et bons",
+            "description": "Transferts monétaires directs ou bons pour des articles essentiels."
+          },
+          "livelihood": {
+            "name": "Soutien aux moyens de subsistance",
+            "description": "Formation professionnelle, soutien agricole et microfinance."
+          },
+          "cccm": {
+            "name": "Environnements de vie organisés",
+            "description": "Établir et gérer des camps pour assurer la sécurité et la prestation de services."
+          },
+          "education": {
+            "name": "Éducation en situations d'urgence",
+            "description": "Mise en place d'écoles temporaires et fourniture de fournitures scolaires."
+          }
+        },
+        "subItems": {
+          "shelter": {
+            "tents": "Tentes",
+            "tarpaulins": "Bâches",
+            "emergency_shelter_kits": "Kits d'abri d'urgence",
+            "transitional_housing_support": "Soutien au logement de transition"
+          },
+          "food": {
+            "food_rations": "Rations alimentaires",
+            "hot_meals": "Repas chauds",
+            "nutrition_support": "Soutien nutritionnel"
+          },
+          "wash": {
+            "clean_water": "Eau potable",
+            "latrines": "Latrines",
+            "hygiene_kits": "Kits d'hygiène"
+          },
+          "nfis": {
+            "blankets": "Couvertures",
+            "cooking_utensils": "Ustensiles de cuisine",
+            "solar_lamps": "Lampes solaires"
+          },
+          "protection": {
+            "physical_protection": "Protection physique",
+            "safe_spaces": "Espaces sûrs",
+            "risk_reduction": "Réduction des risques"
+          },
+          "rfl": {
+            "family_tracing": "Recherche de famille",
+            "reunification_services": "Services de réunification"
+          },
+          "legal": {
+            "legal_counseling": "Conseils juridiques",
+            "documentation_support": "Soutien à la documentation",
+            "lost_id_replacement": "Remplacement de carte d'identité perdue"
+          },
+          "vulnerable": {
+            "child_protection": "Protection de l'enfance",
+            "elderly_assistance": "Assistance aux personnes âgées",
+            "pwd_support": "Soutien aux personnes handicapées"
+          },
+          "healthcare": {
+            "mobile_clinics": "Cliniques mobiles",
+            "emergency_medical_supplies": "Fournitures médicales d'urgence",
+            "primary_healthcare": "Soins de santé primaires"
+          },
+          "mhpss": {
+            "trauma_counseling": "Conseil en traumatisme",
+            "psychological_first_aid": "Premiers secours psychologiques"
+          },
+          "cash": {
+            "direct_cash_transfer": "Transfert monétaire direct",
+            "essential_vouchers": "Bons de première nécessité"
+          },
+          "livelihood": {
+            "vocational_training": "Formation professionnelle",
+            "agricultural_support": "Soutien agricole",
+            "microfinance": "Microfinance"
+          },
+          "cccm": {
+            "camp_management": "Gestion de camp",
+            "site_coordination": "Coordination de site"
+          },
+          "education": {
+            "temporary_schools": "Écoles temporaires",
+            "learning_materials": "Matériel d'apprentissage"
+          }
+        }
+      },
+      "assignShelter": {
+        "bedsToOccupy": "Lits à occuper",
+        "beds": "Lits",
+        "householdHint": "Note : C'est la chambre assignée au chef de ménage lié.",
+        "linkedTo": "Lié à",
+        "headSuggestion": "Le chef de ménage ({{name}}) est assigné à {{shelter}} - {{room}}."
+      },
+      "cardView": {
+        "linkedTo": "Lié à",
+        "householdMembers": "Membres du ménage liés",
+        "noMembersLinked": "Aucun membre lié pour le moment.",
+        "delete": "Supprimer"
+      },
+      "actions": {
+        "deleteConfirm": "Êtes-vous sûr de vouloir supprimer",
+        "deleted": "Bénéficiaire supprimé",
+        "deleteError": "Échec de la suppression du bénéficiaire."
+      },
+      "statusEnum": {
+        "needsAssistance": "A besoin d'assistance",
+        "needs_assistance": "A besoin d'assistance",
+        "needsassistance": "A besoin d'assistance"
+      }
+    }
   }
 }

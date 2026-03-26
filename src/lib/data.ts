@@ -65,23 +65,59 @@ export type Driver = {
     organizationName?: string;
 };
 
+export type MovementRecord = {
+    date: string;
+    action: 'Entry' | 'Exit' | 'Transfer' | 'Status Change' | 'Transfer / Re-onboard';
+    shelterId?: string;
+    shelterName?: string;
+    notes?: string;
+    performedBy: string;
+    destination?: string;
+};
+
+export type BeneficiarySubService = {
+    id: string;
+    enabled: boolean;
+};
+
+export type BeneficiaryService = {
+    id: string;
+    category: string;
+    name: string;
+    description: string;
+    enabled: boolean;
+    providerOrgId?: string;
+    providerOrgName?: string;
+    subServices?: BeneficiarySubService[];
+    updatedAt?: string;
+};
+
 export type DisplacedPerson = {
     id: string;
     name: string;
     phone?: string;
     details: string;
     userId?: string;
-    status: 'Moving to Shelter' | 'Needs Assistance' | 'Emergency' | 'Safe' | 'Eligible for Shelter' | 'Resettled' | 'Homebound';
+    status: 'Needs Assistance' | 'Moving to Shelter' | 'Emergency' | 'Eligible for Shelter' | 'Safe' | 'Resettled' | 'Homebound' | 'Re-onboarded';
     currentLocation: string;
     destination?: string;
     vulnerabilities: string[];
     medicalNeeds?: string[];
     assistanceRequested: string;
     lastUpdate: string;
+    registrationDate?: string;
     priority: 'Low Priority' | 'Medium Priority' | 'High Priority';
     assignedShelterId?: string;
+    organizationId?: string;
+    organizationName?: string;
+    plannedShelterId?: string;
+    needsOnboarding?: boolean;
+    movements?: MovementRecord[];
     allocatedResources?: {
         bedNumber?: string;
+        bedsOccupied?: number;
+        roomId?: string;
+        roomName?: string;
         mattress?: boolean;
         foodPack?: boolean;
         hygieneKit?: boolean;
@@ -104,6 +140,8 @@ export type DisplacedPerson = {
     receivedAssistance?: boolean;
     assistanceNeeded?: string[]; // Emergency shelter, Repairs, Relocation, Transitional shelter, NFIs;
 
+    services?: BeneficiaryService[];
+
     surveyCompleted?: boolean;
     surveyId?: string;
     activityLog?: {
@@ -117,6 +155,11 @@ export type DisplacedPerson = {
     longitude?: number;
     gender?: string;
     state?: string;
+    shortId?: string;
+    associatedOrgs?: string[];
+    householdHeadId?: string;
+    householdHeadName?: string;
+    isHouseholdHead?: boolean;
 }
 
 export type UserProfile = {
@@ -146,6 +189,7 @@ export type UserProfile = {
     trackingStatus?: 'active' | 'inactive' | 'error';
     lastUpdate?: any; // Firestore timestamp
     organizationId?: string;
+    shortId?: string;
 };
 
 export type AdminUser = {
@@ -159,6 +203,7 @@ export type AdminUser = {
     image: string;
     gender: string;
     mobile: string;
+    phone?: string;
     profileCompleted: number;
     language?: string;
     createdAt?: any;
@@ -166,6 +211,7 @@ export type AdminUser = {
     uid?: string;
     state?: string;
     organizationId?: string;
+    shortId?: string;
 };
 
 export type UssdCode = {

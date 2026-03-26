@@ -781,7 +781,7 @@ export const createDisplacedPersonAccounts = functions.runWith({
         try {
           const authUser = await admin.auth().getUserByEmail(syntheticEmail);
           console.log(`[AUTH] User already exists (Email): ${syntheticEmail}`);
-          results.push({ phone: phoneStr, status: 'skipped', reason: 'Account already exists (Email)', uid: authUser.uid });
+          results.push({ phone: phoneStr, status: 'skipped', reason: 'Account already exists (Email)', uid: authUser.uid, mobile: formattedPhone, mobileNumber: mobileNumber, authMethod: 'Email' });
           continue;
         } catch (error: any) {
           if (error.code !== 'auth/user-not-found') throw error;
@@ -791,7 +791,7 @@ export const createDisplacedPersonAccounts = functions.runWith({
         try {
           const authUser = await admin.auth().getUserByPhoneNumber(formattedPhone);
           console.log(`[AUTH] User already exists (Phone): ${formattedPhone}`);
-          results.push({ phone: phoneStr, status: 'skipped', reason: 'Account already exists (Phone)', uid: authUser.uid });
+          results.push({ phone: phoneStr, status: 'skipped', reason: 'Account already exists (Phone)', uid: authUser.uid, mobile: formattedPhone, mobileNumber: mobileNumber, authMethod: 'Phone' });
           continue;
         } catch (error: any) {
           if (error.code !== 'auth/user-not-found') throw error;
@@ -831,7 +831,7 @@ export const createDisplacedPersonAccounts = functions.runWith({
         }, { merge: true });
 
         console.log(`Successfully processed ${phoneStr}: ${uid}`);
-        results.push({ phone: phoneStr, status: 'created', uid });
+        results.push({ phone: phoneStr, status: 'created', uid, mobile: formattedPhone, mobileNumber: mobileNumber });
 
       } catch (error: any) {
         console.error(`Error processing account:`, error);
@@ -1144,4 +1144,212 @@ export const registerUser = functions.https.onCall(async (data, context) => {
     console.error("Registration error:", error);
     throw new functions.https.HttpsError(error.code || 'internal', error.message || 'Failed to register user.');
   }
+});
+
+/**
+ * Callable function to send onboarding SMS with login details
+ */
+export const sendOnboardingSMS = functions.https.onCall(async (data, context) => {
+  console.log(`[SMS-INIT] Function called for phone: ${data?.phone}, uid: ${data?.uid}`);
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  const { phone, uid, mobileNumber, isNewUser, authMethod, shortId: providedShortId } = data;
+
+  if (!phone || !uid) {
+    throw new functions.https.HttpsError('invalid-argument', 'Phone and UID are required');
+  }
+
+  const username = functions.config().ebulksms?.username;
+  const apikey = functions.config().ebulksms?.apikey;
+
+  if (!username || !apikey) {
+    console.error('[SMS] eBulkSMS credentials not found in functions.config()');
+    throw new functions.https.HttpsError('failed-precondition', 'SMS service not configured (Missing eBulkSMS Token/Username)');
+  }
+  
+  console.log(`[SMS-INIT] eBulkSMS Config: Username: ${username}, API Key length: ${apikey.length}`);
+
+  // Priority: 1. Provided shortId (HP-XXXX), 2. UID Substring 
+  const shortId = providedShortId || uid.substring(0, 8);
+  let smsBody = '';
+
+  if (isNewUser) {
+    let loginName = mobileNumber;
+    if (!loginName) {
+      loginName = phone.replace(/\s+/g, '').replace(/[^0-9]/g, '');
+      if (loginName.startsWith('234') && loginName.length >= 11) {
+        loginName = '0' + loginName.substring(3);
+      } else if (loginName.length === 10 && !loginName.startsWith('0')) {
+        loginName = '0' + loginName;
+      }
+    }
+    smsBody = `Welcome to Hopeline. Your account is ready. Login: ${loginName}. Password: ${loginName}. Unique ID: ${shortId}.`;
+  } else {
+    const method = authMethod || 'existing details';
+    smsBody = `Welcome back to Hopeline. Your account is now linked for assistance. Login with your existing ${method}. Unique ID: ${shortId}.`;
+  }
+
+  try {
+    // eBulkSMS requires numbers in format 23480... (no +)
+    let cleanPhone = phone.replace('+', '');
+    if (cleanPhone.startsWith('0')) {
+      cleanPhone = '234' + cleanPhone.substring(1);
+    }
+
+    const uniqueMsgId = `hopeline_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+    const ebulkPayload = {
+      "SMS": {
+        "auth": {
+          "username": username,
+          "apikey": apikey
+        },
+        "message": {
+          "sender": "HOPELINE",
+          "messagetext": smsBody,
+          "flash": "0"
+        },
+        "recipients": {
+          "gsm": [
+            {
+              "msidn": cleanPhone,
+              "msgid": uniqueMsgId
+            }
+          ]
+        },
+        "dndsender": 1
+      }
+    };
+
+    console.log(`[SMS-SEND] Attempting eBulkSMS send to: ${cleanPhone}`);
+
+    const response = await fetch('https://api.ebulksms.com/sendsms.json', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(ebulkPayload)
+    });
+
+    const result = await response.json();
+    console.log(`[SMS-RESULT] eBulkSMS Response:`, JSON.stringify(result));
+
+    // result.response.status is the success marker for eBulkSMS
+    const status = result?.response?.status;
+    
+    if (status === 'SUCCESS') {
+      console.log(`[SMS-SUCCESS] Message sent to ${phone} via eBulkSMS`);
+      return { success: true, data: result.response };
+    } else {
+      console.warn(`[SMS-ERROR] eBulkSMS failed for ${phone}:`, status);
+      return { success: false, error: status || 'UNKNOWN_ERROR', fullResponse: result };
+    }
+
+  } catch (error: any) {
+    console.error(`[SMS-CRITICAL] Error in sendOnboardingSMS (eBulkSMS):`, error);
+    throw new functions.https.HttpsError('internal', error.message || 'Failed to send SMS via eBulkSMS');
+  }
+});
+
+/**
+ * Send push notification when a new message is sent in any chat
+ */
+export const onNewChatMessage = functions.firestore.document("chats/{chatId}/messages/{messageId}").onCreate(async (snap, context) => {
+  const messageData = snap.data();
+  const chatId = context.params.chatId;
+  const db = admin.firestore();
+
+  if (!messageData || messageData.senderId === 'system') return null;
+
+  try {
+    // 1. Fetch Chat Session to get participants/type
+    const chatDoc = await db.collection("chats").doc(chatId).get();
+    if (!chatDoc.exists) return null;
+    const chatData = chatDoc.data();
+
+    const senderId = messageData.senderId;
+    const isGroup = chatData?.type === 'group' || chatId.startsWith('group_') || chatId.startsWith('state_');
+    
+    // 2. Determine Recipients
+    let recipientIds: string[] = [];
+    if (isGroup) {
+      recipientIds = (chatData?.participants || []).filter((id: string) => id !== senderId);
+    } else {
+      // For DMs, the receiverId is explicitly stored in the message
+      if (messageData.receiverId && messageData.receiverId !== senderId) {
+        recipientIds = [messageData.receiverId];
+      } else {
+        // Fallback for DMs: find the other participant in the chat document
+        const otherId = (chatData?.participants || []).find((id: string) => id !== senderId);
+        if (otherId) recipientIds = [otherId];
+      }
+    }
+
+    if (recipientIds.length === 0) return null;
+
+    // 3. Fetch Sender Name
+    const senderDoc = await db.collection("users").doc(senderId).get();
+    const senderName = senderDoc.exists ? (senderDoc.data()?.displayName || senderDoc.data()?.name || "Someone") : "Someone";
+
+    // 4. Send Notifications in Batch
+    const notificationPromises = recipientIds.map(async (recipientId) => {
+      const userDoc = await db.collection("users").doc(recipientId).get();
+      const userData = userDoc.data();
+      
+      const token = userData?.deviceToken || userData?.fcmToken;
+      if (!token) return null;
+
+      const body = messageData.messageType === 'media' 
+        ? "Sent an attachment" 
+        : (messageData.content || "Sent a message");
+
+      const message = {
+        notification: {
+          title: isGroup ? `${chatData?.name || "Group Chat"}` : senderName,
+          body: isGroup ? `${senderName}: ${body}` : body,
+        },
+        data: {
+          chatId: chatId,
+          senderId: senderId,
+          type: "chat_message",
+          isGroup: String(isGroup),
+        },
+        token: token,
+        // Android specific for background visibility
+        android: {
+          priority: 'high' as const,
+          notification: {
+            channelId: "chat_messages",
+            clickAction: "FLUTTER_NOTIFICATION_CLICK",
+          }
+        },
+        // iOS specific
+        apns: {
+          payload: {
+            aps: {
+              sound: 'default',
+            }
+          }
+        }
+      };
+
+      try {
+        await admin.messaging().send(message);
+        console.log(`Notification sent to ${recipientId} for chat ${chatId}`);
+      } catch (err) {
+        console.error(`Error sending notification to ${recipientId}:`, err);
+      }
+      return null;
+    });
+
+    await Promise.all(notificationPromises);
+
+  } catch (error) {
+    console.error("Error in onNewChatMessage trigger:", error);
+  }
+
+  return null;
 });

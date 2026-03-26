@@ -2169,10 +2169,16 @@
         "save": "Save Person Record",
         "saving": "Saving...",
         "tabs": {
-          "basic": "Basic Info",
-          "assessment": "Assessment",
-          "needs": "Shelter Needs"
+          "basic": "Ozi Ndị Isi",
+          "assessment": "Ntule",
+          "services": "Ọrụ",
+          "needs": "Mkpa Ebe Obibi",
+          "organization": "Nzukọ"
         },
+        "beneficiaryServices": "Ọrụ Ndị A Na-erite Uru Na Ha",
+        "subServices": "Ọrụ Ndị Pụrụ Iche E Nyere",
+        "providingOrg": "Nzukọ Na-enye Ọrụ",
+        "selectProvider": "Họrọ Nzukọ Na-enye Ọrụ",
         "linkAccount": "Link User Account",
         "linkAccountDesc": "Link this record to an existing app user to share status updates.",
         "searchContact": "Contact email or name...",
@@ -2242,6 +2248,142 @@
           "relocation": "Relocation",
           "transitionalShelter": "Transitional shelter",
           "nfis": "NFIs"
+        }
+      },
+      "services": {
+        "categories": {
+          "relief": "Enyemaka Mberede na Mkpa Ndị Bụ Isi",
+          "protection": "Nchedo na Ọrụ Iwu",
+          "healthcare": "Nlekọta Ahụike na Nkwado Uche",
+          "cash": "Enyemaka Ego na Ụzọ Ndụ",
+          "cccm": "Nchịkọta na Nlekọta Ogige (CCCM)",
+          "education": "Agụmakwụkwọ"
+        },
+        "items": {
+          "shelter": {
+            "name": "Ebe Obibi",
+            "description": "Inye ụlọ ntu, tarpaulin, ngwa ụlọ mberede, na nkwado maka ụlọ nwa oge."
+          },
+          "food": {
+            "name": "Nri na Nri Na-edozi Ahụ",
+            "description": "Ikekesa nri, nri na-ekpo ọkụ, na nkwado nri dị mma maka ụmụaka na ụmụ nwanyị dị ime."
+          },
+          "wash": {
+            "name": "Mmiri, Ịdị Ọcha, na Ịdị Ọcha (WASH)",
+            "description": "Ịhụ na enwere mmiri dị ọcha, ịrụ ụlọ mposi, na ikekesa ngwa ịdị ọcha (ncha, ngwaahịa ịdị ọcha) iji gbochie ntiwapụ ọrịa."
+          },
+          "nfis": {
+            "name": "Ihe Ndị Na-abụghị Nri (NFIs)",
+            "description": "Ikekesa ihe ndị dị mkpa, gụnyere blanketị, arịa ọkụ, oriọna anyanwụ, na ite mmiri, iji nyere ezinụlọ aka igbo mkpa ha kwa ụbọchị."
+          },
+          "protection": {
+            "name": "Nchedo",
+            "description": "Nlekọta nchekwa na ikike mmadụ, ịmepụta oghere dị nchebe, na mbelata ihe egwu."
+          },
+          "rfl": {
+            "name": "Ijikọ Tagzi Ezinụlọ (RFL)",
+            "description": "Ọrụ iji nyere ndị gbara ọsọ ndụ na IDP aka ịchọta ma ọ bụ jikọta ha na ndị ezinụlọ ha kewapụrụ."
+          },
+          "legal": {
+            "name": "Nkwado Iwu na Akwụkwọ Ihe Ndekọ",
+            "description": "Enyemaka na ndebanye aha, ndụmọdụ gbasara iwu, na dochie akwụkwọ ndị furu efu (dị ka ID na asambodo ọmụmụ)."
+          },
+          "vulnerable": {
+            "name": "Enyemaka Maka Ndị Na-adịghị Ike",
+            "description": "Nchedo pụrụ iche maka ụmụaka, ndị agadi, na ndị nwere nkwarụ."
+          },
+          "healthcare": {
+            "name": "Nlekọta Ahụike Isi",
+            "description": "Ụlọ ọgwụ mkpanaka na ngwa ahụike mberede iji gwọọ mmerụ ahụ, na ijikwa ọrịa."
+          },
+          "mhpss": {
+            "name": "MHPSS",
+            "description": "Ndụmọdụ maka nsogbu na enyemaka mbu nke uche maka nsogbu uche."
+          },
+          "cash": {
+            "name": "Enyemaka Ego na Voucher",
+            "description": "Nfefe ego ozugbo ma ọ bụ voucher maka ihe ndị dị mkpa."
+          },
+          "livelihood": {
+            "name": "Nkwado Ụzọ Ndụ",
+            "description": "Ọzụzụ ọrụ aka, nkwado ọrụ ugbo, na microfinance."
+          },
+          "cccm": {
+            "name": "Ebe Obibi Haziri Ahazi",
+            "description": "Ịmepụta na ijikwa ogige iji hụ na nchekwa na nnyefe ọrụ."
+          },
+          "education": {
+            "name": "Agụmakwụkwọ na Mberede",
+            "description": "Ịmepụta ụlọ akwụkwọ nwa oge na inye ngwa ụlọ akwụkwọ."
+          }
+        },
+        "subItems": {
+          "shelter": {
+            "tents": "Ụlọ ntu",
+            "tarpaulins": "Taapụlịn",
+            "emergency_shelter_kits": "Ihe eji arụ ụlọ",
+            "transitional_housing_support": "Nkwado ụlọ nwa oge"
+          },
+          "food": {
+            "food_rations": "Nri ekere eke",
+            "hot_meals": "Nri a kwọ a kwọ",
+            "nutrition_support": "Nkwado ihe oriri"
+          },
+          "wash": {
+            "clean_water": "Mmiri dị ọcha",
+            "latrines": "Ụlọ mposi",
+            "hygiene_kits": "Ihe ịdị ọcha"
+          },
+          "nfis": {
+            "blankets": "Dịnyere",
+            "cooking_utensils": "Ihe iji esi nri",
+            "solar_lamps": "Oriọna anyanwụ"
+          },
+          "protection": {
+            "physical_protection": "Nchedo anụ ahụ",
+            "safe_spaces": "Ebe nchekwa",
+            "risk_reduction": "Mbelata ihe egwu"
+          },
+          "rfl": {
+            "family_tracing": "Ịchọta ezinụlọ",
+            "reunification_services": "Ọrụ ijikọta ezinụlọ"
+          },
+          "legal": {
+            "legal_counseling": "Ndụmọdụ gbasara iwu",
+            "documentation_support": "Nkwado akwụkwọ",
+            "lost_id_replacement": "Ndochi ID furu efu"
+          },
+          "vulnerable": {
+            "child_protection": "Nchedo ụmụaka",
+            "elderly_assistance": "Enyemaka ndị agadi",
+            "pwd_support": "Nkwado ndị nwere nkwarụ"
+          },
+          "healthcare": {
+            "mobile_clinics": "Ụlọ ọgwụ na-agagharị agagharị",
+            "emergency_medical_supplies": "Ngwa ọgwụ mberede",
+            "primary_healthcare": "Nlekọta ahụike mbụ"
+          },
+          "mhpss": {
+            "trauma_counseling": "Ịdụ ọdụ maka mmerụ ahụ",
+            "psychological_first_aid": "Enyemaka uche mbụ"
+          },
+          "cash": {
+            "direct_cash_transfer": "Nyefe ego ozugbo",
+            "essential_vouchers": "Voucher dị mkpa"
+          },
+          "livelihood": {
+            "vocational_training": "Ọzụzụ nka na ụzụ",
+            "agricultural_support": "Nkwado oru ubi",
+            "microfinance": "Nkwado ego"
+          },
+          "cccm": {
+            "camp_management": "Nlekọta ogige",
+            "site_coordination": "Nhazi ọnọdụ"
+          },
+          "education": {
+            "temporary_schools": "Ụlọ akwụkwọ nwa oge",
+            "learning_materials": "Akụrụngwa mmụta"
+          }
         }
       },
       "assignShelter": {

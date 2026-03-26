@@ -54,6 +54,7 @@ const getNavLinks = (t: any) => [
   { to: "/admin/contact-management", label: t("admin.sidebar.contactDirectory"), icon: PhoneOutgoing },
   { to: "/admin/chats", label: t("admin.sidebar.chats"), icon: MessageSquare },
   { to: "/admin/training", label: t("admin.sidebar.training"), icon: BookOpen },
+  { to: "/admin/help", label: t("admin.sidebar.help"), icon: BookOpen },
   { to: "/admin/government-branding", label: t("admin.governmentBranding.title"), icon: Shield, superOnly: true },
 ];
 
@@ -195,7 +196,8 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const [authLoading, setAuthLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
-  const [adminProfile, setAdminProfile] = useState<{ firstName: string; lastName: string; image?: string; role: string; state?: string; organizationId?: string } | null>(null);
+  const [adminProfile, setAdminProfile] = useState<{ firstName: string; lastName: string; image?: string; role: string; state?: string; organizationId?: string; organizationName?: string } | null>(null);
+
   const [orgBranding, setOrgBranding] = useState<{ name: string; logoUrl: string } | null>(null);
 
   useEffect(() => {
@@ -272,16 +274,30 @@ export default function AdminLayout() {
             profileImage: userData.profileImage
           });
 
-          const profileData = {
+          const profileData: { firstName: string; lastName: string; image?: string; role: string; state?: string; organizationId?: string; organizationName?: string } = {
             firstName: userData.firstName || '',
             lastName: userData.lastName || '',
             image: userData.image || userData.profileImage || '',
             role: userData.role || 'Admin',
             state: userData.state || '',
-            organizationId: userData.organizationId || ''
+            organizationId: userData.organizationId || '',
+            organizationName: userData.organizationName || ''
           };
 
           setAdminProfile(profileData);
+
+          // Enrich organizationName from the org document if not already stored
+          if (userData.organizationId && !userData.organizationName) {
+            try {
+              const orgDoc = await getDoc(doc(db, 'organizations', userData.organizationId));
+              if (orgDoc.exists()) {
+                profileData.organizationName = orgDoc.data().name || '';
+                setAdminProfile({ ...profileData });
+              }
+            } catch (e) {
+              console.warn('Could not fetch org name for profile:', e);
+            }
+          }
 
           // Fetch organization branding if org-scoped admin
           const roleFromData = userData.role?.toLowerCase();

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef } from 'react';
-import { collection, onSnapshot, query, orderBy, where, limit, collectionGroup, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, where, limit, collectionGroup, getDocs, Timestamp, or } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
 import { type SosAlert } from '@/ai/schemas/sos';
@@ -18,10 +18,11 @@ interface AdminDataContextType {
     vehicles: Vehicle[] | null;
     users: AdminUser[] | null;
     ussdCodes: UssdCode[] | null;
-    organizations: { id: string; name: string; state?: string; states?: string[] }[] | null;
+    organizations: { id: string; name: string; logoUrl?: string; state?: string; states?: string[] }[] | null;
     loading: boolean;
     permissionError: boolean;
-    adminProfile: { role: string; state?: string; firstName?: string; lastName?: string; image?: string; organizationId?: string } | null;
+    adminProfile: { role: string; state?: string; firstName?: string; lastName?: string; image?: string; organizationId?: string; organizationName?: string } | null;
+
     activeAlerts: SosAlert[] | null;
     isAudioUnlocked: boolean;
     unlockAudio: () => void;
@@ -42,7 +43,9 @@ export interface AdminProfile {
     lastName?: string;
     image?: string;
     organizationId?: string;
+    organizationName?: string;
 }
+
 
 export function AdminDataProvider({ children, profile }: { children: ReactNode, profile: AdminProfile | null }) {
     const [alerts, setAlerts] = useState<SosAlert[] | null>(null);
@@ -71,6 +74,7 @@ export function AdminDataProvider({ children, profile }: { children: ReactNode, 
 
     const alertsRef = useRef<SosAlert[] | null>(null);
     const activeAlertsRef = useRef<SosAlert[] | null>(null);
+    const notifiedTransferIds = useRef(new Set<string>());
 
     useEffect(() => {
         if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -173,20 +177,46 @@ export function AdminDataProvider({ children, profile }: { children: ReactNode, 
             const buildQuery = (collectionName: string, baseConstraints: any[] = []) => {
                 if (isGlobal) return query(collection(db, collectionName), ...baseConstraints);
                 const constraints = [...baseConstraints];
+                
+                // Org Admin should see all records for their organization across all states
+                if (isOrgAdmin && orgId) {
+                    return query(collection(db, collectionName), ...constraints, where("organizationId", "==", orgId));
+                }
+                
+                // State Gov or other admins filtered by state
                 if (isStateGov && adminState) return query(collection(db, collectionName), ...constraints, where("state", "==", adminState));
-                if (isOrgAdmin && orgId) constraints.push(where("organizationId", "==", orgId));
                 if (adminState) constraints.push(where("state", "==", adminState));
+                
                 return query(collection(db, collectionName), ...constraints);
             };
 
-            unsubscribers.push(onSnapshot(buildQuery("displacedPersons"), (snap) => {
-                setPersons(snap.docs.map(d => ({ id: d.id, ...d.data() } as DisplacedPerson)));
+            unsubscribers.push(onSnapshot(isOrgAdmin && orgId ? query(collection(db, "displacedPersons"), or(where("organizationId", "==", orgId), where("associatedOrgs", "array-contains", orgId))) : buildQuery("displacedPersons"), (snap) => {
+                const newPersons = snap.docs.map(d => ({ id: d.id, ...d.data() } as DisplacedPerson));
+
+                // Transfer Notifications for Org Admins
+                if (isOrgAdmin && orgId) {
+                    newPersons.forEach(p => {
+                        if (p.needsOnboarding && !notifiedTransferIds.current.has(p.id)) {
+                            toast({
+                                title: "Incoming Transfer",
+                                description: `New beneficiary ${p.name} transferred to your organization.`,
+                            });
+                            notifiedTransferIds.current.add(p.id);
+                        }
+                    });
+                }
+
+                setPersons(newPersons);
             }));
             unsubscribers.push(onSnapshot(buildQuery("shelters"), (snap) => {
                 setShelters(snap.docs.map(d => ({ id: d.id, ...d.data() } as Shelter)));
             }));
             unsubscribers.push(onSnapshot(buildQuery("users", [where("role", "in", ["driver", "pilot", "responder", "rider"])]), (snap) => {
-                setDrivers(snap.docs.map(d => ({ id: d.id, ...d.data() } as Driver)));
+                setDrivers(snap.docs.map(d => {
+                    const data = d.data();
+                    const name = data.name || (data.firstName && data.lastName ? `${data.firstName} ${data.lastName}` : (data.firstName || data.displayName || 'Unnamed Asset'));
+                    return { id: d.id, ...data, name } as Driver;
+                }));
             }));
             unsubscribers.push(onSnapshot(buildQuery("vehicles"), (snap) => {
                 setVehicles(snap.docs.map(d => ({ id: d.id, ...d.data() } as Vehicle)));
@@ -197,16 +227,16 @@ export function AdminDataProvider({ children, profile }: { children: ReactNode, 
 
             // Organizations listener with role-based filtering
             unsubscribers.push(onSnapshot(collection(db, "organizations"), (snap) => {
-                let orgs = snap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; name: string; state?: string; states?: string[] }));
+                let orgs = snap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; name: string; logoUrl?: string; state?: string; states?: string[] }));
 
                 if (isGlobal) {
                     // Show all
-                } else if (isStateGov && adminState) {
+                } else if ((isStateGov || isOrgAdmin) && adminState) {
+                    const cleanState = adminState.replace(/ State$/i, '').trim();
+                    const adminStateLower = adminState.toLowerCase();
+                    const cleanStateLower = cleanState.toLowerCase();
                     orgs = orgs.filter(o => {
-                        const cleanState = adminState.replace(/ State$/i, '').trim();
                         const orgStateLower = (o.state || '').toLowerCase();
-                        const adminStateLower = adminState.toLowerCase();
-                        const cleanStateLower = cleanState.toLowerCase();
                         // Include if explicitly matches state, 'All', ID matches state, OR included in org's coverage states array
                         return orgStateLower === adminStateLower ||
                             orgStateLower === cleanStateLower ||
@@ -214,8 +244,6 @@ export function AdminDataProvider({ children, profile }: { children: ReactNode, 
                             o.id.toLowerCase().includes(cleanStateLower.replace(/\s+/g, '_')) ||
                             (o.states && Array.isArray(o.states) && o.states.map(s => s.toLowerCase()).some(s => s === adminStateLower || s === cleanStateLower));
                     });
-                } else if (isOrgAdmin && orgId) {
-                    orgs = orgs.filter(o => o.id === orgId);
                 } else if (adminState) {
                     const cleanState = adminState.replace(/ State$/i, '').trim();
                     const adminStateLower = adminState.toLowerCase();

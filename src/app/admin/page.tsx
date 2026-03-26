@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { CachedImage } from "@/components/ui/cached-image";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -1409,7 +1410,7 @@ export default function AdminDashboardPage() {
                                     <Card key={shelter.id} className="overflow-hidden border-0 shadow-md hover:shadow-xl transition-all duration-300 group flex flex-col">
                                         <div className="relative h-48 w-full bg-slate-100 overflow-hidden">
                                             {shelter.imageUrl ? (
-                                                <img
+                                                <CachedImage
                                                     src={shelter.imageUrl}
                                                     alt={shelter.name}
                                                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"

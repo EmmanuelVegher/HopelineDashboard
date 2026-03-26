@@ -42,5 +42,17 @@ service firebase.storage {
       allow read: if request.auth != null;
       allow write: if request.auth != null;
     }
+
+    // Allow authenticated users to read and write help center content items
+    match /help-content/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // Allow authenticated users to read and write group channel images
+    match /group-images/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
   }
 }

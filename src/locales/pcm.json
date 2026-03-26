@@ -446,6 +446,9 @@
     "confirm": "Confirm",
     "details": "Details",
     "actions": "Actions",
+    "members": "Members",
+    "members_one": "Member",
+    "members_other": "Members",
     "status": "Status",
     "date": "Date",
     "time": "Time",
@@ -601,6 +604,10 @@
     },
     "tabs": {
       "liveChat": "Live Chat",
+      "inAppChat": "In-App Chat",
+      "deleteConfirm": "You sure say you wan delete",
+      "deleted": "Person don commot",
+      "deleteError": "We no fit delete person.",
       "groupChat": "Group Chat",
       "voiceCall": "Voice Call"
     },
@@ -637,7 +644,18 @@
       "online": "Online",
       "away": "Away",
       "onlineDot": "● Online",
-      "awayDot": "○ Away"
+      "awayDot": "○ Away",
+      "sending": "dey send..."
+    },
+    "footer": {
+      "supportAvailable": "24/7 Emergency Support Dey • Average response time:",
+      "mins": "2 minutes",
+      "immediateDanger": "You dey Danger?",
+      "contactAuthorities": "Call local authority immediately",
+      "callNow": "CALL NOW",
+      "faqsTitle": "FAQs & Resources",
+      "faqsDesc": "Find answer to common questions",
+      "browseHelp": "Browse Help"
     },
     "roleLabels": {
       "supportAgent": "Support Agent",
@@ -2129,7 +2147,9 @@
       "noPersonsFound": "No displaced persons found",
       "noPersonsDesc": "Click the \"Add Person\" button to register a new individual in need of assistance.",
       "statusEnum": {
-        "needsAssistance": "Needs Assistance",
+        "needsAssistance": "Need Assistance",
+        "needs_assistance": "Need Assistance",
+        "needsassistance": "Need Assistance",
         "eligibleForShelter": "Eligible for Shelter",
         "movingToShelter": "Moving to Shelter",
         "emergency": "Emergency",
@@ -2149,7 +2169,10 @@
         "edit": "Edit",
         "assignShelter": "Assign Shelter",
         "resettle": "Resettle",
-        "homebound": "Homebound"
+        "homebound": "Homebound",
+        "deleteConfirm": "You sure say you wan delete",
+        "deleted": "Person don commot",
+        "deleteError": "We no fit delete person."
       },
       "card": {
         "currentLocation": "Current Location",
@@ -2171,19 +2194,38 @@
         "save": "Save Person Record",
         "saving": "Saving...",
         "tabs": {
-          "basic": "Basic Info",
           "assessment": "Assessment",
-          "needs": "Shelter Needs"
+          "services": "Services",
+          "needs": "Shelter Needs",
+          "organization": "Organization"
         },
         "linkAccount": "Link User Account",
         "linkAccountDesc": "Link this record to an existing app user to share status updates.",
         "searchContact": "Contact email or name...",
         "linkedTo": "Linked to",
         "unlink": "Unlink",
-        "fullName": "Full Name of Household Head",
+        "fullName": "Full Name",
         "fullNamePlaceholder": "As per valid ID",
+        "beneficiaryServices": "Services wey Person dey Get",
+        "subServices": "Specific Services wey dem Provide",
+        "providingOrg": "Organization wey dey Provide",
+        "selectProvider": "Select Organization wey dey Provide",
+        "householdHead": "Household Head Link",
+        "searchHouseholdHead": "Search for household head by name or phone...",
+        "householdHeadName": "Household Head Name",
+        "hasSmartphone": "E get smartphone?",
+        "headRequired": "Required: Since dis person no get phone, you MUST link dem to head of family or set dem as head.",
+        "missingBasic": "Complete Basic Info",
+        "missingAssessment": "Check Assessment Tab",
+        "missingOrg": "Choose Organization Tab",
+        "duplicateWarning": "Fix Duplicate Phone",
+        "noPhonePlaceholder": "No phone? We go generate ID",
         "phone": "Phone Number / Contact",
         "phonePlaceholder": "Beneficiary or focal person",
+        "householdInfo": "House Information",
+        "setAsHead": "Set as Oga for House",
+        "headLinkDesc": "Link to Oga for House wey don dey system already survival space fit share.",
+        "linkToHead": "Link to Oga for House",
         "duplicatePhone": "Duplicate Phone Number",
         "matches": "This number matches",
         "useExisting": "Use Existing Record",
@@ -2194,6 +2236,11 @@
         "selectGender": "Select Gender",
         "currentState": "Current State",
         "selectState": "Select State",
+        "registrationDate": "Date wey dem register",
+        "phoneUsedByAccount": "Dis phone number already get account for our system:",
+        "linkAccountBtn": "Join Account",
+        "accountLinked": "Account don join",
+        "linkedToUser": "Join to person wey already get account:",
         "locationImage": "Location Image (Optional)",
         "imageUploaded": "Image Uploaded",
         "latitudeOptional": "Latitude (Optional)",
@@ -2243,10 +2290,146 @@
           "repairs": "Repairs",
           "relocation": "Relocation",
           "transitionalShelter": "Transitional shelter",
-          "nfis": "NFIs"
+        "nfis": "NFIs"
+      }
+    },
+    "services": {
+      "categories": {
+        "relief": "Emergency Relief and Better Life Needs",
+        "protection": "Protection and Law Matter",
+        "healthcare": "Health Care and Mind Support",
+        "cash": "Monie Support and Work Matter",
+        "cccm": "Camp Management (CCCM)",
+        "education": "Schooling"
+      },
+      "items": {
+        "shelter": {
+          "name": "House",
+          "description": "Providing tents, tarpaulins, emergency shelter kits, and support for transitional housing to ensure safety from the elements."
+        },
+        "food": {
+          "name": "Food and Better Chop",
+          "description": "Distribution of food rations, hot meals, and specialized nutrition support for children and pregnant women to combat acute malnutrition."
+        },
+        "wash": {
+          "name": "Water, Cleanliness, and Health (WASH)",
+          "description": "Ensuring access to clean water, constructing latrines, and distributing hygiene kits (soap, sanitary products) to prevent disease outbreaks."
+        },
+        "nfis": {
+          "name": "Other Things for House (NFIs)",
+          "description": "Distribution of essential supplies, including blankets, cooking utensils, solar lamps, and other items for daily living."
+        },
+        "protection": {
+          "name": "Body Protection",
+          "description": "Monitoring safety, creating safe spaces, and identifying protection risks (e.g., gender-based violence, child protection) to reduce threats."
+        },
+        "rfl": {
+          "name": "Help Find Family (RFL)",
+          "description": "Services to help refugees and IDPs locate or reunite with family members from whom they were separated."
+        },
+        "legal": {
+          "name": "Law Support and Paper Matter",
+          "description": "Assistance with registration, legal counseling, and replacement of lost identification or property documents."
+        },
+        "vulnerable": {
+          "name": "Help for People wey no Strong",
+          "description": "Specialized protection for children, elderly persons, and people with disabilities to ensure their specific needs are met."
+        },
+        "healthcare": {
+          "name": "First Health Care",
+          "description": "Mobile clinics, emergency medical supplies, and treatment for injuries to prevent health crises."
+        },
+        "mhpss": {
+          "name": "Mind Support (MHPSS)",
+          "description": "Trauma counseling and psychological first aid to help people cope with the emotional impact of displacement."
+        },
+        "cash": {
+          "name": "Monie and Voucher Support",
+          "description": "Direct cash transfers or vouchers for essential items to give families dignity and choice in meeting their needs."
+        },
+        "livelihood": {
+          "name": "Work Support",
+          "description": "Vocational training, agricultural support, and micro-finance to help displaced people become self-reliant."
+        },
+        "cccm": {
+          "name": "Arrange Living Space",
+          "description": "Establishing and managing camps to ensure safety, order, and efficient service delivery for displaced populations."
+        },
+        "education": {
+          "name": "Schooling for Emergency",
+          "description": "Setting up temporary schools and providing learning materials to ensure children continue their education during crises."
         }
       },
-      "assignShelter": {
+      "subItems": {
+        "shelter": {
+          "tents": "Tents",
+          "tarpaulins": "Tarpaulins",
+          "emergency_shelter_kits": "House Making Tools",
+          "transitional_housing_support": "Small Small House Help"
+        },
+        "food": {
+          "food_rations": "Food Portion",
+          "hot_meals": "Hot Chop",
+          "nutrition_support": "Vitamin Help"
+        },
+        "wash": {
+          "clean_water": "Clean Water",
+          "latrines": "Toilet",
+          "hygiene_kits": "Bathing Tin"
+        },
+        "nfis": {
+          "blankets": "Blanket",
+          "cooking_utensils": "Pot and Spoon",
+          "solar_lamps": "Solar Light"
+        },
+        "protection": {
+          "physical_protection": "Body Safety",
+          "safe_spaces": "Safe Place",
+          "risk_reduction": "Reduce Danger"
+        },
+        "rfl": {
+          "family_tracing": "Find Family",
+          "reunification_services": "Bring Family Together"
+        },
+        "legal": {
+          "legal_counseling": "Lawyer Talk",
+          "documentation_support": "Paper Work Help",
+          "lost_id_replacement": "Help get Lost ID"
+        },
+        "vulnerable": {
+          "child_protection": "Pikin Safety",
+          "elderly_assistance": "Old People Help",
+          "pwd_support": "PWD Help"
+        },
+        "healthcare": {
+          "mobile_clinics": "Moving Hospital",
+          "emergency_medical_supplies": "Quick Meds",
+          "primary_healthcare": "Basic Health Care"
+        },
+        "mhpss": {
+          "trauma_counseling": "Mind Healing Talk",
+          "psychological_first_aid": "First Mind Help"
+        },
+        "cash": {
+          "direct_cash_transfer": "Send Money Direct",
+          "essential_vouchers": "Paper For Item"
+        },
+        "livelihood": {
+          "vocational_training": "Learn Handwork",
+          "agricultural_support": "Farm Help",
+          "microfinance": "Small Loan"
+        },
+        "cccm": {
+          "camp_management": "Camp Control",
+          "site_coordination": "Place Arrange"
+        },
+        "education": {
+          "temporary_schools": "Make-shift School",
+          "learning_materials": "School Tools"
+        }
+      }
+    },
+    "assignShelter": {
         "title": "Assign Transit Space for",
         "desc": "Allocate a transit space for the individual. Amenities like bedding and food are provided by external partners.",
         "filterState": "Filter by State",
@@ -2258,7 +2441,12 @@
         "roomPlaceholder": "e.g., Room 101 or Space B-12",
         "cancel": "Cancel",
         "confirm": "Confirm Assignment",
-        "assigning": "Assigning..."
+        "assigning": "Assigning...",
+        "bedsToOccupy": "Beds wey dem go use",
+        "beds": "Beds",
+        "householdHint": "Note: Dis na di room/space wey dem give di Oga for House wey dis person link to.",
+        "linkedTo": "Link to",
+        "headSuggestion": "Di Oga for House ({{name}}) dey for {{shelter}} - {{room}}."
       },
       "logActivity": {
         "title": "Log Activity for",
@@ -2336,8 +2524,12 @@
         "bulkError": "Failed to create missing accounts."
       },
       "cardView": {
+        "delete": "Delete",
         "allStatuses": "All Statuses",
         "moreFilters": "More Filters",
+        "linkedTo": "Link to",
+        "householdMembers": "House members wey link to am",
+        "noMembersLinked": "No member link to am yet.",
         "headOfFamily": "Head of family",
         "currentLocation": "Current Location",
         "destination": "Where dem dey go",
@@ -2352,6 +2544,7 @@
         "satellite": "Satellite",
         "edit": "Edit",
         "assignShelter": "Give Dem Camp",
+        "assignTransitSpace": "Give Dem Transit Space",
         "resettle": "Resettle Dem",
         "homebound": "Dem don go house",
         "noPersonsFound": "We no see any IDP",

@@ -20,6 +20,7 @@ import AdminLayout from './app/admin/layout';
 import AdminPage from './app/admin/page';
 import ContactManagementPage from './app/admin/contact-management/page';
 import DisplacedPersonsPage from './app/admin/displaced-persons/page';
+import BeneficiaryJourneyPage from './app/admin/displaced-persons/journey/page';
 import TrackDriversPage from './app/admin/track-drivers/page';
 import TrackShelterPage from './app/admin/track-shelter/page';
 import UserManagementPage from './app/admin/user-management/page';
@@ -28,6 +29,7 @@ import VehicleManagementPage from './app/admin/vehicle-management/page';
 import SituationRoomPage from './app/admin/situation-room/page';
 import AdminChatsPage from './app/admin/chats/page';
 import TrainingCenterPage from './app/admin/training/page';
+import HelpCenterPage from './app/admin/help/page';
 import GovernmentBrandingPage from './app/admin/government-branding/page';
 import OrganizationsPage from './app/admin/organizations/page';
 import DriverLayout from './app/driver/layout';
@@ -128,12 +130,14 @@ function App() {
               <Route path="profile" element={<AdminProfilePage />} />
               <Route path="contact-management" element={<ContactManagementPage />} />
               <Route path="displaced-persons" element={<DisplacedPersonsPage />} />
+              <Route path="displaced-persons/journey" element={<BeneficiaryJourneyPage />} />
               <Route path="track-drivers" element={<TrackDriversPage />} />
               <Route path="track-shelter" element={<TrackShelterPage />} />
               <Route path="user-management" element={<UserManagementPage />} />
               <Route path="vehicle-management" element={<VehicleManagementPage />} />
               <Route path="chats" element={<AdminChatsPage />} />
               <Route path="training" element={<TrainingCenterPage />} />
+              <Route path="help" element={<HelpCenterPage />} />
               <Route path="government-branding" element={<GovernmentBrandingPage />} />
               <Route path="organizations" element={<OrganizationsPage />} />
             </Route>

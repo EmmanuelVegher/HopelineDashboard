@@ -49,22 +49,56 @@ export function cn(...inputs: ClassValue[]) {
 
 export const formatTimestamp = (timestamp: any): string => {
   if (!timestamp) return 'N/A';
-  // Firebase Timestamps can be either on the server (Timestamp) or client (Date object after fetch)
-  if (timestamp instanceof Timestamp) {
-    return timestamp.toDate().toLocaleString();
-  }
-  // Handle the object-like structure from onSnapshot
-  if (typeof timestamp === 'object' && timestamp.seconds) {
-    return new Date(timestamp.seconds * 1000).toLocaleString();
-  }
-  if (timestamp.toDate && typeof timestamp.toDate === 'function') { // Check if it's a Firestore Timestamp-like object
-    return timestamp.toDate().toLocaleString();
-  }
-  if (typeof timestamp === 'string' || typeof timestamp === 'number') {
-    const date = new Date(timestamp);
-    if (!isNaN(date.getTime())) {
-      return date.toLocaleString();
+
+  try {
+    // 1. Handle Firebase Timestamp instances
+    if (timestamp instanceof Timestamp) {
+      return timestamp.toDate().toLocaleString();
     }
+
+    // 2. Handle object-like structures from raw Firestore data (onSnapshot)
+    if (typeof timestamp === 'object' && timestamp.seconds !== undefined) {
+      return new Date(timestamp.seconds * 1000).toLocaleString();
+    }
+
+    // 3. Handle object with toDate method
+    if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+      return timestamp.toDate().toLocaleString();
+    }
+
+    // 4. Handle Date instances
+    if (timestamp instanceof Date) {
+      return timestamp.toLocaleString();
+    }
+
+    // 5. Handle strings or numbers
+    if (typeof timestamp === 'string' || typeof timestamp === 'number') {
+      const date = new Date(timestamp);
+      
+      // If native parsing works, use it
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleString();
+      }
+
+      // Fallback: Manual parsing for DD/MM/YYYY which is common in some locales and fails native new Date()
+      if (typeof timestamp === 'string' && timestamp.includes('/')) {
+        const parts = timestamp.split('/');
+        if (parts.length === 3) {
+          // Assume DD/MM/YYYY
+          const d = parseInt(parts[0], 10);
+          const m = parseInt(parts[1], 10) - 1; // Month is 0-indexed
+          const y = parseInt(parts[2], 10);
+          const manualDate = new Date(y, m, d);
+          if (!isNaN(manualDate.getTime())) {
+            return manualDate.toLocaleString();
+          }
+        }
+      }
+    }
+
+    return 'Invalid Date';
+  } catch (error) {
+    console.error("Date formatting error:", error, timestamp);
+    return 'Invalid Date';
   }
-  return 'Invalid Date';
 };

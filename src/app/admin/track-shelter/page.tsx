@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { type Shelter } from "@/lib/data";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle, Shield, AlertTriangle, RefreshCw, Plus, MapPin, User, Clock, TrendingUp, TrendingDown, Minus, Phone, Edit, Building2, X } from "lucide-react";
+import { CheckCircle, Shield, AlertTriangle, RefreshCw, Plus, MapPin, User, Clock, TrendingUp, TrendingDown, Minus, Phone, Edit, Trash2, Building2, X } from "lucide-react";
 import { cn, formatTimestamp } from "@/lib/utils";
 import { useState, useEffect } from "react";
-import { addDoc, updateDoc, doc, collection, getDocs } from "firebase/firestore";
+import { addDoc, updateDoc, doc, collection, getDocs, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -89,7 +89,7 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
         status: 'Operational',
         requests: 0,
         trend: 'Stable',
-        lastUpdate: new Date().toLocaleDateString(),
+        lastUpdate: new Date().toISOString(),
         geofence: [{ lat: 0, lng: 0 }, { lat: 0, lng: 0 }, { lat: 0, lng: 0 }, { lat: 0, lng: 0 }],
         droneVideoUrl: '',
         photoGallery: [],
@@ -145,15 +145,13 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
 
     // Auto-calculate capacities when rooms change
     useEffect(() => {
-        if (rooms.length > 0) {
-            const total = rooms.reduce((sum, r) => sum + (r.capacity || 0), 0);
-            const available = rooms.reduce((sum, r) => sum + (r.available || 0), 0);
-            setFormData(prev => ({
-                ...prev,
-                capacity: total,
-                availableCapacity: available
-            }));
-        }
+        const total = rooms.reduce((sum, r) => sum + (r.capacity || 0), 0);
+        const available = rooms.reduce((sum, r) => sum + (r.available || 0), 0);
+        setFormData(prev => ({
+            ...prev,
+            capacity: total,
+            availableCapacity: available
+        }));
     }, [rooms]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -198,7 +196,11 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
         e.preventDefault();
         setLoading(true);
         try {
-            const dataToSave = { ...formData, rooms };
+            const dataToSave = { 
+                ...formData, 
+                rooms,
+                lastUpdate: new Date().toISOString() 
+            };
             if (shelter) {
                 const shelterRef = doc(db, "shelters", shelter.id);
                 await updateDoc(shelterRef, dataToSave);
@@ -498,10 +500,14 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
 export default function TrackShelterPage() {
     const { t } = useTranslation();
     const { shelters, loading, permissionError, fetchData } = useAdminData();
+    const { toast } = useToast();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [selectedShelter, setSelectedShelter] = useState<Shelter | null>(null);
     const [contactDialogOpen, setContactDialogOpen] = useState(false);
     const [contactShelter, setContactShelter] = useState<Shelter | null>(null);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [shelterToDelete, setShelterToDelete] = useState<Shelter | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [selectedPreviewImage, setSelectedPreviewImage] = useState<string | null>(null);
     const [focusedShelterIndex, setFocusedShelterIndex] = useState(0);
     const navigate = useNavigate();
@@ -547,6 +553,28 @@ export default function TrackShelterPage() {
         setContactDialogOpen(true);
     };
 
+    const confirmDelete = (shelter: Shelter) => {
+        setShelterToDelete(shelter);
+        setDeleteDialogOpen(true);
+    };
+
+    const handleDelete = async () => {
+        if (!shelterToDelete) return;
+        setIsDeleting(true);
+        try {
+            await deleteDoc(doc(db, "shelters", shelterToDelete.id));
+            toast({ title: t('admin.trackShelter.form.deleted') || 'Shelter deleted successfully' });
+            setDeleteDialogOpen(false);
+            setShelterToDelete(null);
+            fetchData();
+        } catch (error) {
+            console.error("Error deleting shelter: ", error);
+            toast({ title: "Error", description: 'Failed to delete shelter', variant: "destructive" });
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     const totalCapacity = shelters?.reduce((acc, s) => acc + s.capacity, 0) || 0;
     const totalOccupied = shelters?.reduce((acc, s) => acc + (s.capacity - s.availableCapacity), 0) || 0;
     const availableSpaces = totalCapacity - totalOccupied;
@@ -564,6 +592,29 @@ export default function TrackShelterPage() {
                         </DialogDescription>
                     </DialogHeader>
                     <ShelterForm shelter={selectedShelter} onSave={handleSave} onCancel={handleCancel} />
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-destructive flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5" />
+                            Delete Shelter
+                        </DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete <strong>{shelterToDelete?.name}</strong>? This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-4">
+                        <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={isDeleting} className="w-full sm:w-auto">
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={handleDelete} disabled={isDeleting} className="w-full sm:w-auto">
+                            {isDeleting ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                            Delete Shelter
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 
@@ -877,6 +928,7 @@ export default function TrackShelterPage() {
                                                 <Button size="sm" className="w-full sm:flex-1" onClick={() => handleViewDetails(shelter)}>{t('admin.trackShelter.overview.viewDetails')}</Button>
                                                 <Button size="sm" variant="outline" className="w-full sm:flex-1" onClick={() => handleContact(shelter)}><Phone className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />{t('admin.trackShelter.overview.contact')}</Button>
                                                 <Button size="sm" variant="outline" className="w-full sm:flex-1" onClick={() => handleManage(shelter)}><Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />{t('admin.trackShelter.overview.manage')}</Button>
+                                                <Button size="sm" variant="ghost" className="w-full sm:w-auto text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => confirmDelete(shelter)}><Trash2 className="h-4 w-4" /></Button>
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -1117,9 +1169,14 @@ export default function TrackShelterPage() {
                                                             </div>
                                                         </TableCell>
                                                         <TableCell className="text-right">
-                                                            <Button variant="outline" size="sm" onClick={() => handleManage(shelter)} className="text-xs sm:text-sm">
-                                                                <Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> {t('admin.trackShelter.capacity.manage')}
-                                                            </Button>
+                                                            <div className="flex gap-2 justify-end">
+                                                                <Button variant="outline" size="sm" onClick={() => handleManage(shelter)} className="text-xs sm:text-sm">
+                                                                    <Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> {t('admin.trackShelter.capacity.manage')}
+                                                                </Button>
+                                                                <Button variant="ghost" size="sm" onClick={() => confirmDelete(shelter)} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                                                                    <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                                                                </Button>
+                                                            </div>
                                                         </TableCell>
                                                     </TableRow>
                                                 )
@@ -1202,9 +1259,14 @@ export default function TrackShelterPage() {
                                                         <Button variant="outline" size="sm" asChild className="w-full">
                                                             <a href={`tel:${shelter.phone}`}><Phone className="mr-2 h-4 w-4" /> {t('admin.trackShelter.operations.call')}</a>
                                                         </Button>
-                                                        <Button variant="outline" size="sm" onClick={() => handleManage(shelter)} className="w-full">
-                                                            <Edit className="mr-2 h-4 w-4" /> {t('admin.trackShelter.operations.manage')}
-                                                        </Button>
+                                                        <div className="flex gap-2">
+                                                            <Button variant="outline" size="sm" onClick={() => handleManage(shelter)} className="flex-1">
+                                                                <Edit className="mr-2 h-4 w-4" /> {t('admin.trackShelter.capacity.manage')}
+                                                            </Button>
+                                                            <Button variant="ghost" size="sm" onClick={() => confirmDelete(shelter)} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </Card>
@@ -1275,6 +1337,9 @@ export default function TrackShelterPage() {
                                                                 </Button>
                                                                 <Button variant="outline" size="sm" onClick={() => handleManage(shelter)} className="w-full sm:w-auto">
                                                                     <Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> {t('admin.trackShelter.operations.manage')}
+                                                                </Button>
+                                                                <Button variant="ghost" size="sm" onClick={() => confirmDelete(shelter)} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                                                                    <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                                                                 </Button>
                                                             </div>
                                                         </TableCell>

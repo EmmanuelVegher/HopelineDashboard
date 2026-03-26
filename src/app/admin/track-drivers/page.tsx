@@ -205,8 +205,41 @@ function DriverForm({ driver, onSave, onCancel }: { driver?: Driver | null, onSa
         setFormData(prev => ({ ...prev, vehicleImageUrl: '' }));
     }
 
+    const sanitizeData = (data: any) => {
+        const sanitized = { ...data };
+        Object.keys(sanitized).forEach(key => {
+            if (sanitized[key] === undefined) {
+                delete sanitized[key];
+            }
+        });
+        return sanitized;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Manual validation for Select components and other mandatory fields
+        if (!formData.state) {
+            toast({ title: t("admin.trackDrivers.toasts.validationError"), description: "Please select an Assigned State.", variant: "destructive" });
+            return;
+        }
+        if (formData.role === 'driver' && !formData.organizationId) {
+            toast({ title: t("admin.trackDrivers.toasts.validationError"), description: "Please select an Organization.", variant: "destructive" });
+            return;
+        }
+        if (!formData.status) {
+            toast({ title: t("admin.trackDrivers.toasts.validationError"), description: "Please select a Status.", variant: "destructive" });
+            return;
+        }
+        if (!formData.location) {
+            toast({ title: t("admin.trackDrivers.toasts.validationError"), description: "Please enter a Current Location.", variant: "destructive" });
+            return;
+        }
+        if (!driver && (!formData.password || formData.password.length < 6)) {
+            toast({ title: t("admin.trackDrivers.toasts.validationError"), description: t("admin.trackDrivers.toasts.passwordMinLength"), variant: "destructive" });
+            return;
+        }
+
         setLoading(true);
 
         let imageUrl = formData.vehicleImageUrl || '';
@@ -242,11 +275,13 @@ function DriverForm({ driver, onSave, onCancel }: { driver?: Driver | null, onSa
 
 
         try {
-            const dataToSave: Partial<Driver & { role: string; email: string; state?: string }> = {
+            const rawDataToSave: Partial<Driver & { role: string; email: string; state?: string }> = {
                 ...formData,
                 vehicleImageUrl: imageUrl,
                 lastUpdate: new Date().toLocaleTimeString()
             };
+
+            const dataToSave = sanitizeData(rawDataToSave);
 
             if (driver?.id) {
                 // Update existing user via Firestore directly (Auth update not handled here for simplicity)
@@ -257,14 +292,7 @@ function DriverForm({ driver, onSave, onCancel }: { driver?: Driver | null, onSa
                 toast({ title: t("admin.trackDrivers.toasts.success"), description: t("admin.trackDrivers.toasts.teamMemberUpdated") });
                 onSave();
             } else {
-                // Create new user via Cloud Function
-                if (!formData.password || formData.password.length < 6) {
-                    toast({ title: t("admin.trackDrivers.toasts.validationError"), description: t("admin.trackDrivers.toasts.passwordMinLength"), variant: "destructive" });
-                    setLoading(false);
-                    return;
-                }
-
-                // Call Cloud Function
+                // Create new user via Cloud Function (Password validated above)
                 const createTeamMember = httpsCallable(functions, 'createTeamMember');
                 await createTeamMember({
                     email: formData.email,
@@ -391,7 +419,7 @@ function DriverForm({ driver, onSave, onCancel }: { driver?: Driver | null, onSa
                 <>
                     <div className="space-y-2">
                         <Label htmlFor="vehicle">{t("admin.trackDrivers.form.vehicleId")}</Label>
-                        <Input id="vehicle" name="vehicle" value={formData.vehicle || ''} onChange={handleChange} required />
+                        <Input id="vehicle" name="vehicle" value={formData.vehicle || ''} onChange={handleChange} />
                     </div>
 
                     <div className="space-y-2">
@@ -425,7 +453,7 @@ function DriverForm({ driver, onSave, onCancel }: { driver?: Driver | null, onSa
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="location">{t("admin.trackDrivers.form.currentLocation")}</Label>
-                            <Input id="location" name="location" value={formData.location || ''} onChange={handleChange} />
+                            <Input id="location" name="location" value={formData.location || ''} onChange={handleChange} required />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="status">{t("admin.trackDrivers.form.status")}</Label>
@@ -938,6 +966,8 @@ export default function TrackDriversPage() {
                 return {
                     ...u,
                     // If it's a driver, merge status and vehicle info from drivers context
+                    name: driverData?.name || u.displayName || `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unnamed Asset',
+                    image: u.image || (u as any).photoURL || (u as any).imageUrl || driverData?.image || '',
                     status: (driverData?.status || u.accountStatus || 'Available') as Driver['status'],
                     vehicle: driverData?.vehicle || '',
                     trackingStatus: driverData?.trackingStatus,
@@ -1438,8 +1468,8 @@ export default function TrackDriversPage() {
                                                 <CardContent className="p-0 flex-1">
                                                     <div className="relative aspect-video w-full">
                                                         <img
-                                                            src={member.image || member.vehicleImageUrl || 'https://placehold.co/600x400.png'}
-                                                            alt={member.displayName}
+                                                            src={member.vehicleImageUrl || member.image || 'https://placehold.co/600x400.png'}
+                                                            alt={member.displayName || member.name}
                                                             className="object-cover rounded-t-lg w-full h-full"
                                                         />
                                                         <div className="absolute top-2 right-2 flex flex-col gap-1">

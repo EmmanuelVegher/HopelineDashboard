@@ -27,8 +27,10 @@ import {
     Image as ImageIcon,
     Film,
     Square,
-    Users as UsersIcon
+    Users as UsersIcon,
+    Camera
 } from "lucide-react";
+
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -50,7 +52,13 @@ import { CallInterface } from "@/components/chat/call-interface"; // Restored co
 import { generateChannelName } from "@/lib/agora"; // Restored missing import
 // import { NIGERIA_STATES } from "@/lib/nigeria-geography"; // Restored for completeness if needed later
 
-const SYSTEM_ROLES = ['Beneficiary', 'Driver', 'Support Agent', 'User'];
+
+// Role helpers
+const isOrgAdminRole = (role?: string) => role?.toLowerCase() === 'organization_admin' || role?.toLowerCase() === 'organization admin';
+const isStateGovRole = (role?: string) => role?.toLowerCase() === 'state_government' || role?.toLowerCase() === 'state government';
+const isSuperAdminRole = (role?: string) => role?.toLowerCase() === 'super_admin' || role?.toLowerCase() === 'super admin' || role?.toLowerCase() === 'super-admin';
+const isFederalGovRole = (role?: string) => role?.toLowerCase() === 'federal_government' || role?.toLowerCase() === 'federal government';
+
 
 interface ChatSession {
     id: string;
@@ -138,9 +146,12 @@ export default function AdminChatsPage() {
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const groupImageInputRef = useRef<HTMLInputElement>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
+    const [groupImageUploading, setGroupImageUploading] = useState(false);
+
 
     const { toast } = useToast();
 
@@ -150,54 +161,139 @@ export default function AdminChatsPage() {
 
     useEffect(scrollToBottom, [messages]);
 
+    const handleGroupImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !selectedChatId) return;
+        if (!file.type.startsWith('image/')) {
+            toast({ title: 'Invalid file', description: 'Please select an image file.', variant: 'destructive' });
+            return;
+        }
+        setGroupImageUploading(true);
+        try {
+            const storageRef = ref(storage, `group-images/${selectedChatId}/${Date.now()}_${file.name}`);
+            const uploadTask = uploadBytesResumable(storageRef, file);
+            await new Promise<void>((resolve, reject) => {
+                uploadTask.on('state_changed', null,
+                    (err) => reject(err),
+                    async () => {
+                        const url = await getDownloadURL(uploadTask.snapshot.ref);
+                        await updateDoc(doc(db, 'chats', selectedChatId), { userImage: url });
+                        // Also patch the org document if org group
+                        const chatSnap = await getDoc(doc(db, 'chats', selectedChatId));
+                        const chatData = chatSnap.data();
+                        if (chatData?.organizationId) {
+                            await updateDoc(doc(db, 'organizations', chatData.organizationId), { groupImageUrl: url }).catch(() => {});
+                        }
+                        toast({ title: 'Group image updated!', description: 'The group channel image has been saved.' });
+                        resolve();
+                    }
+                );
+            });
+        } catch (err) {
+            console.error('Group image upload error:', err);
+            toast({ title: 'Upload failed', description: 'Could not upload image. Please try again.', variant: 'destructive' });
+        } finally {
+            setGroupImageUploading(false);
+            if (groupImageInputRef.current) groupImageInputRef.current.value = '';
+        }
+    };
 
     // 1. Ensure Role-Based Groups Exist for the Admin's Scope
     useEffect(() => {
         const ensureStateGroups = async () => {
             if (!adminProfile || !auth.currentUser?.uid) return;
 
-            const stateToInit = adminProfile.state || 'Federal'; // Fallback for Super Admin without state
+            const uid = auth.currentUser.uid;
+            const adminName = `${adminProfile.firstName || ''} ${adminProfile.lastName || ''}`.trim() || 'System';
+            const role = adminProfile.role;
 
-            for (const role of SYSTEM_ROLES) {
-                const groupName = `${stateToInit} ${role}`;
-                const groupId = `group_${stateToInit.toLowerCase().replace(/\s+/g, '_')}_${role.toLowerCase().replace(/\s+/g, '_')}`;
-
+            // ORG ADMIN: Create one group for their organization
+            if (isOrgAdminRole(role) && adminProfile.organizationId) {
+                const orgId = adminProfile.organizationId;
+                const groupId = `group_org_${orgId}`;
                 const docRef = doc(db, 'chats', groupId);
 
-                try {
-                    const docSnap = await getDoc(docRef);
-                    if (!docSnap.exists()) {
-                        await setDoc(docRef, {
-                            id: groupId,
-                            name: groupName,
-                            type: 'group',
-                            isSystemGroup: true,
-                            targetRole: role.toLowerCase(),
-                            state: stateToInit,
-                            participants: [auth.currentUser?.uid],
-                            participantInfo: {
-                                [auth.currentUser?.uid!]: {
-                                    name: `${adminProfile.firstName || ''} ${adminProfile.lastName || ''}`.trim() || 'System',
-                                    role: adminProfile.role || 'system'
-                                }
-                            },
-                            createdAt: serverTimestamp(),
-                            updatedAt: serverTimestamp(),
-                            lastMessage: `Welcome to the ${groupName} official channel.`,
-                            lastMessageTime: serverTimestamp(),
-                            unreadCount: 0,
-                            status: 'active'
-                        });
-                        console.log(`Initialized system group: ${groupName}`);
+                // Always fetch org name directly from Firestore to avoid stale profile data
+                let orgName = adminProfile.organizationName || '';
+                if (!orgName) {
+                    try {
+                        const orgDoc = await getDoc(doc(db, 'organizations', orgId));
+                        if (orgDoc.exists()) {
+                            orgName = orgDoc.data().name || orgId;
+                        }
+                    } catch (e) {
+                        console.warn('Could not fetch org name:', e);
                     }
-                } catch (e) {
-                    console.error("Error ensuring group:", e);
+                }
+                if (!orgName) orgName = orgId; // Last resort fallback
+
+                const docSnap = await getDoc(docRef);
+                if (!docSnap.exists()) {
+                    await setDoc(docRef, {
+                        id: groupId,
+                        name: orgName,
+                        type: 'group',
+                        isOrgGroup: true,
+                        organizationId: orgId,
+                        organizationName: orgName,
+                        state: adminProfile.state,
+                        participants: [uid],
+                        participantInfo: { [uid]: { name: adminName, role } },
+                        createdAt: serverTimestamp(),
+                        updatedAt: serverTimestamp(),
+                        lastMessage: `Welcome to the ${orgName} group channel.`,
+                        lastMessageTime: serverTimestamp(),
+                        unreadCount: 0,
+                        status: 'active'
+                    });
+                    console.log(`Initialized org group: ${orgName}`);
+                } else {
+                    // Patch if name is the old placeholder
+                    const existingData = docSnap.data();
+                    if (existingData.name === 'My Organization' || existingData.organizationName === 'My Organization') {
+                        await updateDoc(docRef, {
+                            name: orgName,
+                            organizationName: orgName,
+                            lastMessage: `Welcome to the ${orgName} group channel.`,
+                        });
+                        console.log(`Patched org group name to: ${orgName}`);
+                    }
+                }
+            }
+
+
+            // STATE GOVERNMENT: Create a state gov group
+            if (isStateGovRole(role) && adminProfile.state) {
+                const stateSlug = adminProfile.state.toLowerCase().replace(/\s+/g, '_');
+                const groupId = `group_state_gov_${stateSlug}`;
+                const groupName = `${adminProfile.state} Government`;
+                const docRef = doc(db, 'chats', groupId);
+                const docSnap = await getDoc(docRef);
+                if (!docSnap.exists()) {
+                    await setDoc(docRef, {
+                        id: groupId,
+                        name: groupName,
+                        type: 'group',
+                        isSystemGroup: true,
+                        isStateGovGroup: true,
+                        state: adminProfile.state,
+                        participants: [uid],
+                        participantInfo: { [uid]: { name: adminName, role } },
+                        createdAt: serverTimestamp(),
+                        updatedAt: serverTimestamp(),
+                        lastMessage: `Welcome to the ${groupName} channel.`,
+                        lastMessageTime: serverTimestamp(),
+                        unreadCount: 0,
+                        status: 'active'
+                    });
+                    console.log(`Initialized state gov group: ${groupName}`);
                 }
             }
         };
 
         ensureStateGroups();
     }, [adminProfile, auth.currentUser?.uid]);
+
 
     // Fetching chat sessions (Merged P2P and System Groups)
     useEffect(() => {
@@ -209,40 +305,53 @@ export default function AdminChatsPage() {
         const p2pQuery = query(
             collection(db, 'chats'),
             where('participants', 'array-contains', adminId)
-            // orderBy('lastMessageTime', 'desc') // Removed to avoid index issues, sorting done client-side
         );
 
-        let systemQuery;
-        const isSuperAdmin = adminProfile.role?.toLowerCase() === 'super-admin' || adminProfile.role?.toLowerCase() === 'super admin';
+        const role = adminProfile.role;
+        let systemQuery: any = null;
 
-        if (isSuperAdmin) {
+        if (isSuperAdminRole(role) || isFederalGovRole(role)) {
+            // Super/Federal: see ALL org groups and system groups
             systemQuery = query(
                 collection(db, 'chats'),
-                where('isSystemGroup', '==', true)
-                // orderBy('lastMessageTime', 'desc')
+                where('type', '==', 'group')
+            );
+        } else if (isStateGovRole(role) && adminProfile.state) {
+            // State Gov: see all org groups in their state + their state gov group
+            systemQuery = query(
+                collection(db, 'chats'),
+                where('type', '==', 'group'),
+                where('state', '==', adminProfile.state)
+            );
+        } else if (isOrgAdminRole(role) && adminProfile.organizationId) {
+            // Org Admin: see only their org group
+            systemQuery = query(
+                collection(db, 'chats'),
+                where('type', '==', 'group'),
+                where('organizationId', '==', adminProfile.organizationId)
             );
         } else if (adminProfile.state) {
+            // Other admins with state: see system groups for their state
             systemQuery = query(
                 collection(db, 'chats'),
                 where('isSystemGroup', '==', true),
                 where('state', '==', adminProfile.state)
-                // orderBy('lastMessageTime', 'desc')
             );
         }
 
-        const unsubP2P = onSnapshot(p2pQuery, (snapshot) => {
-            const p2pSessions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChatSession));
+        const unsubP2P = onSnapshot(p2pQuery, (snapshot: any) => {
+            const p2pSessions = snapshot.docs.map((d: any) => ({ id: d.id, ...d.data() } as ChatSession));
             setPrivateChats(p2pSessions);
-        }, (error) => {
+        }, (error: any) => {
             console.error("Admin p2p chats listener error:", error);
         });
 
         let unsubSystem = () => { };
         if (systemQuery) {
-            unsubSystem = onSnapshot(systemQuery, (snapshot) => {
-                const sysSessions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChatSession));
+            unsubSystem = onSnapshot(systemQuery, (snapshot: any) => {
+                const sysSessions = snapshot.docs.map((d: any) => ({ id: d.id, ...d.data() } as ChatSession));
                 setSystemChats(sysSessions);
-            }, (error) => {
+            }, (error: any) => {
                 console.error("Admin system chats listener error:", error);
             });
         }
@@ -254,6 +363,7 @@ export default function AdminChatsPage() {
             unsubSystem();
         };
     }, [adminProfile, auth.currentUser?.uid]);
+
 
     useEffect(() => {
         const uniqueMap = new Map<string, ChatSession>();
@@ -283,10 +393,13 @@ export default function AdminChatsPage() {
         }
     }, [targetedUserId, chatSessions]);
 
-    // Fetch user data for chat items
+    // Fetch user data for chat items and message senders
     useEffect(() => {
         const adminId = auth.currentUser?.uid;
-        const userIds = [...new Set([...chatSessions.map(c => c.userId), adminId])]
+        const participantIds = chatSessions.flatMap(c => c.participants || []);
+        const senderIds = messages.map(m => m.senderId);
+        
+        const userIds = [...new Set([...participantIds, ...senderIds, adminId])]
             .filter((id): id is string => !!id);
 
         const toFetch = userIds.filter(id => !fetchedUsers.has(id));
@@ -327,7 +440,7 @@ export default function AdminChatsPage() {
                 return newSet;
             });
         });
-    }, [chatSessions, fetchedUsers]);
+    }, [chatSessions, messages, fetchedUsers]);
 
     // Load messages for selected chat
     useEffect(() => {
@@ -351,7 +464,7 @@ export default function AdminChatsPage() {
             // Client-side sort to handle mixed types
             msgs.sort((a, b) => {
                 const getTime = (t: any) => {
-                    if (!t) return 0;
+                    if (!t) return Infinity; // Pending messages go to the bottom
                     if (typeof t.toDate === 'function') return t.toDate().getTime();
                     if (t instanceof Date) return t.getTime();
                     return new Date(t).getTime();
@@ -753,7 +866,7 @@ export default function AdminChatsPage() {
 
             await updateDoc(doc(db, 'chats', selectedChatId), {
                 lastMessage: attachments.length > 0 ? (originalText || (attachments[0].type === 'audio' ? 'Voice Message' : 'Attachment')) : originalText,
-                lastMessageTimestamp: serverTimestamp(), // Parent chat sorting still uses serverTimestamp/Timestamp objects effectively
+                lastMessageTime: serverTimestamp(), // Parent chat sorting still uses serverTimestamp/Timestamp objects effectively
                 unreadCount: 0,
                 unreadCountBeneficiary: increment(1)
             });
@@ -900,7 +1013,10 @@ export default function AdminChatsPage() {
     ) || [];
 
     const adminId = auth.currentUser?.uid;
-    const isSuperAdmin = adminProfile?.role?.toLowerCase() === 'super-admin' || adminProfile?.role?.toLowerCase() === 'super admin';
+    const role = adminProfile?.role;
+    const isSuperAdmin = isSuperAdminRole(role) || isFederalGovRole(role);
+    const isStateGov = isStateGovRole(role);
+    const isOrgAdmin = isOrgAdminRole(role);
 
     const sessionsWithNames = chatSessions
         .filter(session => {
@@ -908,23 +1024,28 @@ export default function AdminChatsPage() {
             const sessionType = session.type || 'p2p';
             if (sessionType !== chatTab) return false;
 
-            if (isSuperAdmin) {
-                // Super Admin: Only see chats they are part of, OR chats that are waiting
-                return session.status === 'waiting' || (session.participants && session.participants.includes(adminId || '')) || sessionType === 'group';
-            }
             if (sessionType === 'group') {
+                // Super/Federal: see all
+                if (isSuperAdmin) return true;
+                // State Gov: see all groups for their state
+                if (isStateGov) return session.state === adminProfile?.state;
+                // Org Admin: see only their org group
+                if (isOrgAdmin) return (session as any).organizationId === adminProfile?.organizationId;
+                // Others: see groups they participate in
                 return session.participants?.includes(adminId || '');
             }
+
             return true;
         })
         .map(session => {
             const sessionType = session.type || 'p2p';
             const isGroup = sessionType === 'group';
-            // Fix: Check session.userId before indexing userData
-            const user = (!isGroup && session.userId) ? userData[session.userId] : null;
+            const otherUserId = !isGroup ? (session.participants?.find((p: string) => p !== adminId) || session.userId) : null;
+            const user = otherUserId ? userData[otherUserId] : null;
+            const groupDisplayName = (session as any).organizationName || session.name || 'Group Chat';
             return {
                 ...session,
-                fullName: isGroup ? (session.name || 'Group Chat') : (user ? `${user.firstName} ${user.lastName}`.trim() : 'Loading...'),
+                fullName: isGroup ? groupDisplayName : (user ? `${user.firstName} ${user.lastName}`.trim() : 'Loading...'),
                 userImage: isGroup ? session.userImage : (user?.image || session.userImage)
             };
         })
@@ -933,6 +1054,7 @@ export default function AdminChatsPage() {
             const tB = (b.lastMessageTime instanceof Date ? b.lastMessageTime.getTime() : (b.lastMessageTime as any)?.toDate?.().getTime()) || 0;
             return tB - tA;
         });
+
 
     const selectedChat = sessionsWithNames.find(chat => chat.id === selectedChatId);
 
@@ -997,7 +1119,7 @@ export default function AdminChatsPage() {
                                             <div className="flex gap-3">
                                                 <Avatar>
                                                     <AvatarImage src={chat.userImage} />
-                                                    <AvatarFallback>{chat.fullName[0]}</AvatarFallback>
+                                                     <AvatarFallback>{chat.fullName?.[0] || '?'}</AvatarFallback>
                                                 </Avatar>
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex justify-between items-start mb-1">
@@ -1008,7 +1130,12 @@ export default function AdminChatsPage() {
                                                             {(chat.lastMessageTime instanceof Date
                                                                 ? chat.lastMessageTime
                                                                 : (chat.lastMessageTime as any)?.toDate?.() || new Date()
-                                                            ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            ).toLocaleString([], { 
+                                                                month: 'short', 
+                                                                day: 'numeric', 
+                                                                hour: '2-digit', 
+                                                                minute: '2-digit' 
+                                                            })}
                                                         </span>
                                                     </div>
                                                     <p className="text-xs text-muted-foreground truncate">{chat.lastMessage}</p>
@@ -1027,16 +1154,45 @@ export default function AdminChatsPage() {
                     </CardContent>
                 </Card>
 
+                {/* Group image upload hidden input */}
+                <input
+                    type="file"
+                    ref={groupImageInputRef}
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleGroupImageUpload}
+                />
+
                 {/* Chat Window */}
                 <Card className="flex-1 flex flex-col overflow-hidden">
                     {selectedChat ? (
                         <>
                             <CardHeader className="py-4 border-b flex-row items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                    <Avatar>
-                                        <AvatarImage src={selectedChat.userImage} />
-                                        <AvatarFallback>{selectedChat.type === 'group' ? <UsersIcon className="h-5 w-5" /> : selectedChat.fullName[0]}</AvatarFallback>
-                                    </Avatar>
+                                    {/* Avatar - clickable for org admin on their org group */}
+                                    {selectedChat.type === 'group' && isOrgAdmin && (selectedChat as any).organizationId === adminProfile?.organizationId ? (
+                                        <div
+                                            className="relative cursor-pointer group/avatar"
+                                            onClick={() => groupImageInputRef.current?.click()}
+                                            title="Change group image"
+                                        >
+                                            <Avatar>
+                                                <AvatarImage src={selectedChat.userImage} />
+                                                <AvatarFallback><UsersIcon className="h-5 w-5" /></AvatarFallback>
+                                            </Avatar>
+                                            <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center transition-opacity">
+                                                {groupImageUploading
+                                                    ? <Loader2 className="h-4 w-4 text-white animate-spin" />
+                                                    : <Camera className="h-4 w-4 text-white" />
+                                                }
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <Avatar>
+                                            <AvatarImage src={selectedChat.userImage} />
+                                             <AvatarFallback>{selectedChat.type === 'group' ? <UsersIcon className="h-5 w-5" /> : (selectedChat.fullName?.[0] || '?')}</AvatarFallback>
+                                        </Avatar>
+                                    )}
                                     <div>
                                         <h3 className="font-semibold">{selectedChat.fullName}</h3>
                                         <div className="text-xs text-muted-foreground flex items-center gap-1">
@@ -1070,15 +1226,28 @@ export default function AdminChatsPage() {
                             <CardContent className="flex-1 overflow-hidden p-0 relative">
                                 <ScrollArea className="h-full p-4">
                                     <div className="space-y-4">
-                                        {messages.map((msg) => (
-                                            <div
-                                                key={msg.id}
-                                                className={`flex ${msg.senderId === auth.currentUser?.uid ? 'justify-end' : 'justify-start'}`}
-                                            >
-                                                <div className={`max-w-[80%] rounded-lg p-3 ${msg.senderId === auth.currentUser?.uid
-                                                    ? 'bg-blue-600 text-white'
-                                                    : 'bg-slate-100 text-slate-900 border'
-                                                    }`}>
+                                        {messages.map((msg) => {
+                                            const isMe = msg.senderId === auth.currentUser?.uid;
+                                            const sender = userData[msg.senderId];
+                                            const senderName = sender ? `${sender.firstName} ${sender.lastName}`.trim() : (msg.senderEmail || 'User');
+                                            const senderImage = sender?.image;
+
+                                            return (
+                                                <div
+                                                    key={msg.id}
+                                                    className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
+                                                >
+                                                    <div className={`flex gap-2 max-w-[85%] ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                                                        <Avatar className="h-8 w-8 mt-1 shrink-0">
+                                                            <AvatarImage src={senderImage} />
+                                                            <AvatarFallback>{senderName?.[0] || '?'}</AvatarFallback>
+                                                        </Avatar>
+                                                        <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                                                            <span className="text-[10px] font-medium mb-1 mx-1 text-muted-foreground">{senderName}</span>
+                                                            <div className={`rounded-lg p-3 ${isMe
+                                                                ? 'bg-blue-600 text-white rounded-tr-none'
+                                                                : 'bg-slate-100 text-slate-900 border rounded-tl-none'
+                                                                }`}>
                                                     {/* Render Attachments */}
                                                     {msg.attachments && msg.attachments.length > 0 && (
                                                         <div className="space-y-2 mb-2">
@@ -1134,17 +1303,25 @@ export default function AdminChatsPage() {
                                                                 }
 
                                                                 return !isNaN(date.getTime())
-                                                                    ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                                                    ? date.toLocaleString([], { 
+                                                                        month: 'short', 
+                                                                        day: 'numeric', 
+                                                                        hour: '2-digit', 
+                                                                        minute: '2-digit' 
+                                                                    })
                                                                     : '';
                                                             })()}
                                                         </span>
-                                                        {msg.senderId === auth.currentUser?.uid && (
+                                                        {isMe && (
                                                             <MessageStatus status={msg.status} />
                                                         )}
                                                     </div>
                                                 </div>
                                             </div>
-                                        ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                                         <div ref={messagesEndRef} />
                                     </div>
                                 </ScrollArea>
@@ -1302,7 +1479,7 @@ export default function AdminChatsPage() {
                                         >
                                             <Avatar className="h-8 w-8">
                                                 <AvatarImage src={user.image} />
-                                                <AvatarFallback>{user.firstName[0]}</AvatarFallback>
+                                                <AvatarFallback>{(user.firstName?.[0] || user.displayName?.[0] || user.email?.[0] || '?').toUpperCase()}</AvatarFallback>
                                             </Avatar>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-xs font-semibold truncate">{user.firstName} {user.lastName}</p>

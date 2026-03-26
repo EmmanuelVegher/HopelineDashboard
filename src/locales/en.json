@@ -458,6 +458,10 @@
     "submit": "Submit",
     "confirm": "Confirm",
     "details": "Details",
+    "members": "Members",
+    "members_one": "Member",
+    "members_other": "Members",
+    "needsAssistance": "Needs Assistance",
     "actions": "Actions",
     "status": "Status",
     "date": "Date",
@@ -672,7 +676,18 @@
       "online": "Online",
       "away": "Away",
       "onlineDot": "● Online",
-      "awayDot": "○ Away"
+      "awayDot": "○ Away",
+      "sending": "sending..."
+    },
+    "footer": {
+      "supportAvailable": "24/7 Emergency Support Available • Average response time:",
+      "mins": "2 mins",
+      "immediateDanger": "Immediate Danger?",
+      "contactAuthorities": "Contact local authorities immediately",
+      "callNow": "CALL NOW",
+      "faqsTitle": "FAQs & Resources",
+      "faqsDesc": "Find answers to common questions",
+      "browseHelp": "Browse Help"
     },
     "roleLabels": {
       "supportAgent": "Support Agent",
@@ -1058,6 +1073,99 @@
       "newModuleTitle": "📚 *New Training Module Published*",
       "titleLabel": "*Title:*",
       "descriptionLabel": "*Description:*"
+    }
+  },
+  "help": {
+    "title": "Help Center",
+    "subtitle": "Find answers and learn how to use the HopeLine Dashboard",
+    "newModule": "New Help Video",
+    "categories": "Topics",
+    "allCategories": "All Topics",
+    "categoryOptions": {
+      "Dashboard Overview": "Dashboard Overview",
+      "Shelter Management": "Shelter Management",
+      "Emergency Response": "Emergency Response",
+      "User Accounts": "User Accounts"
+    },
+    "admin": "Admin",
+    "helpPrefix": "New Help Content:",
+    "tabs": {
+      "all": "All",
+      "video": "Videos",
+      "image": "Images",
+      "text": "Guides",
+      "document": "Docs"
+    },
+    "searchPlaceholder": "Search help articles...",
+    "views": "{{count}} views",
+    "updated": "Updated {{date}}",
+    "buttons": {
+      "delete": "Delete",
+      "watchNow": "Watch Now",
+      "readGuide": "Read Guide",
+      "viewContent": "View Content",
+      "edit": "Edit",
+      "cancel": "Cancel",
+      "publish": "Publish Help",
+      "update": "Update Help",
+      "openDownload": "Open in New Tab / Download"
+    },
+    "empty": {
+      "title": "No help content found",
+      "subtitle": "Try adjusting your search or filters"
+    },
+    "readTime": {
+      "videoDefault": "2-5 min",
+      "textCalculated": "{{minutes}} min read",
+      "default": "2 min read"
+    },
+    "modal": {
+      "title": "Publish New Help Content",
+      "editTitle": "Edit Help Content",
+      "description": "Create a help resource for admins and staff.",
+      "editDescription": "Update the details for this help material.",
+      "form": {
+        "titleLabel": "Title",
+        "titlePlaceholder": "e.g. How to track shelters",
+        "categoryLabel": "Topic",
+        "categoryPlaceholder": "Select topic",
+        "typeLabel": "Content Type",
+        "typeOptions": {
+          "video": "Video",
+          "image": "Image",
+          "text": "Guide",
+          "document": "Doc"
+        },
+        "mediaLabel": "Media/File",
+        "urlPlaceholder": "Paste YouTube link or Video URL...",
+        "contentLabel": "Content",
+        "contentPlaceholder": "# Article Title\n\nWrite your help content here...",
+        "summaryLabel": "Summary",
+        "summaryPlaceholder": "Briefly explain what this help covers..."
+      },
+      "systemNote": "Note: Help content is visible to all administrative roles based on their access level."
+    },
+    "viewer": {
+      "noContent": "No content provided.",
+      "author": "Published by: {{author}}",
+      "lastUpdated": "Last Updated: {{date}}",
+      "previewNotAvailable": "Preview not available for this file type.",
+      "pleaseDownload": "Please download to view."
+    },
+    "alerts": {
+      "deleteConfirm": "Are you sure you want to delete this help item?"
+    },
+    "toasts": {
+      "published": "Help Content Published",
+      "updated": "Help Content Updated",
+      "publishedDesc": "The help resource has been created.",
+      "updatedDesc": "The help resource has been successfully updated.",
+      "publishFailed": "Publish Failed",
+      "publishFailedDesc": "Error uploading help content.",
+      "deleted": "Help Item Deleted",
+      "deletedDesc": "The help item has been removed.",
+      "error": "Error",
+      "deleteFailed": "Failed to delete help item."
     }
   },
   "privacy": {
@@ -1521,6 +1629,7 @@
       "contactDirectory": "Contact Directory",
       "chats": "Chat Page",
       "training": "Training Page",
+      "help": "Help Page",
       "logout": "Logout",
       "tacticalCommandCenter": "Caritas Hopeline Tactical Command Center",
       "supportedBy": "Supported By"
@@ -2179,6 +2288,7 @@
       "addBeneficiary": "Add Beneficiary",
       "importExcel": "Import Excel Data",
       "searchPlaceholder": "Search by name or ID...",
+      "createMissingAccounts": "Create Missing User Accounts",
       "allStatuses": "All Statuses",
       "moreFilters": "More Filters",
       "stats": {
@@ -2192,18 +2302,28 @@
       "noPersonsDesc": "Click the \"Add Person\" button to register a new individual in need of assistance.",
       "statusEnum": {
         "needsAssistance": "Needs Assistance",
+        "needs_assistance": "Needs Assistance",
+        "needsassistance": "Needs Assistance",
         "eligibleForShelter": "Eligible for Shelter",
+        "eligible_for_shelter": "Eligible for Shelter",
         "movingToShelter": "Moving to Shelter",
+        "moving_to_shelter": "Moving to Shelter",
         "emergency": "Emergency",
         "safe": "Safe",
         "safeAssigned": "Safe / Assigned",
+        "safe_/_assigned": "Safe / Assigned",
         "resettled": "Resettled",
-        "homebound": "Homebound"
+        "homebound": "Homebound",
+        "reonboarded": "Re-onboarded"
       },
       "priorityEnum": {
         "low": "Low Priority",
         "medium": "Medium Priority",
         "high": "High Priority"
+      },
+      "causes": {
+        "flooding": "Flooding",
+        "conflict": "Conflict"
       },
       "actions": {
         "navigate": "Navigate",
@@ -2211,18 +2331,14 @@
         "edit": "Edit",
         "assignShelter": "Assign Shelter",
         "resettle": "Resettle",
-        "homebound": "Homebound"
-      },
-      "card": {
-        "currentLocation": "Current Location",
-        "destination": "Destination",
-        "vulnerabilities": "Vulnerabilities",
-        "activityHistory": "Activity History",
-        "logActivity": "Log Activity",
-        "noActivities": "No activities logged yet.",
-        "medicalNeeds": "Medical Needs",
-        "assistanceRequested": "Assistance Requested",
-        "lastUpdate": "Last update"
+        "homebound": "Homebound",
+        "call": "Call",
+        "sms": "SMS",
+        "whatsapp": "WhatsApp",
+        "inAppChat": "In-App Chat",
+        "deleteConfirm": "Are you sure you want to delete",
+        "deleted": "Beneficiary Deleted",
+        "deleteError": "Failed to delete beneficiary."
       },
       "form": {
         "addTitle": "Add New Beneficiary",
@@ -2235,27 +2351,63 @@
         "tabs": {
           "basic": "Basic Info",
           "assessment": "Assessment",
-          "needs": "Shelter Needs"
+          "services": "Services",
+          "needs": "Shelter Needs",
+          "organization": "Organization"
         },
+        "selectOrganization": "Select Organization",
+        "chooseOrganization": "Choose an organization",
+        "allOrganizations": "All Organizations",
+        "orgReadOnly": "Organization (Linked)",
+        "adminState": "Admin State",
+        "selectState": "Select State",
         "linkAccount": "Link User Account",
         "linkAccountDesc": "Link this record to an existing app user to share status updates.",
         "searchContact": "Contact email or name...",
         "linkedTo": "Linked to",
-        "unlink": "Unlink",
-        "fullName": "Full Name of Household Head",
+        "unlink": "Release / Unlink",
+        "unlinkConfirm": "Are you sure you want to release/unlink this beneficiary? They will be removed from your active list and made available for other organizations to link.",
+        "fullName": "Full Name",
         "fullNamePlaceholder": "As per valid ID",
+        "phoneNumber": "Phone Number",
+        "householdHead": "Household Head Link",
+        "searchHouseholdHead": "Search for household head by name or phone...",
+        "householdHeadName": "Household Head Name",
+        "hasSmartphone": "Has smartphone?",
+        "headRequired": "Required: Since this person has no phone, you MUST link them to a head or set them as head.",
+        "missingBasic": "Complete Basic Info",
+        "missingAssessment": "Check Assessment Tab",
+        "missingOrg": "Choose Organization Tab",
+        "duplicateWarning": "Fix Duplicate Phone",
+        "noPhonePlaceholder": "No phone? ID will be generated",
         "phone": "Phone Number / Contact",
         "phonePlaceholder": "Beneficiary or focal person",
+        "householdInfo": "Household Information",
+        "setAsHead": "Set as Household Head",
+        "headLinkDesc": "Link to an existing Household Head to share shelter assignment.",
+        "linkToHead": "Link to Household Head",
         "duplicatePhone": "Duplicate Phone Number",
         "matches": "This number matches",
         "useExisting": "Use Existing Record",
         "flagContinue": "Flag & Continue",
+        "alreadyOnboarded": "Already onboarded with",
+        "potentialMatches": "Potential Matches Found:",
+        "registrationDate": "Registration Date",
+        "phoneUsedByAccount": "This phone number is already registered to user account:",
+        "linkAccountBtn": "Link Account",
+        "accountLinked": "Account Linked",
+        "linkedToUser": "Linked to existing user:",
         "cityVillage": "Current City/Village",
         "otherDetails": "Other Identifying Details",
         "sex": "Sex",
         "selectGender": "Select Gender",
         "currentState": "Current State",
-        "selectState": "Select State",
+        "uploading": "Uploading...",
+        "manualImageUrlPlaceholder": "Or enter URL manually https://...",
+        "detailsPlaceholder": "e.g., Age 45...",
+        "latPlaceholder": "e.g. 11.8333",
+        "lngPlaceholder": "e.g. 13.1500",
+        "displacementCausePlaceholder": "e.g. Flooding, Conflict...",
         "locationImage": "Location Image (Optional)",
         "imageUploaded": "Image Uploaded",
         "latitudeOptional": "Latitude (Optional)",
@@ -2305,7 +2457,152 @@
           "repairs": "Repairs",
           "relocation": "Relocation",
           "transitionalShelter": "Transitional shelter",
-          "nfis": "NFIs"
+          "nfis": "NFIs",
+          "male": "Male",
+          "female": "Female",
+          "other": "Other",
+          "enRoute": "En Route",
+          "safeAssigned": "Safe / Assigned"
+        },
+        "beneficiaryServices": "Beneficiary Services Offered",
+        "subServices": "Specific Services Provided",
+        "providingOrg": "Providing Organization",
+        "selectProvider": "Select Provider Organization"
+      },
+      "services": {
+        "categories": {
+          "relief": "Emergency Relief and Basic Needs",
+          "protection": "Protection and Legal Services",
+          "healthcare": "Healthcare and Psychosocial Support",
+          "cash": "Cash Assistance and Livelihoods",
+          "cccm": "Camp Coordination and Management (CCCM)",
+          "education": "Education"
+        },
+        "items": {
+          "shelter": {
+            "name": "Shelter",
+            "description": "Provision of tents, tarpaulins, emergency shelter kits, and support for transitional housing."
+          },
+          "food": {
+            "name": "Food and Nutrition",
+            "description": "Distribution of food rations, hot meals, and specialized nutrition support."
+          },
+          "wash": {
+            "name": "WASH",
+            "description": "Ensuring access to clean water, constructing latrines, and distributing hygiene kits."
+          },
+          "nfis": {
+            "name": "Non-Food Items (NFIs)",
+            "description": "Distribution of blankets, cooking utensils, solar lamps, etc."
+          },
+          "protection": {
+            "name": "Physical Protection",
+            "description": "Monitoring safety, creating safe spaces, and reducing risks."
+          },
+          "rfl": {
+            "name": "Restoring Family Links (RFL)",
+            "description": "Services to help refugees and IDPs locate or reunite with family members."
+          },
+          "legal": {
+            "name": "Legal Aid and Documentation",
+            "description": "Assistance with registration, legal counseling, and replacing lost documents."
+          },
+          "vulnerable": {
+            "name": "Assistance to Vulnerable Groups",
+            "description": "Specialized protection for children, elderly, and people with disabilities."
+          },
+          "healthcare": {
+            "name": "Primary Healthcare",
+            "description": "Mobile clinics and emergency medical supplies to treat injuries."
+          },
+          "mhpss": {
+            "name": "MHPSS",
+            "description": "Trauma counseling and psychological first aid."
+          },
+          "cash": {
+            "name": "Cash and Voucher Assistance",
+            "description": "Direct cash transfers or vouchers for essential items."
+          },
+          "livelihood": {
+            "name": "Livelihood Support",
+            "description": "Vocational training, agricultural support, and microfinance."
+          },
+          "cccm": {
+            "name": "Organized Living Environments",
+            "description": "Establishing and managing camps to ensure safety and service delivery."
+          },
+          "education": {
+            "name": "Education in Emergencies",
+            "description": "Setting up temporary schools and providing school supplies."
+          }
+        },
+        "subItems": {
+          "shelter": {
+            "tents": "Tents",
+            "tarpaulins": "Tarpaulins",
+            "emergency_shelter_kits": "Emergency Shelter Kits",
+            "transitional_housing_support": "Transitional Housing Support"
+          },
+          "food": {
+            "food_rations": "Food Rations",
+            "hot_meals": "Hot Meals",
+            "nutrition_support": "Nutrition Support"
+          },
+          "wash": {
+            "clean_water": "Clean Water",
+            "latrines": "Latrines",
+            "hygiene_kits": "Hygiene Kits"
+          },
+          "nfis": {
+            "blankets": "Blankets",
+            "cooking_utensils": "Cooking Utensils",
+            "solar_lamps": "Solar Lamps"
+          },
+          "protection": {
+            "physical_protection": "Physical Protection",
+            "safe_spaces": "Safe Spaces",
+            "risk_reduction": "Risk Reduction"
+          },
+          "rfl": {
+            "family_tracing": "Family Tracing",
+            "reunification_services": "Reunification Services"
+          },
+          "legal": {
+            "legal_counseling": "Legal Counseling",
+            "documentation_support": "Documentation Support",
+            "lost_id_replacement": "Lost ID Replacement"
+          },
+          "vulnerable": {
+            "child_protection": "Child Protection",
+            "elderly_assistance": "Elderly Assistance",
+            "pwd_support": "Disability Support (PWD)"
+          },
+          "healthcare": {
+            "mobile_clinics": "Mobile Clinics",
+            "emergency_medical_supplies": "Emergency Medical Supplies",
+            "primary_healthcare": "Primary Healthcare"
+          },
+          "mhpss": {
+            "trauma_counseling": "Trauma Counseling",
+            "psychological_first_aid": "Psychological First Aid"
+          },
+          "cash": {
+            "direct_cash_transfer": "Direct Cash Transfer",
+            "essential_vouchers": "Essential Vouchers"
+          },
+          "livelihood": {
+            "vocational_training": "Vocational Training",
+            "agricultural_support": "Agricultural Support",
+            "microfinance": "Microfinance"
+          },
+          "cccm": {
+            "camp_management": "Camp Management",
+            "site_coordination": "Site Coordination"
+          },
+          "education": {
+            "temporary_schools": "Temporary Schools",
+            "learning_materials": "Learning Materials"
+          }
         }
       },
       "assignShelter": {
@@ -2320,10 +2617,22 @@
         "roomPlaceholder": "e.g., Room 101 or Space B-12",
         "cancel": "Cancel",
         "confirm": "Confirm Assignment",
-        "assigning": "Assigning..."
+        "assigning": "Assigning...",
+        "selectRoom": "Select Room",
+        "chooseRoom": "Choose Room",
+        "selectBed": "Select Bed Space",
+        "chooseBed": "Choose Bed Space",
+        "selectShelterFirst": "Select shelter first",
+        "selectRoomFirst": "Select room first",
+        "bedsToOccupy": "Beds to Occupy",
+        "beds": "Beds",
+        "householdHint": "Note: This is the room assigned to the linked Household Head.",
+        "linkedTo": "Linked to",
+        "headSuggestion": "Household Head ({{name}}) is assigned to {{shelter}} - {{room}}."
       },
       "logActivity": {
         "title": "Log Activity for",
+        "adminRole": "Administrator",
         "desc": "Add a record of assistance or movement for this individual.",
         "type": "Type of Activity",
         "notes": "Notes / Details (Optional)",
@@ -2355,6 +2664,7 @@
         "errorsFound": "other errors found. Please review.",
         "importErrors": "Import Errors:",
         "table": {
+          "no": "No.",
           "name": "Name",
           "phone": "Phone",
           "details": "Details",
@@ -2397,9 +2707,52 @@
         "accountsUpdated": "Successfully linked/created user accounts.",
         "bulkError": "Failed to create missing accounts."
       },
+      "journey": {
+        "analyticsButton": "Analytics & Journey",
+        "backToBeneficiaries": "Back to Beneficiaries",
+        "title": "Beneficiary Journey & Analytics",
+        "description": "Longitudinal historical data and programmatic reports for decision-making",
+        "individualJourney": "Individual Journey",
+        "programmaticReports": "Programmatic Reports",
+        "selectBeneficiary": "Select Beneficiary",
+        "totalEnrolled": "Total Enrolled",
+        "activeInShelters": "Active in Shelters",
+        "resettlementSuccess": "Resettlement Success",
+        "reportingPeriod": "Reporting Period",
+        "lifetime": "Lifetime",
+        "statusDistribution": "Status Distribution",
+        "statusDistributionDesc": "Current verification and resettlement status across the program",
+        "topCauses": "Top Displacement Causes",
+        "topCausesDesc": "Primary triggers for beneficiary enrollment in the project",
+        "percentageChange": "+0%",
+        "noMatches": "No matches found",
+        "liveData": "Real-time data",
+        "by": "By",
+        "noBeneficiarySelected": "No Beneficiary Selected",
+        "selectBeneficiaryPrompt": "Select a beneficiary from the left list to view their full journey timeline and service history.",
+        "onboarding": "Initial Onboarding",
+        "onboardingDesc": "Beneficiary registered in the system at {{location}}.",
+        "systemAdmin": "System Admin",
+        "uniqueId": "Unique ID",
+        "start": "START",
+        "anotherOrganization": "another organization",
+        "to": "to",
+        "in": "in",
+        "exits": "Exits",
+        "exitHistory": "Shelter Exit History",
+        "exitHistoryDesc": "Comprehensive log of all beneficiaries who have departed from shelters across the program",
+        "totalExits": "Total Exits",
+        "exitsByShelter": "Exits by Shelter",
+        "exitDate": "Exit Date",
+        "exitDestination": "Destination"
+      },
       "cardView": {
+        "delete": "Delete",
         "allStatuses": "All Statuses",
         "moreFilters": "More Filters",
+        "linkedTo": "Linked to",
+        "householdMembers": "Linked Household Members",
+        "noMembersLinked": "No members linked yet.",
         "headOfFamily": "Head of family",
         "currentLocation": "Current Location",
         "destination": "Destination",
@@ -2414,12 +2767,31 @@
         "satellite": "Satellite",
         "edit": "Edit",
         "assignShelter": "Assign Shelter",
+        "assignTransitSpace": "Assign Transit Space",
         "resettle": "Resettle",
         "homebound": "Homebound",
         "noPersonsFound": "No displaced persons found",
         "addPersonPrompt": "Click the \"Add Person\" button to register a new individual in need of assistance.",
         "permissionDenied": "Permission Denied",
-        "permissionDeniedDesc": "You do not have permission to view this data. Please check your Firestore security rules to allow read access to the 'displacedPersons' collection for administrators."
+        "permissionDeniedDesc": "You do not have permission to view this data. Please check your Firestore security rules to allow read access to the 'displacedPersons' collection for administrators.",
+        "exitShelter": "Exit Shelter",
+        "onboard": "Onboard to Shelter",
+        "exitTitle": "Exit Shelter for",
+        "exitDesc": "Record the reason and destination for the beneficiary's exit from the shelter.",
+        "exitReason": "Reason for Exit",
+        "exitReasons": {
+          "home": "Returning to Home Origin",
+          "transfer": "Transferred to another Shelter/IDP Camp",
+          "other": "Other/Resettled"
+        },
+        "movementHistory": "Movement & Shelter History",
+        "noHistory": "No movement history recorded.",
+        "pendingOnboarding": "Pending Onboarding",
+        "incomingTransfer": "Incoming Transfer",
+        "selectTargetOrg": "Select Destination Organization",
+        "selectTargetShelter": "Select Destination Shelter",
+        "targetShelter": "Target Shelter",
+        "transferNotification": "New beneficiary transfer incoming: {{name}}"
       }
     },
     "trackShelter": {

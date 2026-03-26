@@ -352,7 +352,7 @@ export default function DriverChatsPage() {
 
             msgs.sort((a, b) => {
                 const getTime = (t: any) => {
-                    if (!t) return 0;
+                    if (!t) return Infinity; // Pending messages go to the bottom
                     if (typeof t.toDate === 'function') return t.toDate().getTime();
                     if (t instanceof Date) return t.getTime();
                     return new Date(t).getTime();
@@ -844,7 +844,12 @@ export default function DriverChatsPage() {
                                                             {(() => {
                                                                 const t = chat.lastMessageTime;
                                                                 const date = t?.toDate?.() || (t instanceof Date ? t : new Date(t));
-                                                                return isNaN(date.getTime()) ? '' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                                                return isNaN(date.getTime()) ? '' : date.toLocaleString([], { 
+                                                                    month: 'short', 
+                                                                    day: 'numeric', 
+                                                                    hour: '2-digit', 
+                                                                    minute: '2-digit' 
+                                                                });
                                                             })()}
                                                         </span>
                                                     </div>
@@ -964,7 +969,12 @@ export default function DriverChatsPage() {
                                                                     {(() => {
                                                                         const t = msg.timestamp;
                                                                         const date = t?.toDate?.() || (t instanceof Date ? t : new Date(t));
-                                                                        return isNaN(date.getTime()) ? '' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                                                        return isNaN(date.getTime()) ? '' : date.toLocaleString([], { 
+                                                                            month: 'short', 
+                                                                            day: 'numeric', 
+                                                                            hour: '2-digit', 
+                                                                            minute: '2-digit' 
+                                                                        });
                                                                     })()}
                                                                 </span>
                                                                 {msg.senderId === user?.uid && <MessageStatus status={msg.status} />}

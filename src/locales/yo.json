@@ -2169,10 +2169,16 @@
         "save": "Save Person Record",
         "saving": "Saving...",
         "tabs": {
-          "basic": "Basic Info",
-          "assessment": "Assessment",
-          "needs": "Shelter Needs"
+          "basic": "Àlàyé Ìpìlẹ̀",
+          "assessment": "Àyẹ̀wò",
+          "services": "Awọn iṣẹ",
+          "needs": "Àìní Ilé",
+          "organization": "Àjọ"
         },
+        "beneficiaryServices": "Àwọn Iṣẹ́ Tí Àwọn Olùgbàlábọ̀ Máa Ń Gbà",
+        "subServices": "Àwọn Iṣẹ́ Pàtàkì Tí Wọ́n Pèsè",
+        "providingOrg": "Àjọ Tí Ó Ń Pèsè Iṣẹ́",
+        "selectProvider": "Yan Àjọ Tí Ó Ń Pèsè Iṣẹ́",
         "linkAccount": "Link User Account",
         "linkAccountDesc": "Link this record to an existing app user to share status updates.",
         "searchContact": "Contact email or name...",
@@ -2242,6 +2248,142 @@
           "relocation": "Relocation",
           "transitionalShelter": "Transitional shelter",
           "nfis": "NFIs"
+        }
+      },
+      "services": {
+        "categories": {
+          "relief": "Ìrànwọ́ Pàjáwìrì àti Àwọn Ohun Mèremère",
+          "protection": "Ààbò àti Àwọn Iṣẹ́ Ìdájọ́",
+          "healthcare": "Ìtọ́jú Ìlera àti Ìtìlẹ́yìn Àrọwá",
+          "cash": "Ìrànwọ́ Owó àti Ọ̀nà Ìgbésí Ayé",
+          "cccm": "Ìṣàkóso àti Ìdarí Ibùdó (CCCM)",
+          "education": "Ẹ̀kọ́"
+        },
+        "items": {
+          "shelter": {
+            "name": "Ibùgbé",
+            "description": "Pípèsè àgọ́, tapolini, àwọn ohun èlò ibùgbé pàjáwìrì, àti ìtìlẹ́yìn fún ilé ìgbàdíẹ̀."
+          },
+          "food": {
+            "name": "Oúnjẹ àti Oúnjẹ Aṣaralóore",
+            "description": "Pínpín ounjẹ, ounjẹ gbígbóná, àti ìtìlẹ́yìn ounjẹ pàtàkì fún àwọn ọmọdé àti aboyún."
+          },
+          "wash": {
+            "name": "Omi, Ìmọ́tótó, àti Ìwẹ̀nùmọ́ (WASH)",
+            "description": "Ríríi dájú pé omi mímọ́ wà, kíkọ́ àwọn ilé-ìyàgbẹ́, àti pínpín àwọn ohun èlò ìmọ́tótó."
+          },
+          "nfis": {
+            "name": "Àwọn Ohun Èlò Tí Kì Ṣe Oúnjẹ (NFIs)",
+            "description": "Pínpín àwọn ohun tí ó pọndandan, gẹ́gẹ́ bí aṣọ òtútù, ohun èlò ìdáná, àti àtùpà oòrùn."
+          },
+          "protection": {
+            "name": "Ààbò",
+            "description": "Ṣíṣọ́ ààbò àti ẹ̀tọ́ ọmọnìyàn, dídá àwọn ibi mímọ́, àti dídín ewu kù."
+          },
+          "rfl": {
+            "name": "Dídá Ìtìpẹ́ Ẹbí Padà (RFL)",
+            "description": "Àwọn iṣẹ́ láti ran àwọn olùwá-ààbò lọ́wọ́ láti rí tàbí darapọ̀ mọ́ àwọn ẹbí wọn."
+          },
+          "legal": {
+            "name": "Ìrànwọ́ Òfin àti Ìwé",
+            "description": "Ìrànwọ́ pẹ̀lú fífìforúkọsílẹ̀, ìmọ̀ràn òfin, àti dídípò àwọn ìwé tí ó sọnu."
+          },
+          "vulnerable": {
+            "name": "Ìrànwọ́ fún Àwọn Tí Kò Lókun",
+            "description": "Ààbò pàtàkì fún àwọn ọmọdé, àwọn àgbàlagbà, àti àwọn tí ó ní akìrìbọ́tí."
+          },
+          "healthcare": {
+            "name": "Ìtọ́jú Ìlera Àkọ́kọ́",
+            "description": "Àwọn ilé-ìwòsàn alábàárìn àti ngwa ìṣègùn pàjáwìrì láti tọ́jú ìfarapa."
+          },
+          "mhpss": {
+            "name": "MHPSS",
+            "description": "Ìmọ̀ràn fún ìdààmú ọkàn àti ìrànwọ́ àkọ́kọ́ fún ìmọ̀lára."
+          },
+          "cash": {
+            "name": "Ìrànwọ́ Owó àti Ètò",
+            "description": "Ìfiranṣẹ owó tààrà tàbí ètò fún àwọn ohun tí ó pọndandan."
+          },
+          "livelihood": {
+            "name": "Ìrànwọ́ Ọ̀nà Ìgbésí Ayé",
+            "description": "Ìdánilẹ́kọ̀ọ́ iṣẹ́ ọwọ́, ìrànwọ́ iṣẹ́ àgbẹ̀, àti microfinance."
+          },
+          "cccm": {
+            "name": "Ibùgbé Tí A Ṣètò Rẹ̀",
+            "description": "Dídá àti ṣíṣàkóso àwọn ibùdó láti ríi dájú pé ààbò àti iṣẹ́ ìsìn wà."
+          },
+          "education": {
+            "name": "Ẹ̀kọ́ Nígbà Pàjáwìrì",
+            "description": "Dídá àwọn ilé-ìwé ìgbàdíẹ̀ sílẹ̀ àti ìpèsè ngwa ìwé."
+          }
+        },
+        "subItems": {
+          "shelter": {
+            "tents": "Agọ",
+            "tarpaulins": "Tapolini",
+            "emergency_shelter_kits": "Awọn irinṣẹ ile pajawiri",
+            "transitional_housing_support": "Atilẹyin ile igba diẹ"
+          },
+          "food": {
+            "food_rations": "Oúnjẹ",
+            "hot_meals": "Oúnjẹ gbígbóná",
+            "nutrition_support": "Atilẹyin ounjẹ"
+          },
+          "wash": {
+            "clean_water": "Omi mímọ́",
+            "latrines": "Ilé iṣẹ́",
+            "hygiene_kits": "Awọn irinṣẹ imototo"
+          },
+          "nfis": {
+            "blankets": "Aṣọ òtútù",
+            "cooking_utensils": "Awọn ohun èlò ìdáná",
+            "solar_lamps": "Àtùpà oòrùn"
+          },
+          "protection": {
+            "physical_protection": "Idaabobo ara",
+            "safe_spaces": "Awọn aaye ailewu",
+            "risk_reduction": "Idinku eewu"
+          },
+          "rfl": {
+            "family_tracing": "Wiwa idile",
+            "reunification_services": "Awọn iṣẹ isọdọkan"
+          },
+          "legal": {
+            "legal_counseling": "Imọran ofin",
+            "documentation_support": "Atilẹyin iwe",
+            "lost_id_replacement": "Rirọpo ID ti o sọnu"
+          },
+          "vulnerable": {
+            "child_protection": "Idaabobo ọmọde",
+            "elderly_assistance": "Iranlọwọ awọn arugbo",
+            "pwd_support": "Atilẹyin fun awọn ti o ni ailera"
+          },
+          "healthcare": {
+            "mobile_clinics": "Ile iwosan onirinkiri",
+            "emergency_medical_supplies": "Awọn ipese iṣoogun pajawiri",
+            "primary_healthcare": "Itọju ilera akọkọ"
+          },
+          "mhpss": {
+            "trauma_counseling": "Ifọrọwanilẹnuwo mọnamọna",
+            "psychological_first_aid": "Iranlọwọ akọkọ ti inu ọkan"
+          },
+          "cash": {
+            "direct_cash_transfer": "Gbigbe owo taara",
+            "essential_vouchers": "Iwe-ẹri pataki"
+          },
+          "livelihood": {
+            "vocational_training": "Ikẹkọ oojọ",
+            "agricultural_support": "Atilẹyin ogbin",
+            "microfinance": "Iṣuna-owo kekere"
+          },
+          "cccm": {
+            "camp_management": "Ìṣàkóso ibùdó",
+            "site_coordination": "Iṣakoso aaye"
+          },
+          "education": {
+            "temporary_schools": "Awọn ile-iwe igba diẹ",
+            "learning_materials": "Awọn ohun elo ẹkọ"
+          }
         }
       },
       "assignShelter": {

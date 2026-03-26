@@ -16,8 +16,14 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import { useToast } from "@/hooks/use-toast"
 import { useAuthState } from "react-firebase-hooks/auth"
 import { useTranslation } from "react-i18next"
-import type { UserProfile } from "@/lib/data"
+import type { UserProfile as BaseUserProfile, DisplacedPerson } from "@/lib/data"
 import { CallInterface } from "@/components/chat/call-interface"
+
+type UserProfile = BaseUserProfile & {
+    status?: string;
+    assignedShelterId?: string;
+    organizationName?: string;
+}
 
 type Message = {
     id: string;
@@ -88,15 +94,23 @@ export default function AssistancePage() {
 
     // Helper to get group ID based on user role and state
     const getSystemGroupId = useCallback(() => {
-        if (!user || !userProfile?.state) return null;
+        if (!user || !userProfile) return null;
+
+        // Normalize role to ensure robust matching
+        const userRole = (userProfile.role || '').toString().toLowerCase().trim();
+        const isBeneficiary = ['user', 'displaced_person', 'beneficiary', 'displaced-person'].includes(userRole);
+
+        // 1. If beneficiary, use organization group if assigned
+        if (isBeneficiary && userProfile.organizationId) {
+            return `group_org_${userProfile.organizationId}`;
+        }
+
+        // 2. Fallback or other roles: use state-based groups
+        if (!userProfile.state) return null;
         const state = userProfile.state.toLowerCase().replace(/\s+/g, '_');
 
-        // Normalize role to ensure robust matching (lowercase, trim)
-        const userRole = (userProfile.role || '').toString().toLowerCase().trim();
-
-        // If role is displaced_person, beneficiary, or displaced-person -> beneficiary group
         let groupRole = 'user';
-        if (['displaced_person', 'beneficiary', 'displaced-person', 'displaced person'].includes(userRole)) {
+        if (isBeneficiary) {
             groupRole = 'beneficiary';
         } else if (userRole === 'driver' || userRole === 'pilot') {
             groupRole = 'driver';
@@ -106,6 +120,22 @@ export default function AssistancePage() {
     }, [user, userProfile]);
 
     const handleGroupChatSelect = async () => {
+        // 1. Access Control: Check if beneficiary is onboarded and active
+        const isExited = ['Resettled', 'Homebound'].includes(userProfile?.status || '');
+        const isNotOnboarded = !userProfile?.assignedShelterId;
+        const isBeneficiary = ['user', 'displaced_person', 'beneficiary', 'displaced-person'].includes((userProfile?.role || '').toLowerCase());
+
+        if (isBeneficiary && (isNotOnboarded || isExited)) {
+            toast({
+                title: t('assistance.errors.accessRestricted'),
+                description: isExited 
+                    ? "You no longer have access to this group chat as you have been exited."
+                    : "Access to group chat is only available once you have been onboarded to a shelter.",
+                variant: "destructive"
+            });
+            return;
+        }
+
         const groupId = getSystemGroupId();
         if (groupId && user) {
             // Ensure user is in the participants list before setting chatId to avoid listener permission errors
@@ -195,20 +225,40 @@ export default function AssistancePage() {
 
 
     useEffect(() => {
-        const fetchUserProfile = async () => {
-            if (user) {
-                const userDocRef = doc(db, 'users', user.uid);
-                const userDoc = await getDoc(userDocRef);
-                if (userDoc.exists()) {
-                    const data = userDoc.data();
-                    setUserProfile({
-                        ...data,
-                        image: data.image || data.imageUrl || data.profileImage || data.photoURL || data.photoUrl || data.avatar || ''
-                    } as UserProfile);
+        if (!user) return;
+
+        const userDocRef = doc(db, 'users', user.uid);
+        const unsubscribe = onSnapshot(userDocRef, async (userDoc) => {
+            if (userDoc.exists()) {
+                const data = userDoc.data();
+                const profile = {
+                    ...data,
+                    image: data.image || data.imageUrl || data.profileImage || data.photoURL || data.photoUrl || data.avatar || ''
+                } as UserProfile;
+
+                // If beneficiary, fetch status and shelter from displacedPersons
+                const role = (profile.role || '').toLowerCase();
+                if (['user', 'displaced_person', 'beneficiary', 'displaced-person'].includes(role)) {
+                    try {
+                        const dpQuery = query(collection(db, 'displacedPersons'), where('userId', '==', user.uid), limit(1));
+                        const dpSnap = await getDocs(dpQuery);
+                        if (!dpSnap.empty) {
+                            const dpData = dpSnap.docs[0].data() as DisplacedPerson;
+                            profile.status = dpData.status;
+                            profile.assignedShelterId = dpData.assignedShelterId;
+                            profile.organizationId = dpData.organizationId;
+                            profile.organizationName = dpData.organizationName;
+                        }
+                    } catch (err) {
+                        console.error("Error fetching DP record:", err);
+                    }
                 }
+
+                setUserProfile(profile);
             }
-        };
-        fetchUserProfile();
+        });
+
+        return () => unsubscribe();
     }, [user]);
 
     // Check for existing chat when supportAgent is selected (P2P only)
@@ -250,11 +300,21 @@ export default function AssistancePage() {
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const msgs: Message[] = [];
             querySnapshot.docs.forEach((doc) => {
-                const data = doc.data() as Message;
-                // Fix: Check if timestamp is a Firestore Timestamp (has toDate) or already a Date
-                const timestamp = (data.timestamp as any)?.toDate ? (data.timestamp as any).toDate() : (data.timestamp instanceof Date ? data.timestamp : null);
+                const data = doc.data() as any;
+                const timestamp = data.timestamp?.toDate ? data.timestamp.toDate() : 
+                                 (data.timestamp instanceof Date ? data.timestamp : 
+                                 (data.createdAt?.toDate ? data.createdAt.toDate() : 
+                                 (data.serverTimestamp?.toDate ? data.serverTimestamp.toDate() : null)));
                 msgs.push({ ...data, id: doc.id, timestamp });
             });
+            
+            // Local sort as safety (oldest at top, newest at bottom)
+            msgs.sort((a, b) => {
+                const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : Infinity;
+                const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : Infinity;
+                return timeA - timeB;
+            });
+            
             setMessages(msgs);
         }, (error) => {
             console.error("Chat message listener error:", error);
@@ -630,11 +690,29 @@ export default function AssistancePage() {
                 setAttachments([]);
             }
 
-            // Translation logic (simplified for rewrite)
+            // Translation logic
             let userTranslatedText = originalText;
             let agentTranslatedText = originalText;
+            let finalContent = originalText;
 
-            if (originalText.trim() && userProfile?.language !== 'English') {
+            // Determine if it's a group chat (this page handles both but usually group is from a selector)
+            // In this specific page, if supportAgent is missing it's usually a group context or determine by receiverId
+            const receiverId = supportAgent?.uid || 'group';
+            const isGroup = !supportAgent || receiverId === 'group';
+
+            if (isGroup) {
+                if (userProfile?.language && userProfile.language !== 'English') {
+                    try {
+                        const translateFunction = httpsCallable(functions, 'translateText');
+                        const result = await translateFunction({ text: originalText, targetLanguage: 'English' });
+                        finalContent = (result.data as any).translatedText;
+                    } catch (e) {
+                        console.error("Translation for group chat failed:", e);
+                    }
+                }
+                userTranslatedText = "";
+                agentTranslatedText = "";
+            } else if (originalText.trim() && userProfile?.language !== 'English') {
                 try {
                     const translateFunction = httpsCallable(functions, 'translateText');
                     const result = await translateFunction({ text: originalText, targetLanguage: 'English' });
@@ -643,11 +721,11 @@ export default function AssistancePage() {
             }
 
             const messageData: any = {
-                content: originalText,
+                content: finalContent,
                 messageType: uploadedAttachments.length > 0 ? "media" : "text",
                 originalText: originalText,
                 userTranslatedText, agentTranslatedText,
-                receiverId: supportAgent?.uid || 'group', senderEmail: user.email!, senderId: user.uid,
+                receiverId: receiverId, senderEmail: user.email!, senderId: user.uid,
                 timestamp: serverTimestamp(), translationTimestamp: serverTimestamp(), status: 'sent'
             };
             if (uploadedAttachments.length > 0) messageData.attachments = uploadedAttachments;
@@ -655,13 +733,9 @@ export default function AssistancePage() {
             const messagesRef = collection(db, 'chats', currentChatId, 'messages');
             await addDoc(messagesRef, messageData);
             await updateDoc(doc(db, 'chats', currentChatId), {
-
-                lastMessage: originalText,
-
+                lastMessage: finalContent,
                 lastMessageTimestamp: serverTimestamp(),
-
                 messageCount: increment(1)
-
             });
 
         } catch (error) {
@@ -793,7 +867,9 @@ export default function AssistancePage() {
         // Determine display details based on activeTab
         const isGroup = activeTab === 'group';
         const displayImage = isGroup ? undefined : (supportAgent?.image || (supportAgent as any)?.imageUrl || (supportAgent as any)?.profileImage || (supportAgent as any)?.photoURL || (supportAgent as any)?.photoUrl || (supportAgent as any)?.avatar); // Use undefined for group to trigger fallback icon
-        const displayName = isGroup ? `${userProfile?.state || 'State'} ${t('assistance.interface.communityGroup')}` : (supportAgent?.displayName || (supportAgent?.firstName ? `${supportAgent.firstName} ${supportAgent.lastName || ''}`.trim() : t('assistance.interface.supportAgent')));
+        const displayName = isGroup 
+            ? (userProfile?.organizationName || `${userProfile?.state || 'State'} ${t('assistance.interface.communityGroup')}`)
+            : (supportAgent?.displayName || (supportAgent?.firstName ? `${supportAgent.firstName} ${supportAgent.lastName || ''}`.trim() : t('assistance.interface.supportAgent')));
 
         return (
             <Card className="h-[80vh] flex flex-col shadow-lg border-t-4 border-t-primary">
@@ -871,7 +947,7 @@ export default function AssistancePage() {
                                             <p className="italic text-xs opacity-80">{t(`assistance.call.${message.content.toLowerCase().replace(/\s+/g, '')}Label`)}</p>
                                         ) : (
                                             <>
-                                                <p className="text-sm">{message.userTranslatedText || message.content}</p>
+                                                <p className="text-sm">{isGroup ? message.content : (message.userTranslatedText || message.content)}</p>
                                                 {message.originalText !== message.content && (
                                                     <p className="text-[10px] opacity-70 mt-1 border-t pt-1">{t('assistance.interface.original')} {message.originalText}</p>
                                                 )}
@@ -884,7 +960,12 @@ export default function AssistancePage() {
                                             </>
                                         )}
                                         <div className="flex justify-end items-center gap-1 mt-1 opacity-70 text-[9px]">
-                                            {message.timestamp && message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            {message.timestamp ? message.timestamp.toLocaleString([], { 
+                                                month: 'short', 
+                                                day: 'numeric', 
+                                                hour: '2-digit', 
+                                                minute: '2-digit' 
+                                            }) : (t('assistance.interface.sending') || 'sending...')}
                                         </div>
                                     </div>
                                 </div>

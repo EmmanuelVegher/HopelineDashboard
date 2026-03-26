@@ -125,44 +125,6 @@ export function useGeolocation(initialOptions?: UseGeolocationOptions): UseGeolo
     isTracking: false,
   });
 
-  const updatePermission = useCallback(async (): Promise<PermissionState> => {
-    if (!state.isSupported) return 'default';
-
-    try {
-      // Check if Permissions API is supported
-      if ('permissions' in navigator) {
-        const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
-        const permission = permissionStatus.state as PermissionState;
-
-        setState(prev => ({ ...prev, permission }));
-        return permission;
-      } else {
-        // Fallback: try to get position to determine permission
-        return new Promise((resolve) => {
-          navigator.geolocation.getCurrentPosition(
-            () => {
-              setState(prev => ({ ...prev, permission: 'granted' }));
-              resolve('granted');
-            },
-            (error) => {
-              if (error.code === error.PERMISSION_DENIED) {
-                setState(prev => ({ ...prev, permission: 'denied' }));
-                resolve('denied');
-              } else {
-                setState(prev => ({ ...prev, permission: 'prompt' }));
-                resolve('prompt');
-              }
-            },
-            { timeout: 1000 }
-          );
-        });
-      }
-    } catch (error) {
-      console.warn('Error checking geolocation permission:', error);
-      return 'default';
-    }
-  }, [state.isSupported]);
-
   const requestPermission = useCallback(async (): Promise<PermissionState> => {
     if (!state.isSupported) {
       console.log('[useGeolocation] Geolocation not supported');
@@ -199,6 +161,32 @@ export function useGeolocation(initialOptions?: UseGeolocationOptions): UseGeolo
     });
   }, [state.isSupported, options]);
 
+  const getPositionByIP = useCallback(async (): Promise<GeolocationPosition> => {
+    try {
+      const response = await fetch('https://ipapi.co/json/');
+      const data = await response.json();
+      
+      if (data.latitude && data.longitude) {
+        return {
+          coords: {
+            latitude: data.latitude,
+            longitude: data.longitude,
+            accuracy: 10000, // Approximate
+            altitude: null,
+            altitudeAccuracy: null,
+            heading: null,
+            speed: null,
+          },
+          timestamp: Date.now(),
+        } as GeolocationPosition;
+      }
+      throw new Error('Invalid IP location data');
+    } catch (err) {
+      console.error('[useGeolocation] IP based location failed:', err);
+      throw err;
+    }
+  }, []);
+
   const getCurrentPosition = useCallback((overrideOptions?: UseGeolocationOptions): Promise<GeolocationPosition> => {
     const opts = { ...options, ...overrideOptions };
 
@@ -219,18 +207,61 @@ export function useGeolocation(initialOptions?: UseGeolocationOptions): UseGeolo
           updateGPSStatus();
           resolve(position);
         },
-        (error) => {
-          setState(prev => ({
-            ...prev,
-            error
-          }));
-          updateGPSStatus();
-          reject(error);
+        async (error) => {
+          // If high accuracy failed and was requested, try a fallback to low accuracy
+          if (opts.enableHighAccuracy && (error.code === error.POSITION_UNAVAILABLE || error.code === error.TIMEOUT)) {
+            console.warn('[useGeolocation] High accuracy failed, retrying with highAccuracy: false...');
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                lastPositionTimeRef.current = Date.now();
+                setState(prev => ({ ...prev, position: pos, error: null }));
+                updateGPSStatus();
+                resolve(pos);
+              },
+              async (err) => {
+                // Secondary fallback: IP-based location
+                try {
+                  console.warn('[useGeolocation] Browser location failed entirely, attempting IP-based fallback...');
+                  const ipPosition = await getPositionByIP();
+                  setState(prev => ({ ...prev, position: ipPosition, error: null }));
+                  updateGPSStatus();
+                  resolve(ipPosition);
+                } catch (ipErr) {
+                  setState(prev => ({ ...prev, error: err }));
+                  updateGPSStatus();
+                  reject(err);
+                }
+              },
+              { ...opts, enableHighAccuracy: false, timeout: 15000 }
+            );
+          } else {
+            // Case where it wasn't a high-accuracy failure (e.g. PERMISSION_DENIED)
+            // or high-accuracy wasn't requested. Let's still try IP for POSITION_UNAVAILABLE.
+            if (error.code === error.POSITION_UNAVAILABLE || error.code === error.TIMEOUT) {
+              try {
+                console.warn('[useGeolocation] Browser location failed, attempting IP-based fallback...');
+                const ipPosition = await getPositionByIP();
+                setState(prev => ({ ...prev, position: ipPosition, error: null }));
+                updateGPSStatus();
+                resolve(ipPosition);
+                return;
+              } catch (ipErr) {
+                // Ignore and proceed to error
+              }
+            }
+            
+            setState(prev => ({
+              ...prev,
+              error
+            }));
+            updateGPSStatus();
+            reject(error);
+          }
         },
         opts
       );
     });
-  }, [state.isSupported, options]);
+  }, [state.isSupported, options, updateGPSStatus, getPositionByIP]);
 
   const startWatching = useCallback((overrideOptions?: UseGeolocationOptions) => {
     const opts = { ...options, ...overrideOptions };

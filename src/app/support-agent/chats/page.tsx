@@ -296,6 +296,18 @@ export default function SupportAgentChatsPage() {
         const data = doc.data() as Message;
         msgs.push({ ...data, id: doc.id });
       });
+
+      // Local sort as safety (oldest at top, newest at bottom, pending at end)
+      msgs.sort((a, b) => {
+        const getTime = (t: any) => {
+          if (!t) return Infinity;
+          if (typeof t.toDate === 'function') return t.toDate().getTime();
+          if (t instanceof Date) return t.getTime();
+          return new Date(t).getTime();
+        };
+        return getTime(a.timestamp) - getTime(b.timestamp);
+      });
+
       setMessages(msgs);
 
       // Update message status to 'delivered' for messages from users that haven't been delivered yet
@@ -963,10 +975,18 @@ export default function SupportAgentChatsPage() {
                           </div>
                           <div className="flex items-center gap-1 px-2">
                             <p className="text-xs text-muted-foreground">
-                              {message.timestamp?.toDate().toLocaleTimeString([], {
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
+                              {(() => {
+                                const t = message.timestamp;
+                                const date = t?.toDate?.() || (t instanceof Date ? t : (t ? new Date(t) : null));
+                                return date && !isNaN(date.getTime())
+                                  ? date.toLocaleString([], { 
+                                      month: 'short', 
+                                      day: 'numeric', 
+                                      hour: '2-digit', 
+                                      minute: '2-digit' 
+                                    })
+                                  : (t ? '' : (t('common.sending') || 'sending...'));
+                              })()}
                             </p>
                             {message.senderId === auth.currentUser?.uid && (
                               <MessageStatus status={message.status} />

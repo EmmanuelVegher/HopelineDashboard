@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.registerUser = exports.getUserEmailByPhone = exports.createTeamMember = exports.trackDriverLocationHistory = exports.createDisplacedPersonAccounts = exports.generateAgoraToken = exports.translateText = exports.sendSos = exports.initializeGlobalGroups = exports.onTrainingPublished = exports.syncUserGroups = exports.getWeather = exports.sendTaskAssignmentNotification = exports.processapprovedusers = exports.translateNewMessage = void 0;
+exports.sendOnboardingSMS = exports.registerUser = exports.getUserEmailByPhone = exports.createTeamMember = exports.trackDriverLocationHistory = exports.createDisplacedPersonAccounts = exports.generateAgoraToken = exports.translateText = exports.sendSos = exports.initializeGlobalGroups = exports.onTrainingPublished = exports.syncUserGroups = exports.getWeather = exports.sendTaskAssignmentNotification = exports.processapprovedusers = exports.replyToWhatsApp = exports.whatsappWebhook = exports.notifyBeneficiaryViaWhatsApp = exports.sendWhatsAppMessage = exports.translateNewMessage = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const agora_token_1 = require("agora-token");
@@ -11,6 +11,12 @@ const agora_token_1 = require("agora-token");
 // Import translation function
 var translate_only_1 = require("./translate-only");
 Object.defineProperty(exports, "translateNewMessage", { enumerable: true, get: function () { return translate_only_1.translateNewMessage; } });
+// WhatsApp Integration (Options 2 & 3)
+var whatsapp_1 = require("./whatsapp");
+Object.defineProperty(exports, "sendWhatsAppMessage", { enumerable: true, get: function () { return whatsapp_1.sendWhatsAppMessage; } });
+Object.defineProperty(exports, "notifyBeneficiaryViaWhatsApp", { enumerable: true, get: function () { return whatsapp_1.notifyBeneficiaryViaWhatsApp; } });
+Object.defineProperty(exports, "whatsappWebhook", { enumerable: true, get: function () { return whatsapp_1.whatsappWebhook; } });
+Object.defineProperty(exports, "replyToWhatsApp", { enumerable: true, get: function () { return whatsapp_1.replyToWhatsApp; } });
 admin.initializeApp();
 /**
  * A scheduled function that runs every minute to process approved user requests.
@@ -665,7 +671,7 @@ exports.createDisplacedPersonAccounts = functions.runWith({
                 try {
                     const authUser = await admin.auth().getUserByEmail(syntheticEmail);
                     console.log(`[AUTH] User already exists (Email): ${syntheticEmail}`);
-                    results.push({ phone: phoneStr, status: 'skipped', reason: 'Account already exists (Email)', uid: authUser.uid });
+                    results.push({ phone: phoneStr, status: 'skipped', reason: 'Account already exists (Email)', uid: authUser.uid, mobile: formattedPhone, mobileNumber: mobileNumber, authMethod: 'Email' });
                     continue;
                 }
                 catch (error) {
@@ -676,7 +682,7 @@ exports.createDisplacedPersonAccounts = functions.runWith({
                 try {
                     const authUser = await admin.auth().getUserByPhoneNumber(formattedPhone);
                     console.log(`[AUTH] User already exists (Phone): ${formattedPhone}`);
-                    results.push({ phone: phoneStr, status: 'skipped', reason: 'Account already exists (Phone)', uid: authUser.uid });
+                    results.push({ phone: phoneStr, status: 'skipped', reason: 'Account already exists (Phone)', uid: authUser.uid, mobile: formattedPhone, mobileNumber: mobileNumber, authMethod: 'Phone' });
                     continue;
                 }
                 catch (error) {
@@ -714,7 +720,7 @@ exports.createDisplacedPersonAccounts = functions.runWith({
                     longitude: !isNaN(parseFloat(longitude)) ? parseFloat(longitude) : null,
                 }, { merge: true });
                 console.log(`Successfully processed ${phoneStr}: ${uid}`);
-                results.push({ phone: phoneStr, status: 'created', uid });
+                results.push({ phone: phoneStr, status: 'created', uid, mobile: formattedPhone, mobileNumber: mobileNumber });
             }
             catch (error) {
                 console.error(`Error processing account:`, error);
@@ -989,6 +995,102 @@ exports.registerUser = functions.https.onCall(async (data, context) => {
     catch (error) {
         console.error("Registration error:", error);
         throw new functions.https.HttpsError(error.code || 'internal', error.message || 'Failed to register user.');
+    }
+});
+/**
+ * Callable function to send onboarding SMS with login details
+ */
+exports.sendOnboardingSMS = functions.https.onCall(async (data, context) => {
+    var _a, _b, _c;
+    console.log(`[SMS-INIT] Function called for phone: ${data === null || data === void 0 ? void 0 : data.phone}, uid: ${data === null || data === void 0 ? void 0 : data.uid}`);
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+    const { phone, uid, mobileNumber, isNewUser, authMethod, shortId: providedShortId } = data;
+    if (!phone || !uid) {
+        throw new functions.https.HttpsError('invalid-argument', 'Phone and UID are required');
+    }
+    const username = (_a = functions.config().ebulksms) === null || _a === void 0 ? void 0 : _a.username;
+    const apikey = (_b = functions.config().ebulksms) === null || _b === void 0 ? void 0 : _b.apikey;
+    if (!username || !apikey) {
+        console.error('[SMS] eBulkSMS credentials not found in functions.config()');
+        throw new functions.https.HttpsError('failed-precondition', 'SMS service not configured (Missing eBulkSMS Token/Username)');
+    }
+    console.log(`[SMS-INIT] eBulkSMS Config: Username: ${username}, API Key length: ${apikey.length}`);
+    // Priority: 1. Provided shortId (HP-XXXX), 2. UID Substring 
+    const shortId = providedShortId || uid.substring(0, 8);
+    let smsBody = '';
+    if (isNewUser) {
+        let loginName = mobileNumber;
+        if (!loginName) {
+            loginName = phone.replace(/\s+/g, '').replace(/[^0-9]/g, '');
+            if (loginName.startsWith('234') && loginName.length >= 11) {
+                loginName = '0' + loginName.substring(3);
+            }
+            else if (loginName.length === 10 && !loginName.startsWith('0')) {
+                loginName = '0' + loginName;
+            }
+        }
+        smsBody = `Welcome to Hopeline. Your account is ready. Login: ${loginName}. Password: ${loginName}. Unique ID: ${shortId}.`;
+    }
+    else {
+        const method = authMethod || 'existing details';
+        smsBody = `Welcome back to Hopeline. Your account is now linked for assistance. Login with your existing ${method}. Unique ID: ${shortId}.`;
+    }
+    try {
+        // eBulkSMS requires numbers in format 23480... (no +)
+        let cleanPhone = phone.replace('+', '');
+        if (cleanPhone.startsWith('0')) {
+            cleanPhone = '234' + cleanPhone.substring(1);
+        }
+        const uniqueMsgId = `hopeline_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        const ebulkPayload = {
+            "SMS": {
+                "auth": {
+                    "username": username,
+                    "apikey": apikey
+                },
+                "message": {
+                    "sender": "HOPELINE",
+                    "messagetext": smsBody,
+                    "flash": "0"
+                },
+                "recipients": {
+                    "gsm": [
+                        {
+                            "msidn": cleanPhone,
+                            "msgid": uniqueMsgId
+                        }
+                    ]
+                },
+                "dndsender": 1
+            }
+        };
+        console.log(`[SMS-SEND] Attempting eBulkSMS send to: ${cleanPhone}`);
+        const response = await fetch('https://api.ebulksms.com/sendsms.json', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(ebulkPayload)
+        });
+        const result = await response.json();
+        console.log(`[SMS-RESULT] eBulkSMS Response:`, JSON.stringify(result));
+        // result.response.status is the success marker for eBulkSMS
+        const status = (_c = result === null || result === void 0 ? void 0 : result.response) === null || _c === void 0 ? void 0 : _c.status;
+        if (status === 'SUCCESS') {
+            console.log(`[SMS-SUCCESS] Message sent to ${phone} via eBulkSMS`);
+            return { success: true, data: result.response };
+        }
+        else {
+            console.warn(`[SMS-ERROR] eBulkSMS failed for ${phone}:`, status);
+            return { success: false, error: status || 'UNKNOWN_ERROR', fullResponse: result };
+        }
+    }
+    catch (error) {
+        console.error(`[SMS-CRITICAL] Error in sendOnboardingSMS (eBulkSMS):`, error);
+        throw new functions.https.HttpsError('internal', error.message || 'Failed to send SMS via eBulkSMS');
     }
 });
 //# sourceMappingURL=index.js.map

@@ -1,0 +1,21 @@
+"use client";
+
+import { useAdminData } from "@/contexts/AdminDataProvider";
+import HelpCenter from "@/components/help/help-center";
+
+export default function HelpCenterPage() {
+    const { adminProfile } = useAdminData();
+
+    // Normalize role checked to include both Admin and super-admin
+    const userRole = adminProfile?.role?.toLowerCase() || '';
+    const isSuperAdmin = userRole === 'super-admin' || userRole === 'super admin';
+    const isFederalGov = userRole === 'federal government';
+    const isAdminUser = isSuperAdmin || isFederalGov;
+
+    return (
+        <HelpCenter
+            canManage={isAdminUser}
+            userProfile={adminProfile}
+        />
+    );
+}

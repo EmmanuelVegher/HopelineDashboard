@@ -150,7 +150,206 @@
     "error": "Error",
     "success": "Éxito",
     "warning": "Advertencia",
-    "select": "Seleccionar...",
-    "actions": "Acciones"
+    "select": "Seleccionar",
+    "actions": "Acciones",
+    "members": "Miembros",
+    "members_one": "Miembro",
+    "members_other": "Miembros"
+  },
+  "admin": {
+    "displacedPersons": {
+      "form": {
+        "tabs": {
+          "basic": "Información básica",
+          "assessment": "Evaluación",
+          "services": "Servicios",
+          "needs": "Necesidades de refugio",
+          "organization": "Organización"
+        },
+        "beneficiaryServices": "Servicios ofrecidos a los beneficiarios",
+        "subServices": "Servicios específicos prestados",
+        "providingOrg": "Organización proveedora",
+        "selectProvider": "Seleccionar organización proveedora",
+        "hasSmartphone": "¿Tiene smartphone?",
+        "headRequired": "Requerido: Dado que esta persona no tiene teléfono, DEBE vincularla a un jefe de familia o establecerla como jefe.",
+        "missingBasic": "Completar información básica",
+        "missingAssessment": "Ver pestaña de evaluación",
+        "missingOrg": "Elegir pestaña de organización",
+        "duplicateWarning": "Corregir teléfono duplicado",
+        "noPhonePlaceholder": "¿Sin teléfono? Se generará un ID",
+        "fullName": "Nombre Completo",
+        "householdHead": "Vínculo con el Jefe de Hogar",
+        "searchHouseholdHead": "Buscar al jefe de hogar por nombre o teléfono...",
+        "householdHeadName": "Nombre del Jefe de Hogar",
+        "householdInfo": "Información del Hogar",
+        "setAsHead": "Establecer como Jefe de Hogar",
+        "headLinkDesc": "Vincular a un Jefe de Hogar existente para compartir la asignación de refugio.",
+        "linkToHead": "Vincular al Jefe de Hogar",
+        "registrationDate": "Fecha de registro",
+        "phoneUsedByAccount": "Este número de teléfono ya está registrado en la cuenta de usuario:",
+        "linkAccountBtn": "Vincular cuenta",
+        "accountLinked": "Cuenta vinculada",
+        "linkedToUser": "Vinculado al usuario existente:"
+      },
+      "services": {
+        "categories": {
+          "relief": "Socorro de emergencia y necesidades básicas",
+          "protection": "Protección y servicios legales",
+          "healthcare": "Salud y apoyo psicosocial",
+          "cash": "Asistencia en efectivo y medios de vida",
+          "cccm": "Coordinación y gestión de campamentos (CCCM)",
+          "education": "Educación"
+        },
+        "items": {
+          "shelter": {
+            "name": "Refugio",
+            "description": "Provisión de tiendas de campaña, lonas, kits de refugio de emergencia y apoyo para viviendas de transición."
+          },
+          "food": {
+            "name": "Alimentación y nutrición",
+            "description": "Distribución de raciones de alimentos, comidas calientes y apoyo nutricional especializado."
+          },
+          "wash": {
+            "name": "Agua, saneamiento e higiene (WASH)",
+            "description": "Garantizar el acceso a agua limpia, construir letrinas y distribuir kits de higiene."
+          },
+          "nfis": {
+            "name": "Artículos no alimentarios (NFI)",
+            "description": "Distribución de mantas, utensilios de cocina, lámparas solares, etc."
+          },
+          "protection": {
+            "name": "Protección física",
+            "description": "Monitoreo de seguridad, creación de espacios seguros y reducción de riesgos."
+          },
+          "rfl": {
+            "name": "Restablecimiento del contacto entre familiares (RCF)",
+            "description": "Servicios para ayudar a los refugiados y desplazados internos a localizar o reunirse con sus familiares."
+          },
+          "legal": {
+            "name": "Asistencia legal y documentación",
+            "description": "Asistencia con el registro, asesoramiento legal y reemplazo de documentos perdidos."
+          },
+          "vulnerable": {
+            "name": "Asistencia a grupos vulnerables",
+            "description": "Protección especializada para niños, ancianos y personas con discapacidad."
+          },
+          "healthcare": {
+            "name": "Atención primaria de salud",
+            "description": "Clínicas móviles y suministros médicos de emergencia para tratar lesiones."
+          },
+          "mhpss": {
+            "name": "Salud mental y apoyo psicosocial (SMAPS)",
+            "description": "Asesoramiento por trauma y primeros auxilios psicológicos."
+          },
+          "cash": {
+            "name": "Asistencia en efectivo y cupones",
+            "description": "Transferencias directas de efectivo o cupones para artículos esenciales."
+          },
+          "livelihood": {
+            "name": "Apoyo a los medios de vida",
+            "description": "Formación profesional, apoyo agrícola y microfinanzas."
+          },
+          "cccm": {
+            "name": "Entornos de vida organizados",
+            "description": "Establecer y gestionar campamentos para garantizar la seguridad y la prestación de servicios."
+          },
+          "education": {
+            "name": "Educación en emergencias",
+            "description": "Establecimiento de escuelas temporales y suministro de material escolar."
+          }
+        },
+        "subItems": {
+          "shelter": {
+            "tents": "Tiendas",
+            "tarpaulins": "Lonas",
+            "emergency_shelter_kits": "Kits de refugio de emergencia",
+            "transitional_housing_support": "Apoyo a viviendas de transición"
+          },
+          "food": {
+            "food_rations": "Raciones de comida",
+            "hot_meals": "Comidas calientes",
+            "nutrition_support": "Apoyo nutricional"
+          },
+          "wash": {
+            "clean_water": "Agua potable",
+            "latrines": "Letrinas",
+            "hygiene_kits": "Kits de higiene"
+          },
+          "nfis": {
+            "blankets": "Mantas",
+            "cooking_utensils": "Utensilios de cocina",
+            "solar_lamps": "Lámparas solares"
+          },
+          "protection": {
+            "physical_protection": "Protección física",
+            "safe_spaces": "Espacios seguros",
+            "risk_reduction": "Reducción de riesgos"
+          },
+          "rfl": {
+            "family_tracing": "Búsqueda de familia",
+            "reunification_services": "Servicios de reunificación"
+          },
+          "legal": {
+            "legal_counseling": "Asesoría legal",
+            "documentation_support": "Apoyo de documentación",
+            "lost_id_replacement": "Reemplazo de identificación perdida"
+          },
+          "vulnerable": {
+            "child_protection": "Protección infantil",
+            "elderly_assistance": "Asistencia a ancianos",
+            "pwd_support": "Apoyo a personas con discapacidad"
+          },
+          "healthcare": {
+            "mobile_clinics": "Clínicas móviles",
+            "emergency_medical_supplies": "Suministros médicos de emergencia",
+            "primary_healthcare": "Atención primaria de salud"
+          },
+          "mhpss": {
+            "trauma_counseling": "Asesoramiento sobre traumas",
+            "psychological_first_aid": "Primeros auxilios psicológicos"
+          },
+          "cash": {
+            "direct_cash_transfer": "Transferencia directa de efectivo",
+            "essential_vouchers": "Vales esenciales"
+          },
+          "livelihood": {
+            "vocational_training": "Formación profesional",
+            "agricultural_support": "Apoyo agrícola",
+            "microfinance": "Microfinanzas"
+          },
+          "cccm": {
+            "camp_management": "Gestión de campamentos",
+            "site_coordination": "Coordinación del sitio"
+          },
+          "education": {
+            "temporary_schools": "Escuelas temporales",
+            "learning_materials": "Materiales de aprendizaje"
+          }
+        }
+      },
+      "assignShelter": {
+        "bedsToOccupy": "Camas a ocupar",
+        "beds": "Camas",
+        "householdHint": "Nota: Esta es la habitación asignada al Jefe de Hogar vinculado.",
+        "linkedTo": "Vinculado a",
+        "headSuggestion": "El Jefe de Hogar ({{name}}) está asignado a {{shelter}} - {{room}}."
+      },
+      "cardView": {
+        "linkedTo": "Vinculado a",
+        "householdMembers": "Miembros del hogar vinculados",
+        "noMembersLinked": "Aún no hay miembros vinculados.",
+        "delete": "Eliminar"
+      },
+      "actions": {
+        "deleteConfirm": "¿Estás seguro de que deseas eliminar a?",
+        "deleted": "Beneficiario eliminado",
+        "deleteError": "Error al eliminar al beneficiario."
+      },
+      "statusEnum": {
+        "needsAssistance": "Necesita asistencia",
+        "needs_assistance": "Necesita asistencia",
+        "needsassistance": "Necesita asistencia"
+      }
+    }
   }
 }

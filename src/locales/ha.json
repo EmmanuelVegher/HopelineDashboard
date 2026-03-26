@@ -2174,10 +2174,16 @@
         "save": "Save Person Record",
         "saving": "Saving...",
         "tabs": {
-          "basic": "Basic Info",
-          "assessment": "Assessment",
-          "needs": "Shelter Needs"
+          "basic": "Bayanin Gaba",
+          "assessment": "Bincike",
+          "services": "Ayyuka",
+          "needs": "Bukatun Matsuguni",
+          "organization": "Kungiya"
         },
+        "beneficiaryServices": "Ayyukan da Masu Amfana ke Samu",
+        "subServices": "Takamaiman Ayyukan da aka Bayar",
+        "providingOrg": "Ƙungiyar da ke Bayarwa",
+        "selectProvider": "Zaɓi Ƙungiyar da ke Bayarwa",
         "linkAccount": "Link User Account",
         "linkAccountDesc": "Link this record to an existing app user to share status updates.",
         "searchContact": "Contact email or name...",
@@ -2247,6 +2253,142 @@
           "relocation": "Relocation",
           "transitionalShelter": "Transitional shelter",
           "nfis": "NFIs"
+        }
+      },
+      "services": {
+        "categories": {
+          "relief": "Kayan Agaji da Bukatun Farko",
+          "protection": "Kariya da Tallafin Shari'a",
+          "healthcare": "Lafiya da Tallafin Zuciya",
+          "cash": "Tallafin Kuɗi da Sana'o'i",
+          "cccm": "Gudanar da Sansani (CCCM)",
+          "education": "Ilimi"
+        },
+        "items": {
+          "shelter": {
+            "name": "Matsuguni",
+            "description": "Bayar da tanti, leda, kayan gina bukka, da tallafin gida na wucin gadi."
+          },
+          "food": {
+            "name": "Abinci da Gina Jiki",
+            "description": "Rarraba abinci, zafafan abinci, da tallafin gina jiki na musamman."
+          },
+          "wash": {
+            "name": "Ruwa, Tsabta, da Kula da Jiki (WASH)",
+            "description": "Tabbatar da samun tsaftataccen ruwa, gina bayan gida, da rarraba kayan tsabta."
+          },
+          "nfis": {
+            "name": "Kayayyakin da ba Abinci ba (NFIs)",
+            "description": "Rarraba barguna, kayan girki, fitilun hasken rana, da sauransu."
+          },
+          "protection": {
+            "name": "Kariya",
+            "description": "Kula da tsaro, rarraba filaye masu tsaro, da rage haɗari."
+          },
+          "rfl": {
+            "name": "Sake Haɗa Iyalai (RFL)",
+            "description": "Ayyukan taimakawa ƴan gudun hijira da IDPs don nemo ko sake saduwa da iyalan su."
+          },
+          "legal": {
+            "name": "Tallafin Shari'a da Takardu",
+            "description": "Taimako wajen yin rajista, shawarwari na shari'a, da maye gurbin takardun da suka ɓata."
+          },
+          "vulnerable": {
+            "name": "Taimako ga Marasa Ƙarfi",
+            "description": "Kariya ta musamman ga yara, tsofaffi, da mutanen da ke da buƙatu na musamman."
+          },
+          "healthcare": {
+            "name": "Kiwon Lafiya na Farko",
+            "description": "Asibitocin tafi-da-gidanka da kayan magani na gaggawa don duba rauni."
+          },
+          "mhpss": {
+            "name": "Tallafin Zuciya (MHPSS)",
+            "description": "Magana da mutanen da suka firgita da ba su shawarwari."
+          },
+          "cash": {
+            "name": "Tallafin Kuɗi",
+            "description": "Tura kuɗi kai tsaye ko ba da takardar shaida na siyan kayayyaki."
+          },
+          "livelihood": {
+            "name": "Tallafin Sana'o'i",
+            "description": "Koyarda sana'a, tallafin noma, da ƙananan basussuka."
+          },
+          "cccm": {
+            "name": "Sarrafa Sansani",
+            "description": "Sarrafa sansanin IDP don tabbatar da tsaro da isar da ayyukan agaji."
+          },
+          "education": {
+            "name": "Ilimi a Lokacin Gaggawa",
+            "description": "Bude makarantun wucin-gadi da samar da kayan karatu."
+          }
+        },
+        "subItems": {
+          "shelter": {
+            "tents": "Tenti",
+            "tarpaulins": "Leda",
+            "emergency_shelter_kits": "Kayan gina bukka",
+            "transitional_housing_support": "Taimakon gida na wucin gadi"
+          },
+          "food": {
+            "food_rations": "Ration na abinci",
+            "hot_meals": "Zafafan abinci",
+            "nutrition_support": "Taimakon gina jiki"
+          },
+          "wash": {
+            "clean_water": "Tsaftataccen ruwa",
+            "latrines": "Bayan gida",
+            "hygiene_kits": "Kayan tsabta"
+          },
+          "nfis": {
+            "blankets": "Bargo",
+            "cooking_utensils": "Kayan girki",
+            "solar_lamps": "Fitillun hasken rana"
+          },
+          "protection": {
+            "physical_protection": "Kariya ta zahiri",
+            "safe_spaces": "Wuraren tsaro",
+            "risk_reduction": "Rage haɗari"
+          },
+          "rfl": {
+            "family_tracing": "Nemo iyalai",
+            "reunification_services": "Ayyukan haɗa iyalai"
+          },
+          "legal": {
+            "legal_counseling": "Shawarwari na shari'a",
+            "documentation_support": "Taimakon takardu",
+            "lost_id_replacement": "Sake samun ID da ya ɓata"
+          },
+          "vulnerable": {
+            "child_protection": "Kariyar yara",
+            "elderly_assistance": "Taimakon tsofaffi",
+            "pwd_support": "Taimakon nakasassu"
+          },
+          "healthcare": {
+            "mobile_clinics": "Asibitocin tafi da gidan ka",
+            "emergency_medical_supplies": "Kayan asibiti na gaggawa",
+            "primary_healthcare": "Kiwon lafiya a matakin farko"
+          },
+          "mhpss": {
+            "trauma_counseling": "Cire damuwa",
+            "psychological_first_aid": "Agajin farko na tunani"
+          },
+          "cash": {
+            "direct_cash_transfer": "Bayar da kuɗi kai tsaye",
+            "essential_vouchers": "Vouchan abubuwa masu mahimmanci"
+          },
+          "livelihood": {
+            "vocational_training": "Koyan sana'a",
+            "agricultural_support": "Taimakon noma",
+            "microfinance": "Aro don kasuwanci"
+          },
+          "cccm": {
+            "camp_management": "Gudanar da sansani",
+            "site_coordination": "Gudanar da wuri"
+          },
+          "education": {
+            "temporary_schools": "Makarantu na wucin gadi",
+            "learning_materials": "Kayan karatu"
+          }
         }
       },
       "assignShelter": {
