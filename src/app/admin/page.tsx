@@ -756,7 +756,7 @@ export default function AdminDashboardPage() {
 
         const isOrgAdmin = !!adminProfile?.organizationId && adminProfile?.organizationId !== 'all' && !isGlobal;
         const totalPersonsAssisted = (persons || []).filter(p => {
-            if (p.status === 'Homebound') return false;
+            if (p.status === 'Homebound' || p.status === 'Resettled') return false;
             if (isOrgAdmin && p.organizationId !== adminProfile?.organizationId) return false;
             return true;
         }).length;

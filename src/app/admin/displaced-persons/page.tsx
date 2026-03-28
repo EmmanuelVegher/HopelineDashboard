@@ -2487,9 +2487,10 @@ export default function DisplacedPersonsPage() {
         const isOrgAdmin = !!adminProfile?.organizationId && adminProfile?.organizationId !== 'all' && !isSuperAdmin && !isFederalGov;
 
         return displacedPersons.filter(person => {
-            // Hide Homebound from the default 'all' view to keep the active list clean
-            const hideHomebound = statusFilter === 'all' && person.status === 'Homebound';
-            if (hideHomebound) return false;
+            // Hide Homebound and Resettled from the default 'all' view to keep the active list clean
+            const isInactive = person.status === 'Homebound' || person.status === 'Resettled';
+            const hideInactive = statusFilter === 'all' && isInactive;
+            if (hideInactive) return false;
 
             const matchesSearch = person.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 person.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -3201,8 +3202,8 @@ export default function DisplacedPersonsPage() {
         const isOrgAdmin = !!adminProfile?.organizationId && adminProfile?.organizationId !== 'all' && !isSuperAdmin && !isFederalGov;
         
         return displacedPersons.filter(p => {
-            // Summary cards on the main page reflect the ACTIVE population (hide Homebound)
-            if (p.status === 'Homebound') return false;
+            // Summary cards on the main page reflect the ACTIVE population (hide Homebound and Resettled)
+            if (p.status === 'Homebound' || p.status === 'Resettled') return false;
             
             // If org admin, only count those currently in my org on the main dashboard
             if (isOrgAdmin && p.organizationId !== adminProfile?.organizationId) return false;

@@ -184,10 +184,11 @@ export const useSituationData = (filterState?: string, organizationId?: string) 
 
             const activeAlertsCount = alerts.filter((a: any) => a.status === 'Active' || a.status === 'transmitting').length;
 
-            // 1. Calculate Global KPIs
-            const totalDisplaced = persons.length;
+            // 1. Calculate Global KPIs (Filter out Inactive statuses)
+            const activePersons = persons.filter(p => p.status !== 'Homebound' && p.status !== 'Resettled');
+            const totalDisplaced = activePersons.length;
             const totalCapacity = shelters.reduce((sum, s) => sum + (s.capacity || 0), 0);
-            const totalOccupied = persons.filter(p => !!p.assignedShelterId).length;
+            const totalOccupied = activePersons.filter(p => !!p.assignedShelterId).length;
             const occupancyRate = totalCapacity > 0 ? Math.floor((totalOccupied / totalCapacity) * 100) : 0;
             const availableCapacity = totalCapacity - totalOccupied;
 
@@ -292,8 +293,8 @@ export const useSituationData = (filterState?: string, organizationId?: string) 
                 }
             });
 
-            // Distribute Persons
-            persons.forEach(p => {
+            // Distribute Persons (Active only)
+            activePersons.forEach(p => {
                 const address = p.currentLocation || '';
                 let foundState = Object.keys(STATE_COORDINATES).find(stateName => isAddressInState(address, stateName));
                 if (isAddressInState(address, 'Federal Capital Territory')) foundState = 'Federal Capital Territory';

@@ -99,17 +99,114 @@ export default function Home() {
       try {
         const q = query(collection(db, "displacedPersons"), where("userId", "==", uid));
         const snapshot = await getDocs(q);
-        if (!snapshot.empty) {
-          const record = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as DisplacedPerson;
-          setDisplacedRecord(record);
+          if (!snapshot.empty) {
+            const primaryRecord = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as DisplacedPerson;
+            setDisplacedRecord(primaryRecord);
 
-          if (record.assignedShelterId) {
-            const shelterDoc = await getDoc(doc(db, "shelters", record.assignedShelterId));
-            if (shelterDoc.exists()) {
-              setAssignedShelter({ id: shelterDoc.id, ...shelterDoc.data() } as Shelter);
+            // Fetch related household records for a unified view
+            let householdRecords: DisplacedPerson[] = [primaryRecord];
+            
+            try {
+              // 1. Fetch all members who mark THIS record as their head (whether or not isHouseholdHead is true)
+              const membersQ = query(collection(db, "displacedPersons"), where("householdHeadId", "==", primaryRecord.id));
+              const membersSnap = await getDocs(membersQ);
+              membersSnap.docs.forEach(d => {
+                if (d.id !== primaryRecord.id) {
+                  householdRecords.push({ id: d.id, ...d.data() } as DisplacedPerson);
+                }
+              });
+
+              // 2. If this user is a member, fetch their head and all their siblings
+              if (primaryRecord.householdHeadId) {
+                const headDoc = await getDoc(doc(db, "displacedPersons", primaryRecord.householdHeadId));
+                if (headDoc.exists()) {
+                  const headRecord = { id: headDoc.id, ...headDoc.data() } as DisplacedPerson;
+                  if (!householdRecords.find(r => r.id === headRecord.id)) {
+                    householdRecords.push(headRecord);
+                  }
+                  
+                  // Fetch siblings (all members of that same head)
+                  const siblingsQ = query(collection(db, "displacedPersons"), where("householdHeadId", "==", primaryRecord.householdHeadId));
+                  const siblingsSnap = await getDocs(siblingsQ);
+                  siblingsSnap.docs.forEach(d => {
+                    if (d.id !== primaryRecord.id && !householdRecords.find(r => r.id === d.id)) {
+                      householdRecords.push({ id: d.id, ...d.data() } as DisplacedPerson);
+                    }
+                  });
+                }
+              }
+            } catch (err) {
+              console.error("Error fetching household cluster:", err);
+            }
+
+            // Create a unified activity feed from both activityLog and movements across all records
+            const unifiedFeed: any[] = [];
+            householdRecords.forEach(p => {
+              // Only suffix name if it's NOT the primary user (to distinguish who the activity belongs to)
+              const personName = p.id === primaryRecord.id ? null : p.name;
+              
+              const addEntry = (item: any, type: 'movement' | 'activity') => {
+                if (!item.date || !item.action) return;
+                unifiedFeed.push({
+                  date: item.date,
+                  action: item.action,
+                  notes: item.notes,
+                  personName,
+                  type
+                });
+              };
+
+              if (p.movements) p.movements.forEach(m => addEntry(m, 'movement'));
+              if (p.activityLog) p.activityLog.forEach(a => addEntry(a, 'activity'));
+            });
+
+            // Robust Date Sorting
+            const parseDate = (dateStr: string) => {
+              if (!dateStr) return 0;
+              try {
+                // Format could be "DD/MM/YYYY, HH:MM:SS" or "YYYY-MM-DD"
+                if (dateStr.includes('/')) {
+                  const parts = dateStr.split(',');
+                  const dateParts = parts[0].trim().split('/');
+                  if (dateParts.length === 3) {
+                    // Try to detect if it's DD/MM or MM/DD
+                    // If first part > 12, it's definitely DD
+                    const d = parseInt(dateParts[0]);
+                    const m = parseInt(dateParts[1]) - 1;
+                    const y = parseInt(dateParts[2]);
+                    if (d > 12) return new Date(y, m, d).getTime();
+                    // Fallback to native or specific guess
+                    return new Date(y, m, d).getTime();
+                  }
+                }
+                return new Date(dateStr).getTime();
+              } catch (e) {
+                return 0;
+              }
+            };
+
+            unifiedFeed.sort((a, b) => parseDate(b.date) - parseDate(a.date));
+
+            // Update record with combined feed (limit to 10 latest)
+            setDisplacedRecord({
+              ...primaryRecord,
+              activityLog: unifiedFeed.slice(0, 10).map(f => ({
+                action: f.action,
+                date: f.date,
+                notes: f.personName ? `[${f.personName}] ${f.notes || t('dashboard.migration.automatedUpdate')}` : f.notes,
+                performedBy: f.personName || '' // We'll use performedBy as a carrier for the name to avoid type errors
+              }))
+            });
+
+            // Logic to inherit shelter assignment from household head if member doesn't have one
+            const shelterOwner = householdRecords.find(p => !!p.assignedShelterId);
+            if (shelterOwner && shelterOwner.assignedShelterId) {
+              const shelterDoc = await getDoc(doc(db, "shelters", shelterOwner.assignedShelterId));
+              if (shelterDoc.exists()) {
+                setAssignedShelter({ id: shelterDoc.id, ...shelterDoc.data() } as Shelter);
+              }
             }
           }
-        }
       } catch (error) {
         console.error("Error fetching displacement record:", error);
       }
@@ -366,7 +463,14 @@ export default function Home() {
                             {idx === 0 && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
                           </div>
                           <div>
-                            <p className="text-xs font-bold leading-none">{log.action}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs font-bold leading-none">{log.action}</p>
+                              {log.performedBy && (
+                                <Badge variant="secondary" className="text-[8px] h-3 px-1 bg-blue-50 text-blue-600 border-blue-100">
+                                  {log.performedBy}
+                                </Badge>
+                              )}
+                            </div>
                             <p className="text-[10px] text-muted-foreground mt-1">{log.date.split(',')[0]} &middot; {log.notes || t('dashboard.migration.automatedUpdate')}</p>
                           </div>
                         </div>
