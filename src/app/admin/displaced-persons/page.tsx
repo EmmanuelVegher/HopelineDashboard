@@ -2053,7 +2053,11 @@ function AssignShelterDialog({ person, allShelters, isOpen, onOpenChange, onAssi
                         <Alert className="bg-green-50 border-green-200 py-2">
                             <Info className="h-4 w-4 text-green-600" />
                             <AlertDescription className="text-xs text-green-800">
-                                {t('admin.displacedPersons.assignShelter.headSuggestion') || `Household Head is at ${householdHead.organizationName || 'a shelter'}. Suggested room: ${householdHead.allocatedResources?.roomName || 'Unknown'}.`}
+                                {t('admin.displacedPersons.assignShelter.headSuggestion', { 
+                                    name: householdHead.name, 
+                                    shelter: householdHead.organizationName || 'a shelter', 
+                                    room: householdHead.allocatedResources?.roomName || 'Unknown' 
+                                }) || `Household Head (${householdHead.name}) is at ${householdHead.organizationName || 'a shelter'}. Suggested room: ${householdHead.allocatedResources?.roomName || 'Unknown'}.`}
                             </AlertDescription>
                         </Alert>
                     )}

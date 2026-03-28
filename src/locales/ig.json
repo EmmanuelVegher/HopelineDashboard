@@ -2401,7 +2401,8 @@
         "roomPlaceholder": "e.g., Room 101 or Space B-12",
         "cancel": "Cancel",
         "confirm": "Confirm Assignment",
-        "assigning": "Assigning..."
+        "assigning": "Assigning...",
+        "headSuggestion": "E kenyere Onyeisi Ezinụlọ ({{name}}) na {{shelter}} - {{room}}."
       },
       "logActivity": {
         "title": "Log Activity for",

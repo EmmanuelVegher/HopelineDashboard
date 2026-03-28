@@ -2401,7 +2401,8 @@
         "roomPlaceholder": "e.g., Room 101 or Space B-12",
         "cancel": "Cancel",
         "confirm": "Confirm Assignment",
-        "assigning": "Assigning..."
+        "assigning": "Assigning...",
+        "headSuggestion": "A ti yan Olórí Ilé ({{name}}) sí {{shelter}} - {{room}}."
       },
       "logActivity": {
         "title": "Log Activity for",

@@ -2406,7 +2406,8 @@
         "roomPlaceholder": "e.g., Room 101 or Space B-12",
         "cancel": "Cancel",
         "confirm": "Confirm Assignment",
-        "assigning": "Assigning..."
+        "assigning": "Assigning...",
+        "headSuggestion": "An sanya Shugaban Gida ({{name}}) a {{shelter}} - {{room}}."
       },
       "logActivity": {
         "title": "Log Activity for",
