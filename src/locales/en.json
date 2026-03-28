@@ -1655,6 +1655,7 @@
       "enableAlarmAudio": "Enable Alarm Audio",
       "refreshData": "Refresh Data",
       "activeAlerts": "Active Alerts",
+      "inProgress": "In Progress",
       "fromLastHour": "from last hour",
       "peopleAssisted": "People Assisted",
       "totalIndividualsInShelters": "Total individuals in shelters",
@@ -1916,7 +1917,8 @@
         "agents": "Agents",
         "beneficiaries": "Beneficiaries",
         "regularUsers": "Regular Users",
-        "withAccounts": "with accounts"
+        "withAccounts": "with accounts",
+        "drivers": "Drivers"
       },
       "roles": {
         "beneficiary": "Beneficiary",
@@ -1961,7 +1963,8 @@
         "suspendAccount": "Suspend Account",
         "activate": "Activate",
         "suspend": "Suspend",
-        "terminate": "Terminate"
+        "terminate": "Terminate",
+        "messageUser": "Message User"
       },
       "pagination": {
         "showing": "Showing",
@@ -2805,7 +2808,7 @@
         "availableSpaces": "Available Spaces",
         "available": "available",
         "activeShelters": "Active Shelters",
-        "ofTotal": "of {total} total",
+        "ofTotal": "of {{total}} total",
         "emergencyRequests": "Emergency Requests",
         "pendingResponse": "pending response"
       },

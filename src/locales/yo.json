@@ -1525,6 +1525,7 @@
       "enableAlarmAudio": "Mú Ohùn Ìkilọ̀ Ṣiṣẹ́",
       "refreshData": "Ṣe Àtúnṣe Data",
       "activeAlerts": "Àwọn Ìkilọ̀ Tí Ó Ń Lọ",
+      "inProgress": "N tẹsiwaju",
       "fromLastHour": "láti wákàtí tó kọjá",
       "peopleAssisted": "Àwọn Ènìyàn Tí A Ràn Lọ́wọ́",
       "totalIndividualsInShelters": "Iye àwọn ènìyàn nínú ibi ìpamọ̀",
@@ -1748,7 +1749,8 @@
         "agents": "Àwọn Aṣojú",
         "beneficiaries": "Àwọn Olùṣàǹfààní",
         "regularUsers": "Àwọn Olùmúlò Dédé",
-        "withAccounts": "tí wọ́n ní àpamọ́wọ́"
+        "withAccounts": "tí wọ́n ní àpamọ́wọ́",
+        "drivers": "Àwọn Awakọ̀"
       },
       "roles": {
         "beneficiary": "Olùṣàǹfààní",
@@ -1791,7 +1793,8 @@
         "suspendAccount": "Dá Àpamọ́wọ́ Dúró",
         "activate": "Mú Ṣiṣẹ́",
         "suspend": "Dá Dúró",
-        "terminate": "Fòpin"
+        "terminate": "Fòpin",
+        "messageUser": "Fi Iṣẹ́ Ránṣẹ́ sí Olùlò"
       },
       "pagination": {
         "showing": "Fíhàn",
@@ -2511,7 +2514,7 @@
         "availableSpaces": "Awọn Alafo Ti o Wa",
         "available": "wa ninu rẹ",
         "activeShelters": "Awọn ibugbe Ti n Ṣiṣẹ",
-        "ofTotal": "ninu {total} gbogbo",
+        "ofTotal": "ninu {{total}} gbogbo",
         "emergencyRequests": "Awọn ibeere Pajawiri",
         "pendingResponse": "nduro esi"
       },

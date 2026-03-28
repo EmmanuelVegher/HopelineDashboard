@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { AlertTriangle, Shield, UserCog, Phone, Users, UserCheck, ShieldCheck, Heart, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { AlertTriangle, Shield, UserCog, Phone, Users, UserCheck, ShieldCheck, Heart, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Truck } from "lucide-react";
 import { useAdminData } from "@/contexts/AdminDataProvider";
 import { cn } from "@/lib/utils";
 import { UserRoleDistributionChart, RegistrationTrendChart, UserStatusAnalytics } from "./analytics";
@@ -17,7 +17,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from "@/components/ui/label";
 import { AdminUser } from "@/lib/data";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuPortal } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, ShieldAlert, MapPin, UserX, CheckCircle2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { MoreHorizontal, ShieldAlert, MapPin, UserX, CheckCircle2, MessageSquare } from "lucide-react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -75,6 +76,8 @@ const UserActionsMenu = ({ userId, currentRole, currentState, currentStatus, cur
   // Define which roles this admin can assign
   const canManageHighLevelRoles = isSuperAdmin || currentAdminRole.includes('support agent');
 
+  const navigate = useNavigate();
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -85,6 +88,13 @@ const UserActionsMenu = ({ userId, currentRole, currentState, currentStatus, cur
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel>{t("admin.userManagement.actions.label") || "Actions"}</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+
+        {/* Message User */}
+        <DropdownMenuItem onClick={() => navigate(`/admin/chats?userId=${userId}`)}>
+          <MessageSquare className="mr-2 h-4 w-4" />
+          <span>{t("admin.userManagement.actions.messageUser") || "Message User"}</span>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
 
         {/* Modify Permissions */}
@@ -417,6 +427,8 @@ export default function UserManagementPage() {
         return <Shield className="h-4 w-4 text-red-600" />;
       case 'support agent':
         return <UserCog className="h-4 w-4 text-blue-600" />;
+      case 'driver':
+        return <Truck className="h-4 w-4 text-orange-600" />;
       default:
         return <UserCog className="h-4 w-4 text-gray-600" />;
     }
@@ -428,6 +440,8 @@ export default function UserManagementPage() {
         return 'destructive';
       case 'support agent':
         return 'default';
+      case 'driver':
+        return 'secondary';
       default:
         return 'secondary';
     }
@@ -479,7 +493,7 @@ export default function UserManagementPage() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
         <Card className="bg-white">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium">{t("admin.userManagement.stats.totalUsers")}</CardTitle>
@@ -517,6 +531,16 @@ export default function UserManagementPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-indigo-800">{loading ? <Skeleton className="h-8 w-12" /> : stats.supportAgents}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-orange-50 border-orange-100">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium text-orange-700">{t("admin.userManagement.stats.drivers")}</CardTitle>
+            <Truck className="h-4 w-4 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-800">{loading ? <Skeleton className="h-8 w-12" /> : stats.drivers}</div>
           </CardContent>
         </Card>
 

@@ -1530,6 +1530,7 @@
       "enableAlarmAudio": "Kunna Sauti na Gargadi",
       "refreshData": "Sabunta Bayani",
       "activeAlerts": "Gargadin da Ke Aiki",
+      "inProgress": "Ana Ci Gaba",
       "fromLastHour": "daga sa'ar da ta gabata",
       "peopleAssisted": "Mutanen da Aka Taimaka",
       "totalIndividualsInShelters": "Jimlar mutane a matsugunni",
@@ -1753,7 +1754,8 @@
         "agents": "Wakilan Tallafin",
         "beneficiaries": "Masu Amfana",
         "regularUsers": "Masu Amfani Na Yau Da Kullun",
-        "withAccounts": "masu asusu"
+        "withAccounts": "masu asusu",
+        "drivers": "Direbobi"
       },
       "roles": {
         "beneficiary": "Mai Amfana",
@@ -1796,7 +1798,8 @@
         "suspendAccount": "Dakatar da Asusu",
         "activate": "Kunna",
         "suspend": "Dakatar",
-        "terminate": "Kawo Ƙarshe"
+        "terminate": "Kawo Ƙarshe",
+        "messageUser": "Aika wa Mai Amfani da Saƙo"
       },
       "pagination": {
         "showing": "Ana nuna",
@@ -2516,7 +2519,7 @@
         "availableSpaces": "Ramin Da Ake Da Su",
         "available": "mai samuwa",
         "activeShelters": "Wuraren zama masu aiki",
-        "ofTotal": "cikin {total} gaba ɗaya",
+        "ofTotal": "cikin {{total}} gaba ɗaya",
         "emergencyRequests": "Buƙatun Gaggawa",
         "pendingResponse": "jiran amsa"
       },

@@ -499,7 +499,7 @@ function ShelterForm({ shelter, onSave, onCancel }: { shelter?: Shelter | null, 
 
 export default function TrackShelterPage() {
     const { t } = useTranslation();
-    const { shelters, loading, permissionError, fetchData } = useAdminData();
+    const { shelters, persons, loading, permissionError, fetchData } = useAdminData();
     const { toast } = useToast();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [selectedShelter, setSelectedShelter] = useState<Shelter | null>(null);
@@ -576,7 +576,7 @@ export default function TrackShelterPage() {
     };
 
     const totalCapacity = shelters?.reduce((acc, s) => acc + s.capacity, 0) || 0;
-    const totalOccupied = shelters?.reduce((acc, s) => acc + (s.capacity - s.availableCapacity), 0) || 0;
+    const totalOccupied = (persons || []).filter(p => !!p.assignedShelterId).length || 0;
     const availableSpaces = totalCapacity - totalOccupied;
     const activeShelters = shelters?.filter(s => s.status === 'Operational').length || 0;
     const emergencyRequests = shelters?.reduce((acc, s) => acc + (s.requests || 0), 0) || 0;
@@ -778,7 +778,8 @@ export default function TrackShelterPage() {
                                     <div className="flex-1 space-y-0">
                                         {geofencedShelters.map((s, idx) => {
                                             const isActive = idx === focusedShelterIndex;
-                                            const occ = s.capacity > 0 ? Math.round(((s.capacity - s.availableCapacity) / s.capacity) * 100) : 0;
+                                            const personsInThisShelter = (persons || []).filter(p => p.assignedShelterId === s.id).length;
+                                            const occ = s.capacity > 0 ? Math.floor((personsInThisShelter / s.capacity) * 100) : 0;
                                             return (
                                                 <button
                                                     key={s.id}
@@ -854,8 +855,8 @@ export default function TrackShelterPage() {
                             ))
                         ) : shelters.length > 0 ? (
                             shelters.map(shelter => {
-                                const currentOccupancy = shelter.capacity - shelter.availableCapacity;
-                                const capacityPercentage = shelter.capacity > 0 ? Math.round((currentOccupancy / shelter.capacity) * 100) : 0;
+                                const currentOccupancy = (persons || []).filter(p => p.assignedShelterId === shelter.id).length;
+                                const capacityPercentage = shelter.capacity > 0 ? Math.floor((currentOccupancy / shelter.capacity) * 100) : 0;
                                 const trendInfo = getTrendInfo(shelter.trend, t);
                                 return (
                                     <Card key={shelter.id} className={cn("shadow-sm hover:shadow-md transition-shadow max-w-[50vw] sm:max-w-full overflow-hidden", getCardBorderColor(shelter.status))}>
@@ -898,7 +899,7 @@ export default function TrackShelterPage() {
                                                         </div>
                                                         <div className="bg-green-50 p-2 rounded border border-green-100 italic">
                                                             <p className="text-[10px] text-green-600 uppercase font-bold">{t('admin.trackShelter.overview.availableBedSpace')}</p>
-                                                            <p className="text-sm sm:text-lg font-bold text-green-700">{shelter.availableCapacity}</p>
+                                                            <p className="text-sm sm:text-lg font-bold text-green-700">{shelter.capacity - currentOccupancy}</p>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -907,7 +908,7 @@ export default function TrackShelterPage() {
                                                 <Progress value={capacityPercentage} className="h-1 sm:h-2" />
                                                 <div className="flex justify-between text-xs sm:text-sm font-medium">
                                                     <p>{currentOccupancy} {t('admin.trackShelter.overview.occupied')}</p>
-                                                    <p className="text-green-600">{shelter.availableCapacity} {t('admin.trackShelter.overview.available')}</p>
+                                                    <p className="text-green-600">{shelter.capacity - currentOccupancy} {t('admin.trackShelter.overview.available')}</p>
                                                 </div>
                                             </div>
                                             <div className="text-xs sm:text-sm text-muted-foreground space-y-1 sm:space-y-2 pt-2 sm:pt-4 border-t">
@@ -1050,8 +1051,8 @@ export default function TrackShelterPage() {
                                             </Card>
                                         ))
                                     ) : shelters.map(shelter => {
-                                        const occupied = shelter.capacity - shelter.availableCapacity;
-                                        const percentage = shelter.capacity > 0 ? Math.round((occupied / shelter.capacity) * 100) : 0;
+                                        const occupied = (persons || []).filter(p => p.assignedShelterId === shelter.id).length;
+                                        const percentage = shelter.capacity > 0 ? Math.floor((occupied / shelter.capacity) * 100) : 0;
                                         return (
                                             <Card key={shelter.id} className="p-4">
                                                 <div className="space-y-3">
@@ -1083,7 +1084,7 @@ export default function TrackShelterPage() {
                                                         </div>
                                                         <div>
                                                             <p className="text-muted-foreground">{t('admin.trackShelter.capacity.available')}</p>
-                                                            <p className="font-medium text-green-600">{shelter.availableCapacity}</p>
+                                                            <p className="font-medium text-green-600">{shelter.capacity - occupied}</p>
                                                         </div>
                                                         <div>
                                                             <p className="text-muted-foreground">{t('admin.trackShelter.capacity.total')}</p>
@@ -1137,8 +1138,8 @@ export default function TrackShelterPage() {
                                                     </TableRow>
                                                 ))
                                             ) : shelters.map(shelter => {
-                                                const occupied = shelter.capacity - shelter.availableCapacity;
-                                                const percentage = shelter.capacity > 0 ? Math.round((occupied / shelter.capacity) * 100) : 0;
+                                                const occupied = (persons || []).filter(p => p.assignedShelterId === shelter.id).length;
+                                                const percentage = shelter.capacity > 0 ? Math.floor((occupied / shelter.capacity) * 100) : 0;
                                                 return (
                                                     <TableRow key={shelter.id}>
                                                         <TableCell>
@@ -1160,7 +1161,7 @@ export default function TrackShelterPage() {
                                                         <TableCell><Badge variant={getStatusBadgeVariant(shelter.status)} className="text-xs">{shelter.status}</Badge></TableCell>
                                                         <TableCell className="text-right font-medium">{shelter.rooms?.length || 0}</TableCell>
                                                         <TableCell className="text-right font-medium text-sm sm:text-base">{occupied}</TableCell>
-                                                        <TableCell className="text-right font-medium text-green-600 text-sm sm:text-base">{shelter.availableCapacity}</TableCell>
+                                                        <TableCell className="text-right font-medium text-green-600 text-sm sm:text-base">{shelter.capacity - occupied}</TableCell>
                                                         <TableCell className="text-right font-medium text-sm sm:text-base">{shelter.capacity}</TableCell>
                                                         <TableCell>
                                                             <div className="flex items-center gap-2">

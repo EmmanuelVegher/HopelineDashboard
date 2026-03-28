@@ -2905,11 +2905,38 @@ export default function DisplacedPersonsPage() {
     const handleDelete = async (person: DisplacedPerson) => {
         if (window.confirm(`${t('admin.displacedPersons.actions.deleteConfirm') || "Are you sure you want to delete"} ${person.name}?`)) {
             try {
-                await deleteDoc(doc(db, "displacedPersons", person.id));
+                if (person.assignedShelterId) {
+                    await runTransaction(db, async (transaction) => {
+                        const shelterRef = doc(db, "shelters", person.assignedShelterId!);
+                        const shelterSnap = await transaction.get(shelterRef);
+                        if (shelterSnap.exists()) {
+                            const sData = shelterSnap.data();
+                            const roomId = person.allocatedResources?.roomId;
+                            const roomName = person.allocatedResources?.roomName;
+                            let updatedRooms = sData.rooms || [];
+                            if (roomId || roomName) {
+                                updatedRooms = updatedRooms.map((r: any) => {
+                                    if ((roomId && r.id === roomId) || (roomName && r.name === roomName)) {
+                                        return { ...r, available: Math.min((r.available || 0) + 1, r.capacity || 999) };
+                                    }
+                                    return r;
+                                });
+                            }
+                            transaction.update(shelterRef, {
+                                availableCapacity: Math.min((sData.availableCapacity || 0) + 1, sData.capacity || 999),
+                                rooms: updatedRooms
+                            });
+                        }
+                        transaction.delete(doc(db, "displacedPersons", person.id));
+                    });
+                } else {
+                    await deleteDoc(doc(db, "displacedPersons", person.id));
+                }
                 toast({
                     title: t('admin.displacedPersons.actions.deleted') || "Beneficiary Deleted",
                     description: `${person.name} has been removed from the system.`,
                 });
+                fetchData();
             } catch (error) {
                 console.error("Delete error:", error);
                 toast({
@@ -3074,27 +3101,73 @@ export default function DisplacedPersonsPage() {
         if (!window.confirm(t('admin.displacedPersons.form.unlinkConfirm') || "Are you sure you want to unlink this beneficiary? They will be released from your organization and marked as Homebound.")) return;
         
         try {
-            const personRef = doc(db, "displacedPersons", p.id);
-            
-            const movement: MovementRecord = {
-                date: new Date().toLocaleString(),
-                action: 'Status Change',
-                notes: `Unlinked/Released from ${adminProfile?.organizationId}`,
-                performedBy: adminProfile?.firstName ? `${adminProfile.firstName} ${adminProfile.lastName || ''}` : t('admin.displacedPersons.logActivity.adminRole')
-            };
-            
-            const updatedHistory = [...(p.movements || []), movement];
-            
-            await updateDoc(personRef, {
-                status: 'Homebound',
-                organizationId: deleteField(),
-                organizationName: deleteField(),
-                assignedShelterId: deleteField(),
-                plannedShelterId: deleteField(),
-                allocatedResources: deleteField(),
-                movements: updatedHistory,
-                lastUpdate: new Date().toLocaleString()
-            });
+            if (p.assignedShelterId) {
+                await runTransaction(db, async (transaction) => {
+                    const shelterRef = doc(db, "shelters", p.assignedShelterId!);
+                    const shelterSnap = await transaction.get(shelterRef);
+                    
+                    if (shelterSnap.exists()) {
+                        const sData = shelterSnap.data();
+                        const roomId = p.allocatedResources?.roomId;
+                        const roomName = p.allocatedResources?.roomName;
+                        let updatedRooms = sData.rooms || [];
+                        
+                        if (roomId || roomName) {
+                            updatedRooms = updatedRooms.map((r: any) => {
+                                if ((roomId && r.id === roomId) || (roomName && r.name === roomName)) {
+                                    return { ...r, available: Math.min((r.available || 0) + 1, r.capacity || 999) };
+                                }
+                                return r;
+                            });
+                        }
+                        
+                        transaction.update(shelterRef, {
+                            availableCapacity: Math.min((sData.availableCapacity || 0) + 1, sData.capacity || 999),
+                            rooms: updatedRooms
+                        });
+                    }
+
+                    const personRef = doc(db, "displacedPersons", p.id);
+                    const movement: MovementRecord = {
+                        date: new Date().toLocaleString(),
+                        action: 'Status Change',
+                        notes: `Unlinked/Released from ${adminProfile?.organizationId}`,
+                        performedBy: adminProfile?.firstName ? `${adminProfile.firstName} ${adminProfile.lastName || ''}` : t('admin.displacedPersons.logActivity.adminRole')
+                    };
+                    const updatedHistory = [...(p.movements || []), movement];
+                    
+                    transaction.update(personRef, {
+                        status: 'Homebound',
+                        organizationId: deleteField(),
+                        organizationName: deleteField(),
+                        assignedShelterId: deleteField(),
+                        plannedShelterId: deleteField(),
+                        allocatedResources: deleteField(),
+                        movements: updatedHistory,
+                        lastUpdate: new Date().toLocaleString()
+                    });
+                });
+            } else {
+                const personRef = doc(db, "displacedPersons", p.id);
+                const movement: MovementRecord = {
+                    date: new Date().toLocaleString(),
+                    action: 'Status Change',
+                    notes: `Unlinked/Released from ${adminProfile?.organizationId}`,
+                    performedBy: adminProfile?.firstName ? `${adminProfile.firstName} ${adminProfile.lastName || ''}` : t('admin.displacedPersons.logActivity.adminRole')
+                };
+                const updatedHistory = [...(p.movements || []), movement];
+                
+                await updateDoc(personRef, {
+                    status: 'Homebound',
+                    organizationId: deleteField(),
+                    organizationName: deleteField(),
+                    assignedShelterId: deleteField(),
+                    plannedShelterId: deleteField(),
+                    allocatedResources: deleteField(),
+                    movements: updatedHistory,
+                    lastUpdate: new Date().toLocaleString()
+                });
+            }
             
             toast({ title: "Success", description: "Beneficiary unlinked successfully." });
             fetchData();

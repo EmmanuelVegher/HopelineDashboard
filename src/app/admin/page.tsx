@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, ArrowDown, ArrowUp, Clock, Users, Shield, RefreshCw, MapPin, User, Calendar, Car, Edit, FileText, BarChart3, Activity, AlertCircle, CheckCircle, Siren, HomeIcon, Play, Pause, SkipBack, SkipForward, RotateCcw, Target, FileDown, Download } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, Clock, Users, Shield, RefreshCw, MapPin, User, Calendar, Car, FileText, BarChart3, Activity, AlertCircle, CheckCircle, Siren, HomeIcon, Play, Pause, RotateCcw, Target, Download } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -21,7 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { AlertsOverTimeChart, ShelterOccupancyChart, EmergencyTypesChart, DisplacedPersonsStatusChart } from "./charts";
 import { Progress } from "@/components/ui/progress";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+// UI components temporarily unused
+// import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { useAdminData } from "@/contexts/AdminDataProvider";
@@ -189,7 +190,7 @@ function RegionalDeepDiveModal({ state, isOpen, onClose, recentActivity }: { sta
     const { t } = useTranslation();
     if (!state) return null;
 
-    const occupancyRate = state.totalCapacity > 0 ? Math.round((state.occupiedCapacity / state.totalCapacity) * 100) : 0;
+    const occupancyRate = state.totalCapacity > 0 ? Math.floor((state.occupiedCapacity / state.totalCapacity) * 100) : 0;
     const regionalActivity = recentActivity.filter(a => a.location.includes(state.name));
 
     return (
@@ -397,7 +398,7 @@ export default function AdminDashboardPage() {
     const [assigningDriver, setAssigningDriver] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState('situation-map');
     const [selectedDriver, setSelectedDriver] = useState<Driver | undefined>(undefined);
-    const [trackedDriverId, setTrackedDriverId] = useState<string | undefined>(undefined);
+    // const [trackedDriverId, setTrackedDriverId] = useState<string | undefined>(undefined);
 
     // Simulation / Playback State
     const [isPlaybackMode, setIsPlaybackMode] = useState(false);
@@ -505,7 +506,7 @@ export default function AdminDashboardPage() {
     const handleDownloadExcel = () => {
         try {
             // 1. Prepare Alerts Data
-            const alertsData = alerts.map(a => ({
+            const alertsData = (alerts || []).map(a => ({
                 ID: a.id,
                 Type: a.emergencyType,
                 Status: a.status,
@@ -518,14 +519,17 @@ export default function AdminDashboardPage() {
             }));
 
             // 2. Prepare Shelters Data
-            const sheltersData = (shelters || []).map(s => ({
-                Name: s.name,
-                Location: s.location,
-                Status: s.status,
-                Capacity: s.capacity,
-                Available: s.availableCapacity,
-                Occupied: s.capacity - s.availableCapacity
-            }));
+            const sheltersData = (shelters || []).map(s => {
+                const occupied = (persons || []).filter(p => p.assignedShelterId === s.id).length;
+                return {
+                    Name: s.name,
+                    Location: s.location,
+                    Status: s.status,
+                    Capacity: s.capacity,
+                    Available: s.capacity - occupied,
+                    Occupied: occupied
+                };
+            });
 
             // 3. Prepare Displaced Persons Data
             const personsData = (persons || []).map(p => ({
@@ -533,8 +537,8 @@ export default function AdminDashboardPage() {
                 Name: p.name,
                 Gender: p.gender,
                 Status: p.status,
-                Origin: p.origin,
-                ShelterID: p.shelterId
+                State: p.state || '',
+                ShelterID: p.assignedShelterId || ''
             }));
 
             const wb = XLSX.utils.book_new();
@@ -743,17 +747,27 @@ export default function AdminDashboardPage() {
         });
 
     const dashboardStats = (() => {
-        if (!shelters || shelters.length === 0) {
-            return { totalOccupied: 0, totalCapacity: 0, occupancyPercentage: 0 };
-        }
-        const totalCapacity = shelters.reduce((acc, s) => acc + s.capacity, 0);
-        const totalOccupied = shelters.reduce((acc, s) => acc + (s.capacity - s.availableCapacity), 0);
-        const occupancyPercentage = totalCapacity > 0 ? Math.round((totalOccupied / totalCapacity) * 100) : 0;
+        const totalCapacity = shelters?.reduce((acc, s) => acc + s.capacity, 0) || 0;
+        const totalOccupied = (persons || []).filter(p => !!p.assignedShelterId).length || 0;
+        const occupancyPercentage = totalCapacity > 0 ? Math.floor((totalOccupied / totalCapacity) * 100) : 0;
+
+        const activeAlertsCount = alerts?.filter(a => a.status === 'Active').length || 0;
+        const inProgressAlertsCount = alerts?.filter(a => a.status === 'Responding').length || 0;
+
+        const isOrgAdmin = !!adminProfile?.organizationId && adminProfile?.organizationId !== 'all' && !isGlobal;
+        const totalPersonsAssisted = (persons || []).filter(p => {
+            if (p.status === 'Homebound') return false;
+            if (isOrgAdmin && p.organizationId !== adminProfile?.organizationId) return false;
+            return true;
+        }).length;
 
         return {
             totalOccupied,
             totalCapacity,
-            occupancyPercentage
+            occupancyPercentage,
+            activeAlertsCount,
+            inProgressAlertsCount,
+            totalPersonsAssisted
         }
     })();
 
@@ -1065,9 +1079,18 @@ export default function AdminDashboardPage() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl sm:text-3xl font-bold text-red-800">{alerts.filter(a => a.status === 'Active').length}</div>
-                            <p className="text-xs text-red-600 flex items-center mt-1">
-                                <ArrowUp className="h-3 w-3 mr-1" />
+                            <div className="flex flex-col">
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-2xl sm:text-3xl font-bold text-red-800">{dashboardStats.activeAlertsCount}</span>
+                                    <span className="text-sm font-medium text-red-600">{t("admin.dashboard.activeAlerts")}</span>
+                                </div>
+                                <div className="flex items-baseline gap-2 mt-1">
+                                    <span className="text-xl sm:text-2xl font-bold text-orange-700">{dashboardStats.inProgressAlertsCount}</span>
+                                    <span className="text-xs font-medium text-orange-600 uppercase tracking-wider">{t("admin.dashboard.inProgress")}</span>
+                                </div>
+                            </div>
+                            <p className="text-[10px] text-red-500/80 flex items-center mt-3">
+                                <ArrowUp className="h-2.5 w-2.5 mr-1" />
                                 {t("admin.dashboard.fromLastHour")}
                             </p>
                         </CardContent>
@@ -1081,7 +1104,7 @@ export default function AdminDashboardPage() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl sm:text-3xl font-bold text-blue-800">{dashboardStats.totalOccupied.toLocaleString()}</div>
+                            <div className="text-2xl sm:text-3xl font-bold text-blue-800">{dashboardStats.totalPersonsAssisted.toLocaleString()}</div>
                             <p className="text-xs text-blue-600 mt-1">
                                 {t("admin.dashboard.totalIndividualsInShelters")}
                             </p>
@@ -1227,7 +1250,7 @@ export default function AdminDashboardPage() {
                                                                 selectedState.occupiedCapacity / selectedState.totalCapacity > 0.8 ? "text-red-600" : "text-emerald-600"
                                                             )}>
                                                                 {selectedState.totalCapacity > 0
-                                                                    ? Math.round((selectedState.occupiedCapacity / selectedState.totalCapacity) * 100)
+                                                                    ? Math.floor((selectedState.occupiedCapacity / selectedState.totalCapacity) * 100)
                                                                     : 0}%
                                                             </span>
                                                         </div>
@@ -1404,8 +1427,8 @@ export default function AdminDashboardPage() {
                     <TabsContent value="shelter-status" className="mt-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {shelters.map(shelter => {
-                                const occupied = shelter.capacity - shelter.availableCapacity;
-                                const percentage = shelter.capacity > 0 ? Math.round((occupied / shelter.capacity) * 100) : 0;
+                                const occupied = (persons || []).filter(p => p.assignedShelterId === shelter.id).length;
+                                const percentage = shelter.capacity > 0 ? Math.floor((occupied / shelter.capacity) * 100) : 0;
                                 return (
                                     <Card key={shelter.id} className="overflow-hidden border-0 shadow-md hover:shadow-xl transition-all duration-300 group flex flex-col">
                                         <div className="relative h-48 w-full bg-slate-100 overflow-hidden">
@@ -1445,7 +1468,7 @@ export default function AdminDashboardPage() {
                                                 <Progress value={percentage} className={cn("h-2", percentage > 90 ? "[&>div]:bg-red-500" : "[&>div]:bg-emerald-500")} />
                                                 <div className="flex justify-between text-xs text-slate-400 font-medium">
                                                     <span>{occupied.toLocaleString()} {t("admin.dashboard.occupied")}</span>
-                                                    <span>{shelter.availableCapacity.toLocaleString()} {t("admin.dashboard.available")}</span>
+                                                    <span>{(shelter.capacity - occupied).toLocaleString()} {t("admin.dashboard.available")}</span>
                                                 </div>
                                             </div>
 
@@ -1769,7 +1792,7 @@ export default function AdminDashboardPage() {
                             <CardContent className="space-y-6">
                                 <div id="analytics-content" className="grid grid-cols-1 xl:grid-cols-2 gap-6 bg-white p-4 rounded-xl">
                                     <AlertsOverTimeChart alerts={alerts || []} />
-                                    <ShelterOccupancyChart shelters={shelters || []} />
+                                    <ShelterOccupancyChart shelters={shelters || []} persons={persons || []} />
                                     <EmergencyTypesChart alerts={alerts || []} />
                                     <DisplacedPersonsStatusChart persons={persons || []} />
                                 </div>

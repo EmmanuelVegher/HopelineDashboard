@@ -383,15 +383,23 @@ export default function AdminChatsPage() {
         setChatSessions(unique);
     }, [privateChats, systemChats]);
 
-    // Handle Deep Linking from Beneficiary Cards
+    // Handle Deep Linking from Beneficiary Cards or User Management
     useEffect(() => {
         if (targetedUserId && chatSessions.length > 0) {
+            setChatTab('p2p');
             const session = chatSessions.find(s => s.userId === targetedUserId);
             if (session) {
                 setSelectedChatId(session.id);
+            } else if (allUsers && allUsers.length > 0) {
+                // If session doesn't exist, try to start it
+                const targetUser = allUsers.find(u => u.id === targetedUserId);
+                if (targetUser) {
+                    console.log("Deep link: Starting new chat for user", targetedUserId);
+                    startNewChat(targetUser);
+                }
             }
         }
-    }, [targetedUserId, chatSessions]);
+    }, [targetedUserId, chatSessions, allUsers]);
 
     // Fetch user data for chat items and message senders
     useEffect(() => {

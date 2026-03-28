@@ -157,6 +157,9 @@
     "members_other": "Miembros"
   },
   "admin": {
+    "dashboard": {
+      "inProgress": "En progreso"
+    },
     "displacedPersons": {
       "form": {
         "tabs": {
@@ -349,6 +352,35 @@
         "needsAssistance": "Necesita asistencia",
         "needs_assistance": "Necesita asistencia",
         "needsassistance": "Necesita asistencia"
+      },
+      "trackShelter": {
+        "cards": {
+          "activeShelters": "Refugios Activos",
+          "ofTotal": "de {{total}} en total"
+        }
+      },
+      "userManagement": {
+        "stats": {
+          "totalUsers": "Total de usuarios",
+          "superAdmins": "Superadministradores",
+          "admins": "Administradores",
+          "agents": "Agentes",
+          "beneficiaries": "Beneficiarios",
+          "regularUsers": "Usuarios regulares",
+          "withAccounts": "con cuentas",
+          "drivers": "Conductores"
+        },
+        "actions": {
+          "label": "Acciones",
+          "openMenu": "Abrir el menú",
+          "modifyPermissions": "Modificar permisos",
+          "transferRegion": "Transferir de región",
+          "suspendAccount": "Suspender/Estado",
+          "activate": "Activar",
+          "suspend": "Suspender",
+          "terminate": "Terminar",
+          "messageUser": "Enviar mensaje al usuario"
+        }
       }
     }
   }

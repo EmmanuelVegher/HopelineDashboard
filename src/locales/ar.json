@@ -157,6 +157,9 @@
     "members_other": "أعضاء"
   },
   "admin": {
+    "dashboard": {
+      "inProgress": "قيد التنفيذ"
+    },
     "displacedPersons": {
       "form": {
         "tabs": {
@@ -349,6 +352,35 @@
         "needsAssistance": "يحتاج إلى مساعدة",
         "needs_assistance": "يحتاج إلى مساعدة",
         "needsassistance": "يحتاج إلى مساعدة"
+      },
+      "trackShelter": {
+        "cards": {
+          "activeShelters": "ملاجئ نشطة",
+          "ofTotal": "من {{total}} إجمالي"
+        }
+      },
+      "userManagement": {
+        "stats": {
+          "totalUsers": "إجمالي المستخدمين",
+          "superAdmins": "المسؤولون العامون",
+          "admins": "المسؤولون",
+          "agents": "الوكلاء",
+          "beneficiaries": "المستفيدون",
+          "regularUsers": "المستخدمون العاديون",
+          "withAccounts": "مع حسابات",
+          "drivers": "السائقين"
+        },
+        "actions": {
+          "label": "الإجراءات",
+          "openMenu": "فتح القائمة",
+          "modifyPermissions": "تعديل الصلاحيات",
+          "transferRegion": "نقل المنطقة",
+          "suspendAccount": "تعليق/الحالة",
+          "activate": "تفعيل",
+          "suspend": "تعليق",
+          "terminate": "إنهاء",
+          "messageUser": "إرسال رسالة للمستخدم"
+        }
       }
     }
   }

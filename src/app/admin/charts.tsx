@@ -78,13 +78,16 @@ const shelterChartConfig = {
   },
 } satisfies ChartConfig
 
-export function ShelterOccupancyChart({ shelters }: { shelters: Shelter[] }) {
+export function ShelterOccupancyChart({ shelters, persons }: { shelters: Shelter[], persons: DisplacedPerson[] }) {
   const { t } = useTranslation();
-  const data = (shelters || []).map(s => ({
-    name: s.name.split(" ")[0], // Shorten name for chart
-    occupied: s.capacity - s.availableCapacity,
-    available: s.availableCapacity,
-  })).slice(0, 5); // show top 5
+  const data = (shelters || []).map(s => {
+    const occupied = (persons || []).filter(p => p.assignedShelterId === s.id).length;
+    return {
+      name: s.name.split(" ")[0], // Shorten name for chart
+      occupied,
+      available: s.capacity - occupied,
+    };
+  }).slice(0, 5); // show top 5
 
   return (
     <Card>

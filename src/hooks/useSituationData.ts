@@ -187,8 +187,8 @@ export const useSituationData = (filterState?: string, organizationId?: string) 
             // 1. Calculate Global KPIs
             const totalDisplaced = persons.length;
             const totalCapacity = shelters.reduce((sum, s) => sum + (s.capacity || 0), 0);
-            const totalOccupied = shelters.reduce((sum, s) => sum + ((s.capacity || 0) - (s.availableCapacity || 0)), 0);
-            const occupancyRate = totalCapacity > 0 ? Math.round((totalOccupied / totalCapacity) * 100) : 0;
+            const totalOccupied = persons.filter(p => !!p.assignedShelterId).length;
+            const occupancyRate = totalCapacity > 0 ? Math.floor((totalOccupied / totalCapacity) * 100) : 0;
             const availableCapacity = totalCapacity - totalOccupied;
 
             setKpis({
@@ -289,7 +289,6 @@ export const useSituationData = (filterState?: string, organizationId?: string) 
                 if (stateMap[foundState]) {
                     stateMap[foundState].shelterCount++;
                     stateMap[foundState].totalCapacity += s.capacity || 0;
-                    stateMap[foundState].occupiedCapacity += ((s.capacity || 0) - (s.availableCapacity || 0));
                 }
             });
 
@@ -302,6 +301,9 @@ export const useSituationData = (filterState?: string, organizationId?: string) 
 
                 if (stateMap[foundState]) {
                     stateMap[foundState].displacedCount++;
+                    if (p.assignedShelterId) {
+                        stateMap[foundState].occupiedCapacity++;
+                    }
                 }
             });
 

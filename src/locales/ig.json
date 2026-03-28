@@ -1525,6 +1525,7 @@
       "enableAlarmAudio": "Mee ka Olu Ọkwa Agụ Rụọ Ọrụ",
       "refreshData": "Mee ka Data Ọhụrụ",
       "activeAlerts": "Ndị Ọkwa Na-arụ Ọrụ",
+      "inProgress": "Na-aga n'ihu",
       "fromLastHour": "site n'otu awa gara aga",
       "peopleAssisted": "Ndị A Nyere Aka",
       "totalIndividualsInShelters": "Ndị niile nọ n'ụlọ nchebe",
@@ -1748,7 +1749,8 @@
         "agents": "Ndị Nnochị Anya",
         "beneficiaries": "Ndị Na-eriri Uru",
         "regularUsers": "Ndị Ọrụ Nkịtị",
-        "withAccounts": "nke nwere akaụntụ"
+        "withAccounts": "nke nwere akaụntụ",
+        "drivers": "Ndị Ọkwọ Ụgbọala"
       },
       "roles": {
         "beneficiary": "Onye Na-eriri Uru",
@@ -1791,7 +1793,8 @@
         "suspendAccount": "Kwụsịta Akaụntụ",
         "activate": "Malite",
         "suspend": "Kwụsịta",
-        "terminate": "Kwụsị Kwa"
+        "terminate": "Kwụsị Kwa",
+        "messageUser": "Zigaonye na-eji ozi"
       },
       "pagination": {
         "showing": "Na-egosi",
@@ -2511,7 +2514,7 @@
         "availableSpaces": "Oghere Ndị Dị Nnọọ",
         "available": "dịnụ",
         "activeShelters": "Ebe Obibi Na-arụ Ọrụ",
-        "ofTotal": "nke {total} ngụkọta",
+        "ofTotal": "nke {{total}} ngụkọta",
         "emergencyRequests": "Arịrịọ Mberede",
         "pendingResponse": "na-echere nzaghachi"
       },
