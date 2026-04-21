@@ -190,6 +190,7 @@
         "linkToHead": "الربط برب الأسرة",
         "registrationDate": "تاريخ التسجيل",
         "phoneUsedByAccount": "رقم الهاتف هذا مسجل بالفعل في حساب المستخدم:",
+        "displacementCausePlaceholder": "مثال: فيضانات، صراع...",
         "linkAccountBtn": "ربط الحساب",
         "accountLinked": "تم ربط الحساب",
         "linkedToUser": "مرتبط بالمستخدم الموجود:"
@@ -341,7 +342,10 @@
         "linkedTo": "مرتبط بـ",
         "householdMembers": "أفراد الأسرة المرتبطون",
         "noMembersLinked": "لا يوجد أفراد مرتبطون بعد.",
-        "delete": "حذف"
+        "delete": "حذف",
+        "exitShelter": "مغادرة الملجأ",
+        "exitDate": "تاريخ المغادرة",
+        "exitDateError": "لا يمكن أن يكون تاريخ الخروج قبل تاريخ التسجيل"
       },
       "actions": {
         "deleteConfirm": "هل أنت متأكد أنك تريد حذف",
@@ -352,6 +356,11 @@
         "needsAssistance": "يحتاج إلى مساعدة",
         "needs_assistance": "يحتاج إلى مساعدة",
         "needsassistance": "يحتاج إلى مساعدة"
+      },
+      "causes": {
+        "flooding": "فيضانات",
+        "flood": "فيضان",
+        "conflict": "صراع"
       },
       "trackShelter": {
         "cards": {

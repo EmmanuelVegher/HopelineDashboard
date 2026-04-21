@@ -2139,6 +2139,11 @@
         "resettled": "Resettled",
         "homebound": "Homebound"
       },
+      "causes": {
+        "flooding": "Iju mmiri",
+        "flood": "Iju mmiri",
+        "conflict": "Esemokwu"
+      },
       "priorityEnum": {
         "low": "Low Priority",
         "medium": "Medium Priority",
@@ -2189,6 +2194,7 @@
         "unlink": "Unlink",
         "fullName": "Full Name of Household Head",
         "fullNamePlaceholder": "As per valid ID",
+        "displacementCausePlaceholder": "dịka ọmụmaatụ. Iju mmiri, Esemokwu...",
         "phone": "Phone Number / Contact",
         "phonePlaceholder": "Beneficiary or focal person",
         "duplicatePhone": "Duplicate Phone Number",
@@ -2482,6 +2488,10 @@
       "cardView": {
         "allStatuses": "Ọnọdụ niile",
         "moreFilters": "Ntinye ndị ọzọ",
+        "delete": "Hichapụ",
+        "exitShelter": "Kpụọ n'ụlọ nchekwa",
+        "exitDate": "Ụbọchị Ọpụpụ",
+        "exitDateError": "Ụbọchị ọpụpụ enweghị ike ịbụ tupu ụbọchị ndebanye aha",
         "headOfFamily": "Onye isi ezinụlọ",
         "currentLocation": "Ebe ọ nọ ugbu a",
         "destination": "Ebe ọ na-aga",

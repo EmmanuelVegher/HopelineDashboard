@@ -2326,6 +2326,7 @@
       },
       "causes": {
         "flooding": "Flooding",
+        "flood": "Flood",
         "conflict": "Conflict"
       },
       "actions": {
@@ -2778,6 +2779,8 @@
         "permissionDenied": "Permission Denied",
         "permissionDeniedDesc": "You do not have permission to view this data. Please check your Firestore security rules to allow read access to the 'displacedPersons' collection for administrators.",
         "exitShelter": "Exit Shelter",
+        "exitDate": "Date of Exit",
+        "exitDateError": "Exit date cannot be before registration date",
         "onboard": "Onboard to Shelter",
         "exitTitle": "Exit Shelter for",
         "exitDesc": "Record the reason and destination for the beneficiary's exit from the shelter.",

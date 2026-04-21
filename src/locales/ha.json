@@ -2144,6 +2144,11 @@
         "resettled": "Resettled",
         "homebound": "Homebound"
       },
+      "causes": {
+        "flooding": "Ambaliyar ruwa",
+        "flood": "Ambaliya",
+        "conflict": "Rikici"
+      },
       "priorityEnum": {
         "low": "Low Priority",
         "medium": "Medium Priority",
@@ -2194,6 +2199,7 @@
         "unlink": "Unlink",
         "fullName": "Full Name of Household Head",
         "fullNamePlaceholder": "As per valid ID",
+        "displacementCausePlaceholder": "misali. Ambaliyar ruwa, Rikici...",
         "phone": "Phone Number / Contact",
         "phonePlaceholder": "Beneficiary or focal person",
         "duplicatePhone": "Duplicate Phone Number",
@@ -2487,6 +2493,10 @@
       "cardView": {
         "allStatuses": "Dukkan Matsayi",
         "moreFilters": "Ƙarin Tace",
+        "delete": "Gogewa",
+        "exitShelter": "Fita daga Masauki",
+        "exitDate": "Ranar Fita",
+        "exitDateError": "Ranar fita ba za ta kasance kafin ranar rajista ba",
         "headOfFamily": "Shugaban iyali",
         "currentLocation": "Wurin da yake yanzu",
         "destination": "Inda zashi",

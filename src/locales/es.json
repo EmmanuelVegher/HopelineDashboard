@@ -190,6 +190,7 @@
         "linkToHead": "Vincular al Jefe de Hogar",
         "registrationDate": "Fecha de registro",
         "phoneUsedByAccount": "Este número de teléfono ya está registrado en la cuenta de usuario:",
+        "displacementCausePlaceholder": "p. ej. Inundaciones, Conflicto...",
         "linkAccountBtn": "Vincular cuenta",
         "accountLinked": "Cuenta vinculada",
         "linkedToUser": "Vinculado al usuario existente:"
@@ -341,7 +342,10 @@
         "linkedTo": "Vinculado a",
         "householdMembers": "Miembros del hogar vinculados",
         "noMembersLinked": "Aún no hay miembros vinculados.",
-        "delete": "Eliminar"
+        "delete": "Eliminar",
+        "exitShelter": "Salir del refugio",
+        "exitDate": "Fecha de salida",
+        "exitDateError": "La fecha de salida no puede ser anterior a la fecha de registro"
       },
       "actions": {
         "deleteConfirm": "¿Estás seguro de que deseas eliminar a?",
@@ -352,6 +356,11 @@
         "needsAssistance": "Necesita asistencia",
         "needs_assistance": "Necesita asistencia",
         "needsassistance": "Necesita asistencia"
+      },
+      "causes": {
+        "flooding": "Inundaciones",
+        "flood": "Inundación",
+        "conflict": "Conflicto"
       },
       "trackShelter": {
         "cards": {

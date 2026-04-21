@@ -2139,6 +2139,11 @@
         "resettled": "Resettled",
         "homebound": "Homebound"
       },
+      "causes": {
+        "flooding": "Ìkún-omi",
+        "flood": "Ìkún-omi",
+        "conflict": "Ìforígbárí"
+      },
       "priorityEnum": {
         "low": "Low Priority",
         "medium": "Medium Priority",
@@ -2189,6 +2194,7 @@
         "unlink": "Unlink",
         "fullName": "Full Name of Household Head",
         "fullNamePlaceholder": "As per valid ID",
+        "displacementCausePlaceholder": "fún àpẹẹrẹ Ìkún-omi, Ìforígbárí...",
         "phone": "Phone Number / Contact",
         "phonePlaceholder": "Beneficiary or focal person",
         "duplicatePhone": "Duplicate Phone Number",
@@ -2482,6 +2488,10 @@
       "cardView": {
         "allStatuses": "Gbogbo Awọn Ipo",
         "moreFilters": "Awọn asẹ diẹ sii",
+        "delete": "Paarẹ́",
+        "exitShelter": "Jade kuro ni Ibi Iṣadi",
+        "exitDate": "Ọjọ Ijade",
+        "exitDateError": "Ọjọ ijade ko le wa ṣaaju ọjọ iforukọsilẹ",
         "headOfFamily": "Olori ebi",
         "currentLocation": "Ibi ti o wa bayi",
         "destination": "Ibi ti o nlo",

@@ -2161,6 +2161,11 @@
         "resettled": "Resettled",
         "homebound": "Homebound"
       },
+      "causes": {
+        "flooding": "Flood",
+        "flood": "Flood",
+        "conflict": "Conflict"
+      },
       "priorityEnum": {
         "low": "Low Priority",
         "medium": "Medium Priority",
@@ -2241,6 +2246,7 @@
         "selectState": "Select State",
         "registrationDate": "Date wey dem register",
         "phoneUsedByAccount": "Dis phone number already get account for our system:",
+        "displacementCausePlaceholder": "e.g. Flood, Conflict...",
         "linkAccountBtn": "Join Account",
         "accountLinked": "Account don join",
         "linkedToUser": "Join to person wey already get account:",
@@ -2528,6 +2534,9 @@
       },
       "cardView": {
         "delete": "Delete",
+        "exitShelter": "Comot for Shelter",
+        "exitDate": "Date of Comot",
+        "exitDateError": "Exit date no fit dey before registration date",
         "allStatuses": "All Statuses",
         "moreFilters": "More Filters",
         "linkedTo": "Link to",

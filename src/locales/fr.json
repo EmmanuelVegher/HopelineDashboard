@@ -190,6 +190,7 @@
         "linkToHead": "Lier au chef de ménage",
         "registrationDate": "Date d'inscription",
         "phoneUsedByAccount": "Ce numéro de téléphone est déjà enregistré sur le compte utilisateur :",
+        "displacementCausePlaceholder": "ex. Inondations, Conflit...",
         "linkAccountBtn": "Lier le compte",
         "accountLinked": "Compte lié",
         "linkedToUser": "Lié à l'utilisateur existant :"
@@ -341,7 +342,10 @@
         "linkedTo": "Lié à",
         "householdMembers": "Membres du ménage liés",
         "noMembersLinked": "Aucun membre lié pour le moment.",
-        "delete": "Supprimer"
+        "delete": "Supprimer",
+        "exitShelter": "Quitter le refuge",
+        "exitDate": "Date de sortie",
+        "exitDateError": "La date de sortie ne peut pas être antérieure à la date d'enregistrement"
       },
       "actions": {
         "deleteConfirm": "Êtes-vous sûr de vouloir supprimer",
@@ -352,6 +356,11 @@
         "needsAssistance": "A besoin d'assistance",
         "needs_assistance": "A besoin d'assistance",
         "needsassistance": "A besoin d'assistance"
+      },
+      "causes": {
+        "flooding": "Inondations",
+        "flood": "Inondation",
+        "conflict": "Conflit"
       },
       "trackShelter": {
         "cards": {

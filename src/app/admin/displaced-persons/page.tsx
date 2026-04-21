@@ -2349,7 +2349,7 @@ function ExitShelterDialog({ person, isOpen, onOpenChange, onExit, organizations
     person: DisplacedPerson | null, 
     isOpen: boolean, 
     onOpenChange: (open: boolean) => void, 
-    onExit: (p: DisplacedPerson, reason: string, destination: string, targetOrgId?: string, targetShelterId?: string) => void,
+    onExit: (p: DisplacedPerson, reason: string, destination: string, exitDate: string, targetOrgId?: string, targetShelterId?: string) => void,
     organizations: { id: string; name: string }[] | null,
     allShelters: Shelter[] | null
 }) {
@@ -2358,6 +2358,12 @@ function ExitShelterDialog({ person, isOpen, onOpenChange, onExit, organizations
     const [destination, setDestination] = useState('');
     const [targetOrgId, setTargetOrgId] = useState('');
     const [targetShelterId, setTargetShelterId] = useState('');
+    const [exitDate, setExitDate] = useState(new Date().toISOString().split('T')[0]);
+
+    const isInvalidDate = useMemo(() => {
+        if (!person?.registrationDate || !exitDate) return false;
+        return exitDate < person.registrationDate;
+    }, [person, exitDate]);
 
     const filteredShelters = useMemo(() => {
         if (!targetOrgId || !allShelters) return [];
@@ -2365,7 +2371,7 @@ function ExitShelterDialog({ person, isOpen, onOpenChange, onExit, organizations
     }, [targetOrgId, allShelters]);
 
     const handleConfirm = () => {
-        if (person) onExit(person, reason, destination, targetOrgId, targetShelterId);
+        if (person) onExit(person, reason, destination, exitDate, targetOrgId, targetShelterId);
         onOpenChange(false);
     };
 
@@ -2375,6 +2381,7 @@ function ExitShelterDialog({ person, isOpen, onOpenChange, onExit, organizations
             setDestination('');
             setTargetOrgId('');
             setTargetShelterId('');
+            setExitDate(new Date().toISOString().split('T')[0]);
         }
     }, [isOpen]);
 
@@ -2388,6 +2395,20 @@ function ExitShelterDialog({ person, isOpen, onOpenChange, onExit, organizations
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label>{t('admin.displacedPersons.cardView.exitDate') || "Date of Exit"}</Label>
+                        <Input 
+                            type="date" 
+                            value={exitDate} 
+                            onChange={(e) => setExitDate(e.target.value)}
+                            className={cn(isInvalidDate && "border-red-500 focus-visible:ring-red-500")}
+                        />
+                        {isInvalidDate && (
+                            <p className="text-xs text-red-500">
+                                {t('admin.displacedPersons.cardView.exitDateError') || `Exit date cannot be before registration date (${person?.registrationDate})`}
+                            </p>
+                        )}
+                    </div>
                     <div className="space-y-2">
                         <Label>{t('admin.displacedPersons.cardView.exitReason')}</Label>
                         <Select value={reason} onValueChange={setReason}>
@@ -2436,7 +2457,7 @@ function ExitShelterDialog({ person, isOpen, onOpenChange, onExit, organizations
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>{t('admin.displacedPersons.form.cancel')}</Button>
-                    <Button onClick={handleConfirm}>{t('admin.displacedPersons.cardView.exitShelter')}</Button>
+                    <Button onClick={handleConfirm} disabled={isInvalidDate}>{t('admin.displacedPersons.cardView.exitShelter')}</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -3002,14 +3023,14 @@ export default function DisplacedPersonsPage() {
         setIsAssignDialogOpen(true);
     };
 
-    const handleExitShelter = async (p: DisplacedPerson, reason: string, destination: string, targetOrgId?: string, targetShelterId?: string) => {
+    const handleExitShelter = async (p: DisplacedPerson, reason: string, destination: string, exitDate: string, targetOrgId?: string, targetShelterId?: string) => {
         const isTransfer = reason === 'transfer';
         const newStatus = reason === 'home' ? 'Homebound' : isTransfer ? 'Moving to Shelter' : 'Needs Assistance';
         
         const targetOrg = targetOrgId ? organizations?.find(o => o.id === targetOrgId) : null;
         
         const movement: MovementRecord = {
-            date: new Date().toLocaleString(),
+            date: exitDate,
             action: isTransfer ? 'Transfer' : 'Exit',
             shelterId: p.assignedShelterId,
             notes: `Exit Reason: ${reason}. ${destination ? `Notes: ${destination}` : ''}`,
